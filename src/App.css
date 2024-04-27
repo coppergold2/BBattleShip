@@ -8,6 +8,8 @@ h1 {
   top: 35px;
   left: 50%;
   transform: translateX(-50%);
+  color: #fffacd;
+  font-family: 'Lucida Handwriting', cursive;
 }
 
 .boards {
@@ -19,12 +21,44 @@ h1 {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(10, 30px);
-  grid-template-rows: repeat(10, 30px);
+  grid-template-columns: repeat(10, 39px);
+  grid-template-rows: repeat(10, 39px);
   gap: 2px;
 }
 
 .cell {
   background-color: lightblue;
   border: 1px solid navy;
+}
+
+.ship-options {
+  display: flex;
+  justify-content: space-evenly;
+  margin-top: 50px;
+}
+
+.ship-option {
+  height: 39px;
+  background-color: gray;
+  border: 1px solid rgb(115, 250, 4);
+  border-radius: 100px;
+}
+
+.ship-option[data-length="2"] {
+  width: calc(39px * 2);
+  /* Adjust width for a ship of length 2 */
+}
+
+.ship-option[data-length="3"] {
+  width: calc(39px * 3);
+  /* Adjust width for a ship of length 3 */
+}
+
+.ship-option[data-length="4"] {
+  width: calc(39px * 4);
+  /* Adjust width for a ship of length 4 */
+}
+
+.ship-option[data-length="5"] {
+  width: calc(39px * 5);
 }

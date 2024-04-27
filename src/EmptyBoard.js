@@ -7,7 +7,10 @@ const Board = (user) => {
     cells.push(<div key={i} className="cell"></div>);
   }
   console.log(user.className)
-  return <div className={`board ${user.className}`}> {cells}</div>;
+  return <div>
+    {/* <h2>{user.className}</h2> */}
+    <div className={`board ${user.className}`}> {cells}</div>
+    </div>
 };
 
 export default Board;
