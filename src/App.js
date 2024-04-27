@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import socketIOClient from "socket.io-client";
 import Board from './EmptyBoard';
 import ShipOptions from './ShipOption';
@@ -20,13 +20,23 @@ const App = () => {
       socket.disconnect();
     };
   }, []);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const flipBoat = () => {
+    setIsFlipped(!isFlipped);
+    // Add your logic here to flip the boat in your game
+  };
   return (
     <>
       <h1>BattleShip</h1>
       <div className='boards'>
         <Board className="player-board" />
       </div>
-      <ShipOptions />
+      <ShipOptions isFlipped={isFlipped}/>
+      <div className='button-container'>
+      <button className = 'flip-button' onClick={flipBoat}>
+        {isFlipped ? 'Flip to Horizontal' : 'Flip to Vertical'}
+      </button>
+      </div>
     </>
   );
 };

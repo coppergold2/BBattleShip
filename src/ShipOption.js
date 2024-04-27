@@ -1,19 +1,13 @@
 import React from 'react';
 
-function ShipOption({ length }) {
+function ShipOptions({ isFlipped }) {
   return (
-    <div className="ship-option" data-length={length}></div>
-  );
-}
-
-function ShipOptions() {
-  return (
-    <div className="ship-options">
-      <ShipOption length={5} />
-      <ShipOption length={4} />
-      <ShipOption length={3} />
-      <ShipOption length={3} />
-      <ShipOption length={2} />
+    <div className={`ship-options ${isFlipped ? 'flipped' : ''}`}>
+      <div className="ship-option carrier" data-length={5}></div>
+      <div className="ship-option battleship" data-length={4}></div>
+      <div className="ship-option cruiser" data-length={3}></div>
+      <div className="ship-option submarine" data-length={3}></div>
+      <div className="ship-option destroyer" data-length={2}></div>
     </div>
   );
 }
