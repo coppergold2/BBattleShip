@@ -7,11 +7,9 @@ const io = socketIo(server);
 let connectedClients = 0;
 const maxConnections = 2;
 class Player {
-    #numHits;
-    #numMisses;
     constructor(id) {
         this.id = id;
-        //this.board = createBoard(); // Initialize empty board
+        this.board = Array(100).fill(0); // Initialize empty board
         this.flip = false;
         this.numplaceShip = 0;
         this.shipLoc = { 'destroyer': [], 'submarine': [], 'cruiser': [], 'battleship': [], 'carrier': [] }
@@ -21,24 +19,44 @@ class Player {
     }
     // Method to increase numHits
     incrementHits() {
-        this.#numHits++;
+        this.numHits++;
     }
 
     // Method to increase numMisses
     incrementMisses() {
-        this.#numMisses++;
-    }
-
-    // Getter methods to access numHits and numMisses
-    getNumHits() {
-        return this.#numHits;
-    }
-
-    getNumMisses() {
-        return this.#numMisses;
+        this.numMisses++;
     }
 }
 const players = [];
+
+function getValidity(allBoardBlocks, isHorizontal, startIndex, ship) {
+    let validStart = isHorizontal ?
+        (startIndex <= width * width - ship.length ? startIndex : width * width - ship.length) :
+        (startIndex <= width * width - width * ship.length ? startIndex : startIndex - ship.length * width + width)
+
+    let shipBlocks = []
+    for (let i = 0; i < ship.length; i++) {
+        if (isHorizontal) {
+            shipBlocks.push(allBoardBlocks[Number(validStart) + i])
+        } else {
+            shipBlocks.push(allBoardBlocks[Number(validStart) + i * width]) // has an issue when the random index + i * width is bigger than 99
+        }
+    }
+    let valid
+
+    if (isHorizontal) {
+        shipBlocks.every((_shipBlock, index) =>
+            valid = shipBlocks[0].id % width !== width - (shipBlocks.length - (index + 1)))
+    } else {
+        shipBlocks.every((_shipBlock, index) =>
+            valid = shipBlocks[0].id < 90 + (width * index + 1)
+        )
+    }
+
+    const notTaken = shipBlocks.every(shipBlock => !shipBlock.classList.contains('taken'))
+
+    return { shipBlocks, valid, notTaken }
+}
 
 
 

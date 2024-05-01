@@ -46,9 +46,10 @@ h1 {
 
 .ship-option {
   height: 39px;
-  background-color: gray;
+  background-color: white;
   border: 1px solid rgb(115, 250, 4);
   border-radius: 100px;
+  cursor: move;
 }
 
 .ship-option[data-length="2"] {
@@ -99,6 +100,10 @@ h1 {
   border: 2px solid #4CAF50;
 }
 
-.ship-options.flipped .ship-option {
+.ship-option.flipped {
   transform: rotate(90deg);
+}
+
+.dragging{
+  opacity: .5;
 }

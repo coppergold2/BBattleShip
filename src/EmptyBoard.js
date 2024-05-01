@@ -1,16 +1,25 @@
 import React from 'react';
 
-const Board = (user) => {
-  const cells = [];
+const Board = ({ className }) => {
+  const handleDrop = (event, i) => {
+    // Handle the drop event here
+    console.log(`Dropped on cell ${i}`);
+  };
 
-  for (let i = 0; i < 100; i++) {
-    cells.push(<div key={i} className="cell"></div>);
-  }
-  console.log(user.className)
-  return <div>
-    {/* <h2>{user.className}</h2> */}
-    <div className={`board ${user.className}`}> {cells}</div>
+  const cells = Array.from({ length: 100 }, (_, i) => (
+    <div
+      key={i}
+      className="cell"
+      onDrop={(event) => handleDrop(event, i)}
+      onDragOver={(event) => event.preventDefault()} // Necessary to allow drops
+    ></div>
+  ));
+
+  return (
+    <div>
+      <div className={`board ${className}`}>{cells}</div>
     </div>
+  );
 };
 
 export default Board;
