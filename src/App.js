@@ -1,55 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import socketIOClient from "socket.io-client";
-import Board from './EmptyBoard';
-import ShipOptions from './ShipOption';
-import DropArea from './DropArea';
 import './App.css'
+import SinglePlayer from './SinglePlayer'
+import MultiPlayer from './MultiPlayer'
 
 const App = () => {
-  const [isGameFull, setIsGameFull] = useState(false);
-  const [activeShip, setActiveShip] = useState(null); //ship when being dragged
+  const socket = useRef();
+  const [singlePlayer, setSinglePlayer] = useState(false);
+  const [multiPlayer, setMultiPlayer] = useState(false);
   useEffect(() => {
     // Creates a websocket connection to the server
-    const socket = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
-    socket.on('connect', () => {
+    socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
+    socket.current.on('connect', () => {
       console.log('Connected to server');
     });
-    socket.on('disconnect', () => {
+    socket.current.on('disconnect', () => {
       console.log('Disconnected from server');
     });
-    socket.on('full', () => {
-      setIsGameFull(true);
-    })
     // Cleanup function to disconnect when the component unmounts
     return () => {
-      socket.disconnect();
+      socket.current.disconnect();
     };
   }, []);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const flipBoat = () => {
-    setIsFlipped(!isFlipped);
-    // Add your logic here to flip the boat in your game
-  };
+  const handleSinglePlayerClick = () => {
+    setSinglePlayer(true);
+    socket.current.emit("singleplayer")
+  }
+  const handleMultiPlayerClick = () => {
+    setMultiPlayer(true);
+    socket.current.emit("multiplayer")
+  }
   return (
     <>
-      {isGameFull ? (
-        <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
-      ) : (
-        <>
-          <h1>BattleShip</h1>
-          <div className='boards'>
-            <Board className="player-board" />
-          </div>
-          <ShipOptions isFlipped={isFlipped} setActiveShip={setActiveShip} activeShip={activeShip} />
-          <div className='button-container'>
-            <button className='flip-button' onClick={flipBoat}>
-              {isFlipped ? 'Flip to Horizontal' : 'Flip to Vertical'}
-            </button>
-          </div>
-        </>
-      )}
-      <p>{activeShip}</p>
-      <div id="drag-image-container" style={{ display: 'none' }}></div>
+      <h1>BattleShip</h1>
+      {(!singlePlayer && !multiPlayer) ? (
+         <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          textAlign: 'center'
+        }}>
+          <button onClick={handleSinglePlayerClick}>Single Player vs Computer</button>
+          <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
+        </div>
+      ) : (singlePlayer && !multiPlayer) ? <SinglePlayer socket = {socket.current}/> : <MultiPlayer/>
+    }
     </>
   );
 };

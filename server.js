@@ -27,7 +27,7 @@ class Player {
         this.numMisses++;
     }
 }
-const players = [];
+const players = {};
 
 function getValidity(allBoardBlocks, isHorizontal, startIndex, ship) {
     let validStart = isHorizontal ?
@@ -58,6 +58,9 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, ship) {
     return { shipBlocks, valid, notTaken }
 }
 
+function randomBoatPlacement() {
+    
+}
 
 
 io.on('connection', (socket) => {
@@ -66,8 +69,12 @@ io.on('connection', (socket) => {
         socket.disconnect(true);
         connectedClients--;
     }
-    connectedClients++;
-    const curplayer =  new Player(socket.id)
-    socket.on('disconnect', () => { console.log(`Client ${socket.id} disconnected`); connectedClients--;});
+    const curplayer = new Player(socket.id)
+    let opponent;
+    players[curplayer.id] = curplayer;
+    socket.on("singleplayer", () => { players[curplayer.id].mode = "singleplayer"; opponent = new Player(socket.id) })
+    socket.on("multiplayer", () => { players[curplayer.id].mode = "multiplayer"; connectedClients++; })
+    socket.on("random", {})
+    socket.on('disconnect', () => { console.log(`Client ${socket.id} disconnected`); connectedClients--; });
 });
-server.listen(3001, () => { console.log('Server listening on port 3001');  });
+server.listen(3001, () => { console.log('Server listening on port 3001'); });

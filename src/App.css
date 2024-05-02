@@ -78,7 +78,7 @@ h1 {
   margin-top: 20px;
 }
 
-.flip-button {
+button {
   background-color: #4CAF50;
   /* Green */
   border: none;
@@ -94,7 +94,7 @@ h1 {
   transition-duration: 0.4s;
 }
 
-.flip-button:hover {
+button:hover {
   background-color: white;
   color: black;
   border: 2px solid #4CAF50;
