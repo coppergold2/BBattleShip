@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import socketIOClient from "socket.io-client";
-import Board from './EmptyBoard';
+import Board from './Board';
 import ShipOptions from './ShipOption';
 import './App.css'
 
-const MultiPlayer = () => {
+const MultiPlayer = ({shipLoc}) => {
   const socket = useRef();
   const [isGameFull, setIsGameFull] = useState(false);
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
@@ -41,7 +41,7 @@ const MultiPlayer = () => {
       ) : (
         <>
           <div className='boards'>
-            <Board className="player-board" />
+            <Board className="player-board" shipLoc = {shipLoc} />
           </div>
           <ShipOptions isFlipped={isFlipped} setActiveShip={setActiveShip} activeShip={activeShip} />
           <div className='button-container'>

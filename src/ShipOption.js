@@ -1,6 +1,6 @@
 import React from 'react';
 
-function ShipOptions({ isFlipped, setActiveShip, activeShip }) {
+function ShipOptions({ isFlipped, setActiveShip, activeShip, shipLoc }) {
   const handleDragStart = (e, ship) => {
     setActiveShip(ship);
   };

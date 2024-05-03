@@ -22,7 +22,7 @@ h1 {
   display: flex;
   justify-content: space-evenly;
   width: 100%;
-  margin-top: 125px;
+  margin-top: 139px;
 }
 
 .board {
@@ -46,29 +46,54 @@ h1 {
 
 .ship-option {
   height: 39px;
-  background-color: white;
   border: 1px solid rgb(115, 250, 4);
   border-radius: 100px;
   cursor: move;
 }
 
-.ship-option[data-length="2"] {
+.ship-option.destroyer{
   width: calc(39px * 2);
-  /* Adjust width for a ship of length 2 */
+  background-color: rgb(7, 88, 77);
 }
 
-.ship-option[data-length="3"] {
+.cell.destroyer{
+  background-color: rgb(7, 88, 77);
+}
+
+.ship-option.submarine {
   width: calc(39px * 3);
-  /* Adjust width for a ship of length 3 */
+  background-color:rgba(119, 47, 187, 0.64) ;
 }
 
-.ship-option[data-length="4"] {
+.cell.submarine{
+  background-color:rgba(119, 47, 187, 0.64)
+}
+
+.ship-option.cruiser {
+  width: calc(39px * 3);
+  background-color:rgb(154, 61, 61) ;
+}
+
+.cell.cruiser{
+  background-color:rgb(154, 61, 61) ;
+}
+
+.ship-option.battleship {
   width: calc(39px * 4);
-  /* Adjust width for a ship of length 4 */
+  background-color: rgb(94, 83, 83);
 }
 
-.ship-option[data-length="5"] {
+.cell.battleship{
+  background-color: rgb(94, 83, 83);
+}
+
+.ship-option.carrier {
   width: calc(39px * 5);
+  background-color: rgb(122, 68, 122);
+}
+
+.cell.carrier{
+  background-color: rgb(122, 68, 122);
 }
 
 .button-container {
