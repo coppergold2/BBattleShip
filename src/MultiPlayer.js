@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import socketIOClient from "socket.io-client";
 import Board from './Board';
 import ShipOptions from './ShipOption';
 import './App.css'
@@ -10,24 +9,6 @@ const MultiPlayer = ({shipLoc}) => {
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
-  useEffect(() => {
-    // Creates a websocket connection to the server
-    socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
-    socket.current.on('connect', () => {
-      console.log('Connected to server');
-    });
-    socket.current.on('disconnect', () => {
-      console.log('Disconnected from server');
-    });
-    socket.current.on('full', () => {
-      setIsGameFull(true);
-      socket.current.disconnect();
-    })
-    // Cleanup function to disconnect when the component unmounts
-    return () => {
-      socket.current.disconnect();
-    };
-  }, []);
   const [isFlipped, setIsFlipped] = useState(false);
   const flipBoat = () => {
     setIsFlipped(!isFlipped);

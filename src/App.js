@@ -8,7 +8,8 @@ const App = () => {
   const socket = useRef();
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
-  const [shipLoc,setshipLoc] = useState(null);
+  const [shipLoc,setShipLoc] = useState(null);
+  const [hitPos,setHitPos] = useState(null);
   useEffect(() => {
     // Creates a websocket connection to the server
     socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
@@ -19,7 +20,10 @@ const App = () => {
       console.log('Disconnected from server');
     });
     socket.current.on('randomresult', (shipLoc) => {
-      setshipLoc(shipLoc)
+      setShipLoc(shipLoc)
+    })
+    socket.current.on('hit', (pos) => {
+      setHitPos(pos);
     })
     // Cleanup function to disconnect when the component unmounts
     return () => {
@@ -48,7 +52,7 @@ const App = () => {
           <button onClick={handleSinglePlayerClick}>Single Player vs Computer</button>
           <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
         </div>
-      ) : (singlePlayer && !multiPlayer) ? <SinglePlayer socket = {socket.current} shipLoc = {shipLoc}/> : <MultiPlayer socket = {socket.current} shipLoc = {shipLoc}/>
+      ) : (singlePlayer && !multiPlayer) ? <SinglePlayer socket = {socket.current} shipLoc = {shipLoc} hitPos = {hitPos}/> : <MultiPlayer socket = {socket.current} shipLoc = {shipLoc}/>
     }
     </>
   );

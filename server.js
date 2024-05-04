@@ -67,7 +67,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
-function randomBoatPlacement(user) {
+const randomBoatPlacement = (user) => {
     user.board = Array(100).fill(0);
     function addShipPiece(allBoardBlocks, shipLength) {
         //const allBoardBlocks = document.querySelectorAll(`#${user} div`)
@@ -85,7 +85,7 @@ function randomBoatPlacement(user) {
         //console.log(`Ship: ${ship}, Length: ${ships[ship]}`);
         const result = addShipPiece(user.board, ships[ship])
         user.shipLoc[ship] = result;
-        result.forEach((pos) => {user.board[pos] = 1})
+        result.forEach((pos) => { user.board[pos] = 1 })
     }
 }
 
@@ -101,7 +101,22 @@ io.on('connection', (socket) => {
     players[curplayer.id] = curplayer;
     socket.on("singleplayer", () => { players[curplayer.id].mode = "singleplayer"; opponent = new Player(socket.id) })
     socket.on("multiplayer", () => { players[curplayer.id].mode = "multiplayer"; connectedClients++; })
-    socket.on("random", () => {randomBoatPlacement(players[curplayer.id]); socket.emit("randomresult", players[curplayer.id].shipLoc) })
+    socket.on("random", () => { randomBoatPlacement(players[curplayer.id]); socket.emit("randomresult", players[curplayer.id].shipLoc) })
+    socket.on("start", () => (players[curplayer.id].mode == "singleplayer", randomBoatPlacement(opponent), console.log(opponent.board)) ? socket.emit("opponent", opponent.board) : null)
+    socket.on("attack", (pos) => { console.log(pos)
+        switch (opponent.board[pos]) {
+            case 1:
+                socket.emit('hit', pos);
+                opponent.board[pos] = 2;
+                break;
+            case 2 || 3:
+                socket.emit('InvalidAttack')
+                break;
+            case 0:
+                socket.emit('miss', pos);
+                break;
+        }
+    })
     socket.on('disconnect', () => { console.log(`Client ${socket.id} disconnected`); connectedClients--; });
 });
 server.listen(3001, () => { console.log('Server listening on port 3001'); });

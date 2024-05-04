@@ -37,6 +37,12 @@ h1 {
   border: 1px solid navy;
 }
 
+.opponent-board{
+  cursor: grab;
+}
+
+
+
 .ship-options {
   display: flex;
   justify-content: space-evenly;
@@ -131,4 +137,8 @@ button:hover {
 
 .dragging{
   opacity: .5;
+}
+
+.boom{
+  background-color: red
 }
