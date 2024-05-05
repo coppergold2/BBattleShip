@@ -27,6 +27,25 @@ class Player {
     incrementMisses() {
         this.numMisses++;
     }
+    displayGrid() {
+        let board = this.board;
+        if (board.length !== 100) {
+          console.error("Invalid board size. Expected an array of length 100.");
+          return;
+        }
+      
+        const grid = [];
+      
+        for (let i = 0; i < 100; i += 10) {
+          const row = board.slice(i, i + 10);
+          grid.push(row);
+        }
+      
+        console.log("Grid:");
+        for (const row of grid) {
+          console.log(row.join(" "));
+        }
+      }
 }
 const ships = {
     'carrier': 5, //length of ship 
@@ -102,7 +121,7 @@ io.on('connection', (socket) => {
     socket.on("singleplayer", () => { players[curplayer.id].mode = "singleplayer"; opponent = new Player(socket.id) })
     socket.on("multiplayer", () => { players[curplayer.id].mode = "multiplayer"; connectedClients++; })
     socket.on("random", () => { randomBoatPlacement(players[curplayer.id]); socket.emit("randomresult", players[curplayer.id].shipLoc) })
-    socket.on("start", () => (players[curplayer.id].mode == "singleplayer", randomBoatPlacement(opponent), console.log(opponent.board)) ? socket.emit("opponent", opponent.board) : null)
+    socket.on("start", () => {players[curplayer.id].mode == "singleplayer" ? (socket.emit("start"), socket.emit("turn"), randomBoatPlacement(opponent), opponent.displayGrid()) : null})
     socket.on("attack", (pos) => { console.log(pos)
         switch (opponent.board[pos]) {
             case 1:
@@ -114,6 +133,8 @@ io.on('connection', (socket) => {
                 break;
             case 0:
                 socket.emit('miss', pos);
+                console.log("server pos", pos);
+                opponent.board[pos] = 3;
                 break;
         }
     })
