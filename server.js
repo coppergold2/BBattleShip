@@ -86,6 +86,26 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
+const computerMove = (user, socket, opponent) => {
+    console.log(opponent.numHits);
+    let randomGo = Math.floor(Math.random() * width * width)
+    if ([2, 3].includes(user.board[randomGo])) {
+        computerMove(user, socket, opponent);
+    }
+    else if(user.board[randomGo] === 0){
+        user.board[randomGo] = 3;
+        opponent.numMisses++;
+        socket.emit("omiss", randomGo)
+        socket.emit("turn")      
+    }
+    else if(user.board[randomGo] === 1){
+        user.board[randomGo] = 2;
+        opponent.numHits++;
+        socket.emit("ohit",randomGo)
+        computerMove(user, socket. opponent);
+    } 
+}
+
 const randomBoatPlacement = (user) => {
     user.board = Array(100).fill(0);
     function addShipPiece(allBoardBlocks, shipLength) {
@@ -108,6 +128,26 @@ const randomBoatPlacement = (user) => {
     }
 }
 
+const checkShip = (curplayer, opponent, pos) => {
+    let shipPosition = [];
+    let shipName = "";
+    for (let ship in ships) {
+        if (opponent.shipLoc[ship].includes(pos)) {shipPosition = opponent.shipLoc[ship]; shipName = ship; break;}
+    }
+    let shipDestoryed = true;
+    shipPosition.forEach((index) => {
+        if (opponent.board[index] != 2){
+            shipDestoryed = false;
+        }
+    })   
+    if(shipDestoryed == true){
+        curplayer.numDestroyShip ++;
+        return [shipName, shipPosition];
+    }
+    else{
+        return "normal";
+    }
+}
 
 io.on('connection', (socket) => {
     if (connectedClients >= maxConnections) {
@@ -115,26 +155,38 @@ io.on('connection', (socket) => {
         socket.disconnect(true);
         connectedClients--;
     }
-    const curplayer = new Player(socket.id)
     let opponent;
-    players[curplayer.id] = curplayer;
-    socket.on("singleplayer", () => { players[curplayer.id].mode = "singleplayer"; opponent = new Player(socket.id) })
-    socket.on("multiplayer", () => { players[curplayer.id].mode = "multiplayer"; connectedClients++; })
-    socket.on("random", () => { randomBoatPlacement(players[curplayer.id]); socket.emit("randomresult", players[curplayer.id].shipLoc) })
-    socket.on("start", () => {players[curplayer.id].mode == "singleplayer" ? (socket.emit("start"), socket.emit("turn"), randomBoatPlacement(opponent), opponent.displayGrid()) : null})
+    players[socket.id] = new Player(socket.id);
+    const curplayer = players[socket.id]
+    socket.on("singleplayer", () => { curplayer.mode = "singleplayer"; opponent = new Player(socket.id) })
+    socket.on("multiplayer", () => { curplayer.mode = "multiplayer"; connectedClients++; })
+    socket.on("random", () => { randomBoatPlacement(curplayer); curplayer.numplaceShip = 5; socket.emit("randomresult", curplayer.shipLoc) })
+    socket.on("start", () => {curplayer.mode == "singleplayer" ? curplayer.numplaceShip == 5 ? (randomBoatPlacement(opponent), opponent.displayGrid(), socket.emit("start"), socket.emit("turn")): socket.emit("not enough ship") : null})
     socket.on("attack", (pos) => { console.log(pos)
         switch (opponent.board[pos]) {
             case 1:
-                socket.emit('hit', pos);
+                curplayer.numHits ++;
                 opponent.board[pos] = 2;
+                const result = checkShip(curplayer,opponent,pos);
+                if (result == "normal"){
+                    socket.emit("hit", pos)
+                }
+                else{
+                    socket.emit("destroy", result)
+                }
+                if(curplayer.numDestroyShip == 5){
+                    socket.emit("win")
+                }
                 break;
-            case 2 || 3:
+            case 2:
+            case 3:
                 socket.emit('InvalidAttack')
                 break;
             case 0:
-                socket.emit('miss', pos);
-                console.log("server pos", pos);
                 opponent.board[pos] = 3;
+                curplayer.numMisses ++;
+                socket.emit('miss', pos);
+                computerMove(curplayer, socket, opponent)
                 break;
         }
     })

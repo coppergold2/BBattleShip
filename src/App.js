@@ -13,7 +13,10 @@ const App = () => {
   const [missPos, setMissPos] = useState(null);
   const [info, setInfo] = useState("Select Your Mode");
   const [turn, setTurn] = useState(null); 
-  const [start, setStart] = useState(false)
+  const [start, setStart] = useState(false);
+  const [ohitPos, setoHitPos] = useState(null);
+  const [omissPos, setoMissPos] = useState(null);
+  const [destroyShip, setdestroyShip] = useState(null);
   useEffect(() => {
     // Creates a websocket connection to the server
     socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
@@ -30,6 +33,9 @@ const App = () => {
     socket.current.on('start', () => {
       setStart(true)
     })
+    socket.current.on("not enough ship", () => {
+      setInfo("Please place all your ship before starting")
+    })
     socket.current.on('turn', () => {
       setTurn(true)
       setInfo('Your turn to attack')
@@ -42,6 +48,23 @@ const App = () => {
       setInfo("You did not hit the opponent's ship this time")
       setMissPos(pos)
       setTurn(false);
+    })
+    socket.current.on('destroy', (result) => {
+      setInfo("You destroyed the " + result[0] + " ship");
+      setdestroyShip(result)
+      
+    })
+    socket.current.on("win", () =>{
+      setInfo("You Won!")
+      setTurn(false)
+    })
+    socket.current.on('omiss', (pos) => {
+      setInfo("Your oppoenent did not hit your ship this time")
+      setoMissPos(pos);
+    })
+    socket.current.on('ohit', (pos) => {
+      setInfo("Your oppoenent hit your ship")
+      setoHitPos(pos);
     })
     socket.current.on("InvalidAttack", () => {
       alert("invalid attack")
@@ -78,7 +101,7 @@ const App = () => {
         </div>
       ) : 
       (singlePlayer && !multiPlayer) ? 
-      <SinglePlayer socket = {socket.current} shipLoc = {shipLoc} start = {start} hitPos = {hitPos} missPos = {missPos} turn = {turn}/> : 
+      <SinglePlayer socket = {socket.current} shipLoc = {shipLoc} start = {start} hitPos = {hitPos} missPos = {missPos} turn = {turn} ohitPos = {ohitPos} omissPos = {omissPos} destroyShip = {destroyShip}/> : 
       <MultiPlayer socket = {socket.current} shipLoc = {shipLoc}/>
     }
     </>
