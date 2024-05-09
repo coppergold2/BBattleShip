@@ -87,7 +87,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 const computerMove = (user, socket, opponent) => {
-    console.log(opponent.numHits);
+    // console.log(opponent.numHits);
     let randomGo = Math.floor(Math.random() * width * width)
     if ([2, 3].includes(user.board[randomGo])) {
         computerMove(user, socket, opponent);
@@ -102,7 +102,7 @@ const computerMove = (user, socket, opponent) => {
         user.board[randomGo] = 2;
         opponent.numHits++;
         socket.emit("ohit",randomGo)
-        computerMove(user, socket. opponent);
+        computerMove(user, socket, opponent);
     } 
 }
 
@@ -160,8 +160,8 @@ io.on('connection', (socket) => {
     const curplayer = players[socket.id]
     socket.on("singleplayer", () => { curplayer.mode = "singleplayer"; opponent = new Player(socket.id) })
     socket.on("multiplayer", () => { curplayer.mode = "multiplayer"; connectedClients++; })
-    socket.on("random", () => { randomBoatPlacement(curplayer); curplayer.numplaceShip = 5; socket.emit("randomresult", curplayer.shipLoc) })
-    socket.on("start", () => {curplayer.mode == "singleplayer" ? curplayer.numplaceShip == 5 ? (randomBoatPlacement(opponent), opponent.displayGrid(), socket.emit("start"), socket.emit("turn")): socket.emit("not enough ship") : null})
+    socket.on("random", () => { randomBoatPlacement(curplayer); curplayer.numplaceShip = 5; socket.emit("randomresult", curplayer.shipLoc); curplayer.displayGrid() })
+    socket.on("start", () => {curplayer.mode == "singleplayer" ? (curplayer.numplaceShip == 5 ? (randomBoatPlacement(opponent), opponent.displayGrid(), socket.emit("start"), socket.emit("turn")): socket.emit("not enough ship")) : null})
     socket.on("attack", (pos) => { console.log(pos)
         switch (opponent.board[pos]) {
             case 1:

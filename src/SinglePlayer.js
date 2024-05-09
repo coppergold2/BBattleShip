@@ -3,7 +3,7 @@ import Board from './Board';
 import ShipOptions from './ShipOption';
 import './App.css'
 
-const SinglePlayer = ({socket, shipLoc, start, hitPos, missPos, turn, ohitPos, omissPos, destroyShip}) => {
+const SinglePlayer = ({socket, start, turn, pbCellClass, obCellClass}) => {
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
   const [isFlipped, setIsFlipped] = useState(false);
   const flipBoat = () => {
@@ -18,8 +18,8 @@ const SinglePlayer = ({socket, shipLoc, start, hitPos, missPos, turn, ohitPos, o
     <> 
         <>
           <div className='boards'>
-            <Board className="player-board" shipLoc = {shipLoc} ohitPos = {ohitPos} omissPos = {omissPos}/>
-            {start && <Board className="opponent-board" handleCellClick = {handleCellClick} hitPos ={hitPos} missPos = {missPos} turn = {turn} destroyShip= {destroyShip}/>}
+            <Board className="player-board" pbCellClass = {pbCellClass}/>
+            {start && <Board className="opponent-board" handleCellClick = {handleCellClick}  turn = {turn} obCellClass = {obCellClass}/>}
           </div>
           <ShipOptions isFlipped={isFlipped} setActiveShip={setActiveShip} activeShip={activeShip}/>
           <div className='button-container'>
