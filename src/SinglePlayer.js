@@ -5,7 +5,7 @@ import './App.css'
 
 const SinglePlayer = ({socket, start, turn, pbCellClass, obCellClass}) => {
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);  
   const flipBoat = () => {
     setIsFlipped(!isFlipped);
     // Add your logic here to flip the boat in your game

@@ -4,7 +4,7 @@ const socketIo = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
-let connectedClients = 0;
+let connectedMPClients = 0;
 const maxConnections = 2;
 const width = 10;
 class Player {
@@ -17,6 +17,7 @@ class Player {
         this.numDestroyShip = 0;
         this.numHits = 0;
         this.numMisses = 0;
+        this.start = false;
     }
     // Method to increase numHits
     incrementHits() {
@@ -30,22 +31,22 @@ class Player {
     displayGrid() {
         let board = this.board;
         if (board.length !== 100) {
-          console.error("Invalid board size. Expected an array of length 100.");
-          return;
+            console.error("Invalid board size. Expected an array of length 100.");
+            return;
         }
-      
+
         const grid = [];
-      
+
         for (let i = 0; i < 100; i += 10) {
-          const row = board.slice(i, i + 10);
-          grid.push(row);
+            const row = board.slice(i, i + 10);
+            grid.push(row);
         }
-      
+
         console.log("Grid:");
         for (const row of grid) {
-          console.log(row.join(" "));
+            console.log(row.join(" "));
         }
-      }
+    }
 }
 const ships = {
     'carrier': 5, //length of ship 
@@ -92,18 +93,18 @@ const computerMove = (user, socket, opponent) => {
     if ([2, 3].includes(user.board[randomGo])) {
         computerMove(user, socket, opponent);
     }
-    else if(user.board[randomGo] === 0){
+    else if (user.board[randomGo] === 0) {
         user.board[randomGo] = 3;
         opponent.numMisses++;
         socket.emit("omiss", randomGo)
-        socket.emit("turn")      
+        socket.emit("turn")
     }
-    else if(user.board[randomGo] === 1){
+    else if (user.board[randomGo] === 1) {
         user.board[randomGo] = 2;
         opponent.numHits++;
-        socket.emit("ohit",randomGo)
+        socket.emit("ohit", randomGo)
         computerMove(user, socket, opponent);
-    } 
+    }
 }
 
 const randomBoatPlacement = (user) => {
@@ -132,49 +133,51 @@ const checkShip = (curplayer, opponent, pos) => {
     let shipPosition = [];
     let shipName = "";
     for (let ship in ships) {
-        if (opponent.shipLoc[ship].includes(pos)) {shipPosition = opponent.shipLoc[ship]; shipName = ship; break;}
+        if (opponent.shipLoc[ship].includes(pos)) { shipPosition = opponent.shipLoc[ship]; shipName = ship; break; }
     }
     let shipDestoryed = true;
     shipPosition.forEach((index) => {
-        if (opponent.board[index] != 2){
+        if (opponent.board[index] != 2) {
             shipDestoryed = false;
         }
-    })   
-    if(shipDestoryed == true){
-        curplayer.numDestroyShip ++;
+    })
+    if (shipDestoryed == true) {
+        curplayer.numDestroyShip++;
         return [shipName, shipPosition];
     }
-    else{
+    else {
         return "normal";
     }
 }
 
 io.on('connection', (socket) => {
-    if (connectedClients >= maxConnections) {
-        socket.emit("full")
-        socket.disconnect(true);
-        connectedClients--;
-    }
     let opponent;
-    players[socket.id] = new Player(socket.id);
-    const curplayer = players[socket.id]
-    socket.on("singleplayer", () => { curplayer.mode = "singleplayer"; opponent = new Player(socket.id) })
-    socket.on("multiplayer", () => { curplayer.mode = "multiplayer"; connectedClients++; })
-    socket.on("random", () => { randomBoatPlacement(curplayer); curplayer.numplaceShip = 5; socket.emit("randomresult", curplayer.shipLoc); curplayer.displayGrid() })
-    socket.on("start", () => {curplayer.mode == "singleplayer" ? (curplayer.numplaceShip == 5 ? (randomBoatPlacement(opponent), opponent.displayGrid(), socket.emit("start"), socket.emit("turn")): socket.emit("not enough ship")) : null})
-    socket.on("attack", (pos) => { console.log(pos)
+    let curplayer;
+    socket.on("singleplayer", () => { 
+         players[socket.id] = new Player(socket.id); curplayer = players[socket.id]; curplayer.mode = "singleplayer"; opponent = new Player(socket.id) })
+    socket.on("multiplayer", () => {
+        if (connectedMPClients >= maxConnections) {
+            socket.emit("full")
+            socket.disconnect(true);
+        } else {players[socket.id] = new Player(socket.id); curplayer = players[socket.id]; curplayer.mode = "multiplayer"; connectedMPClients++; }
+        console.log(connectedMPClients)
+    })
+    socket.on("random", () => { if (curplayer.start == false)  {randomBoatPlacement(curplayer); curplayer.numplaceShip = 5; socket.emit("randomresult", curplayer.shipLoc); curplayer.displayGrid()} })
+    socket.on("start", () => { curplayer.mode == "singleplayer" && curplayer.start == false ? (curplayer.numplaceShip == 5 ? (randomBoatPlacement(opponent), opponent.displayGrid(), curplayer.start = true, socket.emit("start"), socket.emit("turn")) : socket.emit("not enough ship")) : null })
+    socket.on("attack", (pos) => {
+        console.log(pos)
         switch (opponent.board[pos]) {
             case 1:
-                curplayer.numHits ++;
+                curplayer.numHits++;
                 opponent.board[pos] = 2;
-                const result = checkShip(curplayer,opponent,pos);
-                if (result == "normal"){
+                const result = checkShip(curplayer, opponent, pos);
+                if (result == "normal") {
                     socket.emit("hit", pos)
                 }
-                else{
+                else {
                     socket.emit("destroy", result)
                 }
-                if(curplayer.numDestroyShip == 5){
+                if (curplayer.numDestroyShip == 5) {
                     socket.emit("win")
                 }
                 break;
@@ -184,12 +187,12 @@ io.on('connection', (socket) => {
                 break;
             case 0:
                 opponent.board[pos] = 3;
-                curplayer.numMisses ++;
+                curplayer.numMisses++;
                 socket.emit('miss', pos);
                 computerMove(curplayer, socket, opponent)
                 break;
         }
     })
-    socket.on('disconnect', () => { console.log(`Client ${socket.id} disconnected`); connectedClients--; });
+    socket.on('disconnect', () => { console.log(`Client ${socket.id} disconnected`); if(connectedMPClients>0) connectedMPClients--; });
 });
 server.listen(3001, () => { console.log('Server listening on port 3001'); });

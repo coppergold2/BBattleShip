@@ -19,6 +19,7 @@ const App = () => {
   const [destroyShip, setdestroyShip] = useState(null);
   const [obCellClass, setObCellClass] = useState(null);
   const [pbCellClass, setPbCellClass] = useState(null);
+  const [multiPlayerGameFull, setGameFull] = useState(false);
 
   useEffect(() => {
     // Creates a websocket connection to the server
@@ -58,6 +59,10 @@ const App = () => {
           }))
       )
       setStart(true)
+    })
+    socket.current.on("full", () => {
+      setGameFull(true)
+      setInfo("sorry, the game room is currently full. Please try again later.")
     })
     socket.current.on("not enough ship", () => {
       setInfo("Please place all your ship before starting")
@@ -165,12 +170,19 @@ const App = () => {
   const handleMultiPlayerClick = () => {
     setMultiPlayer(true);
     socket.current.emit("multiplayer")
-    setInfo("You are in Multiplayer Mode")
+    setInfo("Please Place your ships")
+    setPbCellClass(
+      Array.from({ length: 100 }, () => (
+      {
+        shipName: null,
+        ohit: false,
+        omiss: false
+      })))
   }
   
   return (
     <>
-      <h1>BattleShip {(singlePlayer && "Single Player vs Computer") || (multiPlayer && "Two Player Mode")}</h1>
+      <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
       <h2>Info: {info}</h2>
       {(!singlePlayer && !multiPlayer) ? (
         <div style={{
@@ -186,7 +198,7 @@ const App = () => {
       ) :
         (singlePlayer && !multiPlayer) ?
           <SinglePlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} /> :
-          <MultiPlayer socket={socket.current} shipLoc={shipLoc} />
+          <MultiPlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} multiPlayerGameFull = {multiPlayerGameFull}/>
       }
     </>
   );
