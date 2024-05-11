@@ -38,7 +38,7 @@ h1 {
   border: 1px solid navy;
 }
 
-.opponent-board{
+.opponent-board.grab{
   cursor: grab;
 }
 

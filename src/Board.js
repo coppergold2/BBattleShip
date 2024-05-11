@@ -116,9 +116,7 @@ const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass }) =
   // }, [turn, shipLoc, hitPos, missPos, ohitPos, omissPos, destroyShip]);
 
   return (
-    <div>
-      <div className={`board ${className}`}>{renderCells()}</div>
-    </div>
+      <div className={`board ${className}${(turn && className === 'opponent-board') ? ' grab' : ''}`}>{renderCells()}</div>
   );
 };
 
