@@ -19,7 +19,6 @@ class Player {
         this.numHits = 0;
         this.numMisses = 0;
         this.start = false;
-        this.opponent = null
     }
     // Method to increase numHits
     incrementHits() {
@@ -48,6 +47,16 @@ class Player {
         for (const row of grid) {
             console.log(row.join(" "));
         }
+    }
+    reset() {
+        this.board = Array(100).fill(0); // Initialize empty board
+        this.flip = false;
+        this.numplaceShip = 0;
+        this.shipLoc = { 'destroyer': [], 'submarine': [], 'cruiser': [], 'battleship': [], 'carrier': [] }
+        this.numDestroyShip = 0;
+        this.numHits = 0;
+        this.numMisses = 0;
+        this.start = false;
     }
 }
 const ships = {
@@ -90,7 +99,6 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 const computerMove = (user, socket, opponent) => {
-    // console.log(opponent.numHits);
     let randomGo = Math.floor(Math.random() * width * width)
     if ([2, 3].includes(players[user].board[randomGo])) {
         computerMove(user, socket, opponent);
@@ -99,13 +107,25 @@ const computerMove = (user, socket, opponent) => {
         players[user].board[randomGo] = 3;
         players[opponent].numMisses++;
         socket.emit("omiss", randomGo)
-        socket.emit("turn")
+        socket.emit("turn", "Your turn to attack")
     }
     else if (players[user].board[randomGo] === 1) {
         players[user].board[randomGo] = 2;
         players[opponent].numHits++;
         socket.emit("ohit", randomGo)
-        computerMove(user, socket, opponent);
+        const result = checkShip(user, randomGo);
+        if (result != "normal") {
+            players[opponent].numDestroyShip++;
+            if (players[opponent].numDestroyShip == 5) {
+                socket.emit("owin", "Your opponent/robot has won, shame!");
+            }
+            else {
+                computerMove(user, socket, opponent);
+            }
+        }
+        else {
+            computerMove(user, socket, opponent);
+        }
     }
 }
 
@@ -170,11 +190,14 @@ const checkForMPOpponent = ((curplayer) => {
     return null;
 })
 io.on('connection', (socket) => {
+    socket.on("id", () => { socket.emit("id", socket.id) })
     let opponent;
     let curplayer;
     socket.on("singleplayer", () => {
+        if(players[socket.id] == null){
         players[socket.id] = new Player(socket.id);
         curplayer = socket.id;
+        }
         players[curplayer].mode = "singleplayer";
         opponent = generateRandomString(10);
         players[opponent] = new Player(opponent);
@@ -184,44 +207,50 @@ io.on('connection', (socket) => {
             socket.emit("full", "sorry, the game room is currently full. Please try again later.")
             socket.disconnect(true);
         } else {
+            if(players[socket.id] == null){
             players[socket.id] = new Player(socket.id);
             curplayer = socket.id;
-            players[curplayer].mode = "multiplayer";
             connectedMPClients++;
+            }
+            players[curplayer].mode = "multiplayer";
+            
         }
-        console.log(connectedMPClients)
+        console.log("connectedMPClients", connectedMPClients)
     })
-    socket.on("random", () => { console.log(players[curplayer].start); if (players[curplayer].start == false) { randomBoatPlacement(curplayer); players[curplayer].numplaceShip = 5; socket.emit("randomresult", players[curplayer].shipLoc); players[curplayer].displayGrid() } })
+    socket.on("random", () => { if (players[curplayer].start == false) { randomBoatPlacement(curplayer); players[curplayer].numplaceShip = 5; socket.emit("randomresult", players[curplayer].shipLoc); players[curplayer].displayGrid() } })
     socket.on("start", () => {
         if (players[curplayer].mode == "singleplayer" && players[curplayer].start == false) {
             players[curplayer].numplaceShip == 5 ?
-            (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curplayer].start = true, socket.emit("start"), socket.emit("turn", "Your turn to attack")) :
-            socket.emit("not enough ship", "Please place all your ship before starting")
+                (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curplayer].start = true, socket.emit("start"), socket.emit("turn", "Your turn to attack")) :
+                socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curplayer].mode == "multiplayer" && players[curplayer].start == false) {
             opponent = checkForMPOpponent(curplayer);
-            if(players[curplayer].numplaceShip != 5){
+            if (players[curplayer].numplaceShip != 5) {
                 socket.emit("not enough ship", "Please place all your ship before starting")
             }
-            else if(opponent == null){
+            else if (opponent == null) {
                 socket.emit("info", "Waiting for a player to join");
             }
-            else if(opponent != null && players[opponent].numplaceShip != 5){
-                socket.emit("info", "Your opponent is not ready yet, please wait"); 
+            else if (opponent != null && players[opponent].numplaceShip != 5) {
+                socket.emit("info", "Your opponent is not ready yet, please wait");
             }
-            else if(opponent != null && players[opponent].numplaceShip == 5){
+            else if (opponent != null && players[opponent].numplaceShip == 5) {
                 players[curplayer].start = true;
                 players[opponent].start = true;
                 socket.emit("start");
-                io.to(opponent).emit("start");
+                io.to(opponent).emit("ostart");
                 socket.emit("turn", "Your turn to attack");
                 io.to(opponent).emit("info", "Game has started, it's your opponent's turn")
             }
-            
+
         }
     })
+    socket.on("findOpponent", () => {
+        opponent = checkForMPOpponent(curplayer);
+    })
     socket.on("attack", (pos) => {
-        console.log(curplayer)
+        console.log("opponent in attack", opponent);
         switch (players[opponent].board[pos]) {
             case 1:
                 curplayer.numHits++;
@@ -232,13 +261,13 @@ io.on('connection', (socket) => {
                     io.to(opponent).emit("ohit", pos)
                 }
                 else {
-                    players[curplayer].numDestroyShip ++;
+                    players[curplayer].numDestroyShip++;
                     socket.emit("destroy", result);
                     io.to(opponent).emit("ohit", pos)
                 }
                 if (players[curplayer].numDestroyShip == 5) {
-                    socket.emit("win");
-                    io.to(opponent).emit("info", "Your opponent has won, you loss")
+                    socket.emit("win", "You win!");
+                    io.to(opponent).emit("owin", "Your opponent has won, you loss")
                 }
                 break;
             case 2:
@@ -255,15 +284,26 @@ io.on('connection', (socket) => {
     })
     socket.on('disconnect', () => {
         console.log(`Client ${socket.id} disconnected`);
-        if (players[socket.id] != null) {
-            delete players[socket.id];
-            if (connectedMPClients > 0) {
-                connectedMPClients--;
+        if (curplayer != null) {
+            if (players[curplayer].mode == "multiplayer" && players[opponent] != null) {
+                io.to(opponent).emit("oquit", "Your opponent has quit, please restart")
+            }
+            else if (players[curplayer].mode == "singleplayer" && players[opponent] != null) {
+                delete players[opponent];
+            }
+            if (players[curplayer] != null) {
+                if (connectedMPClients > 0 && players[curplayer].mode == "multiplayer") {
+                    connectedMPClients--;
+                }
+                delete players[curplayer];
             }
         }
-    }
-    );
-    console.log("inside io", players)
+    });
+    socket.on("oquit", () => {
+        players[curplayer].reset();
+        opponent = null;
+    })
+    console.log("players length", Object.keys(players).length);
 });
+
 server.listen(3001, () => { console.log('Server listening on port 3001'); });
-console.log("outside io", players)

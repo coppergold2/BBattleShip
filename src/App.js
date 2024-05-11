@@ -27,6 +27,7 @@ const App = () => {
     socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
     socket.current.on('connect', () => {
       console.log('Connected to server');
+      socket.current.emit("id");
       setServerDown(false);
     });
     socket.current.on('disconnect', () => {
@@ -41,6 +42,18 @@ const App = () => {
       setPbCellClass(null);
       setGameFull(false);
     });
+    socket.current.on("oquit", (msg) =>{
+      setInfo(msg);
+      setSinglePlayer(false);
+      setMultiPlayer(false);
+      setTurn(null);
+      setStart(false);
+      setObCellClass(null);
+      setPbCellClass(null);
+      setGameFull(false);
+      socket.current.emit("oquit");
+    })
+    socket.current.on("id", (id) => {document.title = id} )
     socket.current.on('randomresult', (shipLoc) => {
       setPbCellClass((oldClass) => {
         const newCellClass = oldClass.map((cell) => ({
@@ -60,7 +73,19 @@ const App = () => {
       setInfo("Start the game if you are ready")
     })
     socket.current.on('start', () => {
-      console.log("start response from server")
+      setObCellClass(
+        Array.from({ length: 100 }, () => (
+          {
+            shipName: null,
+            hit: false,
+            miss: false,
+            destroy: false
+          }))
+      )
+      setStart(true)
+    })
+    socket.current.on('ostart', () => {
+      socket.current.emit("findOpponent");
       setObCellClass(
         Array.from({ length: 100 }, () => (
           {
@@ -127,8 +152,8 @@ const App = () => {
       });
     })
 
-    socket.current.on("win", () => {
-      setInfo("You Won!")
+    socket.current.on("win", (msg) => {
+      setInfo(msg)
       setTurn(false)
     })
     socket.current.on('omiss', (pos) => {
@@ -157,6 +182,10 @@ const App = () => {
       });
       setInfo("Your oppoenent hit your ship")
       
+    })
+
+    socket.current.on("owin",(msg) => {
+      setInfo(msg)
     })
     socket.current.on("InvalidAttack", () => {
       alert("invalid attack")
