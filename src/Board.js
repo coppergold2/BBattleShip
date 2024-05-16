@@ -1,17 +1,59 @@
 import React, { useState, useEffect } from 'react';
 
-const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass }) => {
-  const handleDrop = (event, i) => {
-    // Handle the drop event here
-    console.log(`Dropped on cell ${i}`);
-  };
- 
+const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass, activeShip, isFlipped, handleShipPlacement, setActiveShip }) => {
+  const [shipLocHover,setShipLocHover] = useState(null);
+
+  const ships = {
+    'carrier': 5, //length of ship 
+    'battleship': 4,
+    'cruiser': 3,
+    'submarine': 3,
+    'destroyer': 2
+};
+
+  const handleShipHover = (location) => {
+    const row = Math.floor(location / 10);
+    const col = location % 10;
+    const shipSize = ships[activeShip];
+    const isValidLocation = (loc) => loc >= 0 && loc < 100;
+    const isLocationOccupied = (loc) => pbCellClass[loc].shipName != null;
+    let result = {}
+    if(isFlipped){
+      if(row + shipSize <= 10) {
+        for (let i = 0; i < shipSize; i++){
+          const loc = row * 10 + col + i * 10;
+          if(!isValidLocation(loc) || isLocationOccupied(loc)){
+            result = null;
+            break;
+          }
+          result[loc] = activeShip;
+        }
+      }
+    }
+    else{
+      if(col + shipSize <= 10){
+        for (let i = 0; i < shipSize; i++){
+          const loc = row * 10 + col + i;
+          if(!isValidLocation(loc) || isLocationOccupied(loc)){
+            result = null;
+            break;
+          }
+          result[loc] = activeShip;
+        }
+      }
+    }
+    if(result != null && Object.keys(result).length != 0){
+      setShipLocHover(result);
+    }
+    
+  }
+
   const cellClassName = () => {
     const classNameArr = new Array(100).fill("");
     if (className === "player-board" && pbCellClass !== null) {
       pbCellClass.forEach((element, index) => {
         if (element.shipName !== null) {
-          classNameArr[index] = "cell " + element.shipName; // Assuming you meant to set it to the element, otherwise adjust as needed
+          classNameArr[index] = "cell " + element.shipName + " grab"; // Assuming you meant to set it to the element, otherwise adjust as needed
         } else {
           classNameArr[index] = "cell";
         }
@@ -34,26 +76,16 @@ const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass }) =
           classNameArr[index] += " boom";          
         }
         else if(element.miss === true){
-          classNameArr[index] += " miss"     // figure out how this work.
+          classNameArr[index] += " miss"     
+        }
+        if(element.shipName == null && element.hit == false && element.miss == false){
+          classNameArr[index] += " grab"
         }
       })
     }
     return classNameArr;
   }; 
   
-  // const updateClassName = () => {
-  //   const cellClassName = [];
-  //   for (let i = 0; i < 100; i++){
-  //     if (shipLoc != null) {
-  //             Object.entries(shipLoc).forEach(([ship, locations]) => {
-  //               if (locations.includes(i)) { // use classname to check for player and opponent board.
-  //                 cellClassName[i] = ` ${ship}`;
-  //               }
-  //             });
-  //       }
-  //     if ()
-  //   }
-  // }
   const renderCells = () => {
     const cells = [];
     const cellClassNames = cellClassName()
@@ -61,62 +93,21 @@ const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass }) =
       cells.push(
         <div
           key={i}
-          className= {cellClassNames[i]}
-          onDrop={(event) => handleDrop(event, i)}
-          onDragOver={(event) => event.preventDefault()}
-          onClick={turn && className === 'opponent-board' ? () => handleCellClick(i) : null}
+          className={`${cellClassNames[i]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[i] != null) ? shipLocHover[i] : ''}`}
+          onClick={turn && className === 'opponent-board' ? () => handleCellClick(i) : turn == null && activeShip != null && className === 'player-board' && shipLocHover != null ? () => handleShipPlacement(shipLocHover) : null }
+          onMouseEnter= {turn == null && activeShip != null && className === 'player-board' ? () => {handleShipHover(i)} : null }
+          onMouseLeave= {turn == null && activeShip != null && className === 'player-board' ? () => {setShipLocHover(null)} : null}
+          style={{
+            cursor: (activeShip && className === 'player-board' && turn == null) && 'pointer'
+          }}
         ></div>
       );
     }
     return cells;
   };
-  // useEffect(() => {
-  //   const newCells = cells.map((cell, index) => {
-  //     let classes = cell.props.className;
-  //     let onClick = null;
-
-  //     // Update onClick based on turn
-  //     if (turn) {
-  //       onClick = () => handleCellClick && handleCellClick(index);
-  //     }
-
-  //     // Update classes based on shipLoc
-  //     if (shipLoc) {
-  //       Object.entries(shipLoc).forEach(([ship, locations]) => {
-  //         if (locations.includes(index)) {
-  //           classes += ` ${ship}`;
-  //         }
-  //       });
-  //     }
-  //     // Update classes based on hitPos
-  //     if (hitPos !== null && hitPos === index) {
-  //       classes += ' boom';
-  //     }
-
-  //     // Update classes based on missPos
-  //     if (missPos !== null && missPos === index) {
-  //       classes += ' miss';
-  //     }
-  //     // Update classes based on ohitPos
-  //     if (ohitPos !== null && ohitPos === index) {
-  //       classes += ' boom';
-  //     }
-
-  //     // Update classes based on omissPos
-  //     if (omissPos !== null && omissPos === index) {
-  //       classes += ' miss';
-  //     }
-  //     if (destroyShip != null && destroyShip[1].includes(index)){
-  //       classes += ` ${destroyShip[0]}`
-  //     }
-  //     return React.cloneElement(cell, { className: classes, onClick });
-  //   } );
-
-  //   setCells(newCells);
-  // }, [turn, shipLoc, hitPos, missPos, ohitPos, omissPos, destroyShip]);
 
   return (
-      <div className={`board ${className}${(turn && className === 'opponent-board') ? ' grab' : ''}`}>{renderCells()}</div>
+      <div className={`board ${className}`}>{renderCells()}</div>
   );
 };
 

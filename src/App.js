@@ -8,20 +8,15 @@ const App = () => {
   const socket = useRef();
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
-  const [shipLoc, setShipLoc] = useState(null);
-  const [hitPos, setHitPos] = useState(null);
-  const [missPos, setMissPos] = useState(null);
   const [info, setInfo] = useState("Select Your Mode");
   const [turn, setTurn] = useState(null);
   const [start, setStart] = useState(false);
-  const [ohitPos, setoHitPos] = useState(null);
-  const [omissPos, setoMissPos] = useState(null);
-  const [destroyShip, setdestroyShip] = useState(null);
   const [obCellClass, setObCellClass] = useState(null);
   const [pbCellClass, setPbCellClass] = useState(null);
   const [multiPlayerGameFull, setGameFull] = useState(false);
   const [serverDown, setServerDown] = useState(true);
-
+  const [placedShips, setPlacedShips] = useState([]);
+  console.log(placedShips)
   useEffect(() => {
     // Creates a websocket connection to the server
     socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
@@ -41,6 +36,7 @@ const App = () => {
       setObCellClass(null);
       setPbCellClass(null);
       setGameFull(false);
+      setPlacedShips([]);
     });
     socket.current.on("oquit", (msg) =>{
       setInfo(msg);
@@ -51,6 +47,7 @@ const App = () => {
       setObCellClass(null);
       setPbCellClass(null);
       setGameFull(false);
+      setPlacedShips([]);
       socket.current.emit("oquit");
     })
     socket.current.on("id", (id) => {document.title = id} )
@@ -71,6 +68,21 @@ const App = () => {
         return newCellClass;
       });
       setInfo("Start the game if you are ready")
+    })
+    socket.current.on("shipPlacement", (shipLocs) => {
+      let shipName = null;
+      setPbCellClass((oldClass) => {
+        const newCellClass = [...oldClass];
+        for (const loc of Object.keys(shipLocs)) {
+          if(shipName == null){
+            shipName = shipLocs[loc]
+          }
+          newCellClass[loc].shipName = shipLocs[loc]
+        }
+        return newCellClass
+      })
+
+      setPlacedShips((prevPlacedShips) => [...prevPlacedShips, shipName]); 
     })
     socket.current.on('start', () => {
       setObCellClass(
@@ -187,10 +199,12 @@ const App = () => {
     socket.current.on("owin",(msg) => {
       setInfo(msg)
     })
-    socket.current.on("InvalidAttack", () => {
-      alert("invalid attack")
+    socket.current.on("InvalidAttack", (msg) => {
+      alert(msg)
     })
-
+    socket.current.on("InvalidPlacement", (msg) => {
+      alert(msg)
+    })
     socket.current.on("info", (msg) => {
       setInfo(msg);
     }) 
@@ -244,7 +258,7 @@ const App = () => {
         </div>
       ) :
         (singlePlayer && !multiPlayer) ?
-          <SinglePlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} /> :
+          <SinglePlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} placedShips = {placedShips} /> :
           <MultiPlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} multiPlayerGameFull = {multiPlayerGameFull}/>
       }
     </>

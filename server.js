@@ -218,7 +218,22 @@ io.on('connection', (socket) => {
         console.log("connectedMPClients", connectedMPClients)
     })
     socket.on("random", () => { if (players[curplayer].start == false) { randomBoatPlacement(curplayer); players[curplayer].numplaceShip = 5; socket.emit("randomresult", players[curplayer].shipLoc); players[curplayer].displayGrid() } })
+    socket.on("shipPlacement", (shipLocs) => {
+        let valid = true;
+        for (const loc of Object.keys(shipLocs)) {
+            if(players[curplayer].board[loc] == 1 ){
+                socket.emit("InvalidPlacement", "Invalid placement of ship")
+                valid = false;
+                break;
+            }
+          }
+        if(valid){
+            socket.emit("shipPlacement", shipLocs)
+            players[curplayer].numplaceShip ++;
+        }
+    })
     socket.on("start", () => {
+        console.log(players[curplayer].numplaceShip)
         if (players[curplayer].mode == "singleplayer" && players[curplayer].start == false) {
             players[curplayer].numplaceShip == 5 ?
                 (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curplayer].start = true, socket.emit("start"), socket.emit("turn", "Your turn to attack")) :
@@ -272,7 +287,7 @@ io.on('connection', (socket) => {
                 break;
             case 2:
             case 3:
-                socket.emit('InvalidAttack')
+                socket.emit('InvalidAttack', "This location is not available to attack")
                 break;
             case 0:
                 players[opponent].board[pos] = 3;

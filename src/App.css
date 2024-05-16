@@ -38,8 +38,8 @@ h1 {
   border: 1px solid navy;
 }
 
-.opponent-board.grab{
-  cursor: grab;
+.grab{
+  cursor: pointer;
 }
 
 
@@ -137,7 +137,7 @@ button:hover {
 }
 
 .dragging{
-  opacity: .5;
+  margin-bottom: 50px;
 }
 
 .boom{
