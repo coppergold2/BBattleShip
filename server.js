@@ -219,21 +219,34 @@ io.on('connection', (socket) => {
     })
     socket.on("random", () => { if (players[curplayer].start == false) { randomBoatPlacement(curplayer); players[curplayer].numplaceShip = 5; socket.emit("randomresult", players[curplayer].shipLoc); players[curplayer].displayGrid() } })
     socket.on("shipPlacement", (shipLocs) => {
+        let shipName;
         let valid = true;
         for (const loc of Object.keys(shipLocs)) {
+            if (shipName == null){
+                shipName = shipLocs[loc]
+            }
             if(players[curplayer].board[loc] == 1 ){
                 socket.emit("InvalidPlacement", "Invalid placement of ship")
                 valid = false;
+                players[curplayer].shipLoc[shipName] = []
                 break;
             }
+            players[curplayer].shipLoc[shipName].push(loc)
           }
         if(valid){
             socket.emit("shipPlacement", shipLocs)
             players[curplayer].numplaceShip ++;
         }
     })
+    socket.on("shipReplacement", (shipName) => {
+        players[curplayer].shipLoc[shipName].forEach((element) => {
+            players[curplayer].board[element] = 0;
+        })
+        socket.emit("shipReplacement", players[curplayer].shipLoc[shipName])
+        players[curplayer].shipLoc[shipName] = []
+        players[curplayer].numplaceShip --;
+    })
     socket.on("start", () => {
-        console.log(players[curplayer].numplaceShip)
         if (players[curplayer].mode == "singleplayer" && players[curplayer].start == false) {
             players[curplayer].numplaceShip == 5 ?
                 (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curplayer].start = true, socket.emit("start"), socket.emit("turn", "Your turn to attack")) :
@@ -265,7 +278,6 @@ io.on('connection', (socket) => {
         opponent = checkForMPOpponent(curplayer);
     })
     socket.on("attack", (pos) => {
-        console.log("opponent in attack", opponent);
         switch (players[opponent].board[pos]) {
             case 1:
                 curplayer.numHits++;
@@ -318,7 +330,6 @@ io.on('connection', (socket) => {
         players[curplayer].reset();
         opponent = null;
     })
-    console.log("players length", Object.keys(players).length);
 });
 
 server.listen(3001, () => { console.log('Server listening on port 3001'); });

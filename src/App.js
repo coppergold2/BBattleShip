@@ -16,7 +16,6 @@ const App = () => {
   const [multiPlayerGameFull, setGameFull] = useState(false);
   const [serverDown, setServerDown] = useState(true);
   const [placedShips, setPlacedShips] = useState([]);
-  console.log(placedShips)
   useEffect(() => {
     // Creates a websocket connection to the server
     socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
@@ -83,6 +82,22 @@ const App = () => {
       })
 
       setPlacedShips((prevPlacedShips) => [...prevPlacedShips, shipName]); 
+    })
+
+    socket.current.on("shipReplacement", (shipLocs) => {
+      
+      let shipName = null;
+      setPbCellClass((oldClass) => {
+        const newCellClass = [...oldClass];
+        for (const loc of shipLocs) {
+          if (shipName == null) {
+            shipName = newCellClass[loc].shipName;
+          }
+          newCellClass[loc].shipName = null;
+        }
+        return newCellClass;
+      });
+      setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
     })
     socket.current.on('start', () => {
       setObCellClass(
@@ -238,6 +253,11 @@ const App = () => {
         omiss: false
       })))
   }
+
+  const handleRandomPlacement = () => {
+    socket.current.emit("random")
+    setPlacedShips(['carrier','battleship','cruiser','submarine','destroyer'])
+  }
   if (serverDown) {
     return <h1>The server is down</h1>;
   }
@@ -258,7 +278,7 @@ const App = () => {
         </div>
       ) :
         (singlePlayer && !multiPlayer) ?
-          <SinglePlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} placedShips = {placedShips} /> :
+          <SinglePlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} placedShips = {placedShips} handleRandomPlacement = {handleRandomPlacement}/> :
           <MultiPlayer socket={socket.current} start={start} turn={turn} pbCellClass = {pbCellClass} obCellClass = {obCellClass} multiPlayerGameFull = {multiPlayerGameFull}/>
       }
     </>
