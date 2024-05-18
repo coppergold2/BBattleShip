@@ -19,6 +19,7 @@ class Player {
         this.numHits = 0;
         this.numMisses = 0;
         this.start = false;
+
     }
     // Method to increase numHits
     incrementHits() {
@@ -35,7 +36,7 @@ class Player {
             console.error("Invalid board size. Expected an array of length 100.");
             return;
         }
-
+        console.log(this.id)
         const grid = [];
 
         for (let i = 0; i < 100; i += 10) {
@@ -205,19 +206,18 @@ io.on('connection', (socket) => {
     socket.on("multiplayer", () => {
         if (connectedMPClients >= maxConnections) {
             socket.emit("full", "sorry, the game room is currently full. Please try again later.")
-            socket.disconnect(true);
         } else {
             if(players[socket.id] == null){
             players[socket.id] = new Player(socket.id);
-            curplayer = socket.id;
+            curplayer = socket.id; 
+            } 
             connectedMPClients++;
-            }
             players[curplayer].mode = "multiplayer";
             
         }
         console.log("connectedMPClients", connectedMPClients)
     })
-    socket.on("random", () => { if (players[curplayer].start == false) { randomBoatPlacement(curplayer); players[curplayer].numplaceShip = 5; socket.emit("randomresult", players[curplayer].shipLoc); players[curplayer].displayGrid() } })
+    socket.on("random", () => { if (players[curplayer].start == false) { randomBoatPlacement(curplayer); players[curplayer].numplaceShip = 5; socket.emit("randomresult", players[curplayer].shipLoc); } })
     socket.on("shipPlacement", (shipLocs) => {
         let shipName;
         let valid = true;
@@ -231,9 +231,12 @@ io.on('connection', (socket) => {
                 players[curplayer].shipLoc[shipName] = []
                 break;
             }
-            players[curplayer].shipLoc[shipName].push(loc)
+            players[curplayer].shipLoc[shipName].push(Number(loc))
           }
         if(valid){
+            Object.keys(shipLocs).forEach(loc => {
+                players[curplayer].board[loc] = 1;
+            });
             socket.emit("shipPlacement", shipLocs)
             players[curplayer].numplaceShip ++;
         }
@@ -273,9 +276,12 @@ io.on('connection', (socket) => {
             }
 
         }
+        players[curplayer].displayGrid()
+        console.log(players[curplayer].shipLoc)
     })
     socket.on("findOpponent", () => {
         opponent = checkForMPOpponent(curplayer);
+        players[curplayer].displayGrid()
     })
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
@@ -328,6 +334,7 @@ io.on('connection', (socket) => {
     });
     socket.on("oquit", () => {
         players[curplayer].reset();
+        connectedMPClients--;
         opponent = null;
     })
 });

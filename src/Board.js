@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Board = ({ className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, handleCellClick, handleShipPlacement, handleShipReplacement, handleShipHover,  handleHoverOut }) => {
+const Board = ({ className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, handleCellClick, handleShipPlacement, handleShipReplacement, handleShipHover, handleHoverOut }) => {
 
   const cellClassName = () => {
     const classNameArr = new Array(100).fill("");
@@ -8,7 +8,7 @@ const Board = ({ className, turn, obCellClass, pbCellClass, activeShip, shipLocH
       pbCellClass.forEach((element, index) => {
         if (element.shipName !== null) {
           classNameArr[index] = "cell " + element.shipName; // Assuming you meant to set it to the element, otherwise adjust as needed
-          if(turn == null){
+          if (turn == null) {
             classNameArr[index] += " grab";
           }
         } else {
@@ -50,9 +50,9 @@ const Board = ({ className, turn, obCellClass, pbCellClass, activeShip, shipLocH
       cells.push(
         <div
           key={i}
-          className={`${cellClassNames[i]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[i] != null) ? shipLocHover[i] : ''}`}
+          className={`${cellClassNames[i]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[i] != null) ? shipLocHover[i] + ' hover' : ''}`}
           onClick={turn && className === 'opponent-board' ? () => handleCellClick(i) :
-            turn == null && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover)} :
+            turn == null && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover) } :
               turn == null && className == 'player-board' && shipLocHover == null && pbCellClass[i].shipName != null ? () => { handleShipReplacement(pbCellClass[i].shipName) } : null}
           onMouseEnter={turn == null && activeShip != null && className === 'player-board' ? () => { handleShipHover(i) } : null}
           onMouseLeave={turn == null && activeShip != null && className === 'player-board' ? () => { handleHoverOut() } : null}

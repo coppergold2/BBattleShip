@@ -32,7 +32,6 @@ const Game = ({
           activeShip={activeShip} 
           isFlipped={isFlipped} 
           shipLocHover={shipLocHover}
-          handleCellClick={handleCellClick}
           handleShipPlacement={handleShipPlacement} 
           handleShipReplacement = {handleShipReplacement}
           handleHoverOut = {handleHoverOut}

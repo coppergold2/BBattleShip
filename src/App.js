@@ -45,6 +45,9 @@ const App = () => {
       setPbCellClass(null);
       setGameFull(false);
       setPlacedShips([]);
+      setIsFlipped(false);
+      setShipLocHover(null);
+      setActiveShip(null);
     });
     socket.current.on("oquit", (msg) => {
       setInfo(msg);
@@ -56,6 +59,9 @@ const App = () => {
       setPbCellClass(null);
       setGameFull(false);
       setPlacedShips([]);
+      setIsFlipped(false);
+      setShipLocHover(null);
+      setActiveShip(null);
       socket.current.emit("oquit");
     })
     socket.current.on("id", (id) => { document.title = id })
