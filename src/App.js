@@ -132,6 +132,7 @@ const App = () => {
           }))
       )
       setStart(true)
+      setTurn(false)
     })
     socket.current.on("full", (msg) => {
       setGameFull(true)
