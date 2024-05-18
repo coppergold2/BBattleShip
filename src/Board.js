@@ -1,52 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
-const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass, activeShip, isFlipped, handleShipPlacement, handleShipReplacement }) => {
-  const [shipLocHover, setShipLocHover] = useState(null);
-
-  const ships = {
-    'carrier': 5, //length of ship 
-    'battleship': 4,
-    'cruiser': 3,
-    'submarine': 3,
-    'destroyer': 2
-  };
-
-  const handleShipHover = (location) => {
-    const row = Math.floor(location / 10);
-    const col = location % 10;
-    const shipSize = ships[activeShip];
-    const isValidLocation = (loc) => loc >= 0 && loc < 100;
-    const isLocationOccupied = (loc) => pbCellClass[loc].shipName != null;
-    let result = {}
-    if (isFlipped) {
-      if (row + shipSize <= 10) {
-        for (let i = 0; i < shipSize; i++) {
-          const loc = row * 10 + col + i * 10;
-          if (!isValidLocation(loc) || isLocationOccupied(loc)) {
-            result = null;
-            break;
-          }
-          result[loc] = activeShip;
-        }
-      }
-    }
-    else {
-      if (col + shipSize <= 10) {
-        for (let i = 0; i < shipSize; i++) {
-          const loc = row * 10 + col + i;
-          if (!isValidLocation(loc) || isLocationOccupied(loc)) {
-            result = null;
-            break;
-          }
-          result[loc] = activeShip;
-        }
-      }
-    }
-    if (result != null && Object.keys(result).length != 0) {
-      setShipLocHover(result);
-    }
-
-  }
+const Board = ({ className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, handleCellClick, handleShipPlacement, handleShipReplacement, handleShipHover,  handleHoverOut }) => {
 
   const cellClassName = () => {
     const classNameArr = new Array(100).fill("");
@@ -98,10 +52,10 @@ const Board = ({ className, handleCellClick, turn, obCellClass, pbCellClass, act
           key={i}
           className={`${cellClassNames[i]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[i] != null) ? shipLocHover[i] : ''}`}
           onClick={turn && className === 'opponent-board' ? () => handleCellClick(i) :
-            turn == null && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover); setShipLocHover(null) } :
+            turn == null && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover)} :
               turn == null && className == 'player-board' && shipLocHover == null && pbCellClass[i].shipName != null ? () => { handleShipReplacement(pbCellClass[i].shipName) } : null}
           onMouseEnter={turn == null && activeShip != null && className === 'player-board' ? () => { handleShipHover(i) } : null}
-          onMouseLeave={turn == null && activeShip != null && className === 'player-board' ? () => { setShipLocHover(null) } : null}
+          onMouseLeave={turn == null && activeShip != null && className === 'player-board' ? () => { handleHoverOut() } : null}
           style={{
             cursor: (activeShip && className === 'player-board' && turn == null) && 'pointer'
           }}
