@@ -189,3 +189,26 @@ button:hover {
 .miss{
   background-color: grey
 }
+
+.chat-container {
+  color: #FFFFFF; /* White font color for good contrast */
+}
+
+.chat-input {
+  background-color: #004D4D; /* Darker teal to differentiate from the background */
+  color: #FFFFFF; /* White text color for input */
+  border: 1px solid #FFFFFF; /* White border */
+  padding: 5px;
+}
+
+.chat-button {
+  background-color: #004D4D; /* Darker teal for the button */
+  color: #FFFFFF; /* White text color */
+  border: 1px solid #FFFFFF; /* White border */
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.chat-button:hover {
+  background-color: #006666; /* Slightly lighter teal on hover */
+}

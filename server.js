@@ -104,22 +104,22 @@ const ships = {
 
 const players = {};
 const hitMessage = (col, row) => {
-    return "System: You hit your opponent's ship at location row " + row + " column " + col 
+    return "You hit at row " + row + " column " + col + "."
 }
 const ohitMessage = (col, row) => {
-    return "System: Your opponent hit your ship at location row " + row + " column " + col
+    return "Opponent hit at row " + row + " column " + col + "."
 }
 const destroyMessage = (shipName) => {
-    return "System: You destroyed your opponent's "+ shipName + " ship"
+    return "You sunk the "+ shipName + " ship" + "."
 }
 const odestroyMessage = (shipName) => {
-    return "System: Your opponent destroyed your " + shipName + " ship"
+    return "Opponent sunk the " + shipName + " ship" + "."
 }
 const missMessage = (col, row) => {
-    return "System: You miss hit at location row " + row + " column " + col 
+    return "You miss at row " + row + " column " + col + "."
 }
 const omissMessage = (col, row) => {
-    return "System: Your opponent miss hit at location row " + row + " column " + col 
+    return "Opponent miss at row " + row + " column " + col + "."
 }
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
@@ -202,7 +202,6 @@ const smartComputerMove = (computer) => {
 const randomBoatPlacement = (user) => {
     players[user].board = Array(100).fill(0);
     function addShipPiece(allBoardBlocks, shipLength) {
-        //const allBoardBlocks = document.querySelectorAll(`#${user} div`)
         let randomBoolean = Math.random() < 0.5
         let isHorizontal = randomBoolean
         let startIndex = Math.floor(Math.random() * width * width)
@@ -214,7 +213,6 @@ const randomBoatPlacement = (user) => {
         }
     }
     for (let ship in ships) {
-        //console.log(`Ship: ${ship}, Length: ${ships[ship]}`);
         const result = addShipPiece(players[user].board, ships[ship])
         players[user].shipLoc[ship] = result;
         result.forEach((pos) => { players[user].board[pos] = 1 })
@@ -433,10 +431,10 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        players[curplayer].messages.push("You: ", message); // Save the new message to the session messages
+        players[curplayer].messages.push("You: " + message); // Save the new message to the session messages
         socket.emit("message", players[curplayer].messages)
         if (players[curplayer].mode == "multiplayer") {
-            players[opponent].messages.push("Opponent: ", message);
+            players[opponent].messages.push("Opponent: " + message);
             io.to(opponent).emit("message", players[opponent].messages)
         }
     });
