@@ -19,7 +19,7 @@ class Player {
         this.numHits = 0;
         this.numMisses = 0;
         this.start = false;
-
+        this.messages = [];
     }
     // Method to increase numHits
     incrementHits() {
@@ -60,6 +60,40 @@ class Player {
         this.start = false;
     }
 }
+
+class Computer {
+    constructor(id) {
+        this.id = id;
+        this.board = Array(100).fill(0);
+        this.shipLoc = { 'destroyer': [], 'submarine': [], 'cruiser': [], 'battleship': [], 'carrier': [] }
+        this.numDestroyShip = 0;
+        this.numHits = 0;
+        this.numMisses = 0;
+        this.hitLoc = [];
+        this.hitDirections = [0, 0, 0, 0];  // north, west, south, east
+        this.hitDirection = null; // contain the direction of hit and track the current hit locations
+        this.OpponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
+    }
+    displayGrid() {
+        let board = this.board;
+        if (board.length !== 100) {
+            console.error("Invalid board size. Expected an array of length 100.");
+            return;
+        }
+        console.log(this.id)
+        const grid = [];
+
+        for (let i = 0; i < 100; i += 10) {
+            const row = board.slice(i, i + 10);
+            grid.push(row);
+        }
+
+        console.log("Grid:");
+        for (const row of grid) {
+            console.log(row.join(" "));
+        }
+    }
+}
 const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -69,7 +103,24 @@ const ships = {
 };
 
 const players = {};
-
+const hitMessage = (col, row) => {
+    return "System: You hit your opponent's ship at location row " + row + " column " + col 
+}
+const ohitMessage = (col, row) => {
+    return "System: Your opponent hit your ship at location row " + row + " column " + col
+}
+const destroyMessage = (shipName) => {
+    return "System: You destroyed your opponent's "+ shipName + " ship"
+}
+const odestroyMessage = (shipName) => {
+    return "System: Your opponent destroyed your " + shipName + " ship"
+}
+const missMessage = (col, row) => {
+    return "System: You miss hit at location row " + row + " column " + col 
+}
+const omissMessage = (col, row) => {
+    return "System: Your opponent miss hit at location row " + row + " column " + col 
+}
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
         (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
@@ -99,35 +150,53 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
-const computerMove = (user, socket, opponent) => {
+const computerMove = (user, socket, computer) => {
+    if (players[computer].hitLoc.length != 0 && players[computer].hitDirection == null) {
+
+    }
     let randomGo = Math.floor(Math.random() * width * width)
     if ([2, 3].includes(players[user].board[randomGo])) {
-        computerMove(user, socket, opponent);
+        computerMove(user, socket, computer);
     }
     else if (players[user].board[randomGo] === 0) {
         players[user].board[randomGo] = 3;
-        players[opponent].numMisses++;
+        players[computer].numMisses++;
         socket.emit("omiss", randomGo)
+        const { row, col } = getRowAndColumn(randomGo);
+        players[user].messages.push(omissMessage(row, col))
+        socket.emit("message", players[user].messages)
         socket.emit("turn", "Your turn to attack")
     }
     else if (players[user].board[randomGo] === 1) {
         players[user].board[randomGo] = 2;
-        players[opponent].numHits++;
+        players[computer].numHits++;
+        players[computer].hitLoc.push(randomGo);
+        console.log("hitLoc", players[computer].hitLoc)
         socket.emit("ohit", randomGo)
+        const { row, col } = getRowAndColumn(randomGo);
+        players[user].messages.push(ohitMessage(row, col))
+        socket.emit("message", players[user].messages)
         const result = checkShip(user, randomGo);
         if (result != "normal") {
-            players[opponent].numDestroyShip++;
-            if (players[opponent].numDestroyShip == 5) {
-                socket.emit("owin", "Your opponent/robot has won, shame!");
+            players[computer].numDestroyShip++;
+            if (players[computer].numDestroyShip == 5) {
+                socket.emit("owin", "Your computer/robot has won, shame!");
             }
             else {
-                computerMove(user, socket, opponent);
+                removeDestroyShipLoc(computer, result);
+                computerMove(user, socket, computer);
             }
+            players[user].messages.push(odestroyMessage(result[0]))
+            socket.emit("message", players[user].messages)
         }
         else {
-            computerMove(user, socket, opponent);
+            computerMove(user, socket, computer);
         }
     }
+}
+
+const smartComputerMove = (computer) => {
+
 }
 
 const randomBoatPlacement = (user) => {
@@ -190,30 +259,53 @@ const checkForMPOpponent = ((curplayer) => {
     }
     return null;
 })
+
+const removeDestroyShipLoc = (computer, destroyShip) => {
+    for (let i = players[computer].hitLoc.length - 1; i >= 0; i--) {
+        if (destroyShip[1].includes(players[computer].hitLoc[i])) {
+            players[computer].hitLoc.splice(i, 1);
+        }
+    }
+}
+
+const getRowAndColumn = (index) => {
+    const numRows = 10; // Number of rows
+    const numCols = 10; // Number of columns
+
+    if (index < 0 || index >= numRows * numCols) {
+        throw new Error('Index out of bounds');
+    }
+
+    const col = Math.floor(index / numCols) + 1; // Row starting from 1
+    const row = (index % numCols) + 1; // Column starting from 1
+
+    return { row, col };
+}
+
 io.on('connection', (socket) => {
     socket.on("id", () => { socket.emit("id", socket.id) })
     let opponent;
     let curplayer;
     socket.on("singleplayer", () => {
-        if(players[socket.id] == null){
-        players[socket.id] = new Player(socket.id);
-        curplayer = socket.id;
+        if (players[socket.id] == null) {
+            players[socket.id] = new Player(socket.id);
+            curplayer = socket.id;
         }
         players[curplayer].mode = "singleplayer";
         opponent = generateRandomString(10);
-        players[opponent] = new Player(opponent);
+        players[opponent] = new Computer(opponent);
     })
     socket.on("multiplayer", () => {
         if (connectedMPClients >= maxConnections) {
             socket.emit("full", "sorry, the game room is currently full. Please try again later.")
         } else {
-            if(players[socket.id] == null){
-            players[socket.id] = new Player(socket.id);
-            curplayer = socket.id; 
-            } 
+            if (players[socket.id] == null) {
+                players[socket.id] = new Player(socket.id);
+                curplayer = socket.id;
+            }
             connectedMPClients++;
             players[curplayer].mode = "multiplayer";
-            
+
         }
         console.log("connectedMPClients", connectedMPClients)
     })
@@ -222,23 +314,23 @@ io.on('connection', (socket) => {
         let shipName;
         let valid = true;
         for (const loc of Object.keys(shipLocs)) {
-            if (shipName == null){
+            if (shipName == null) {
                 shipName = shipLocs[loc]
             }
-            if(players[curplayer].board[loc] == 1 ){
+            if (players[curplayer].board[loc] == 1) {
                 socket.emit("InvalidPlacement", "Invalid placement of ship")
                 valid = false;
                 players[curplayer].shipLoc[shipName] = []
                 break;
             }
             players[curplayer].shipLoc[shipName].push(Number(loc))
-          }
-        if(valid){
+        }
+        if (valid) {
             Object.keys(shipLocs).forEach(loc => {
                 players[curplayer].board[loc] = 1;
             });
             socket.emit("shipPlacement", shipLocs)
-            players[curplayer].numplaceShip ++;
+            players[curplayer].numplaceShip++;
         }
     })
     socket.on("shipReplacement", (shipName) => {
@@ -247,7 +339,7 @@ io.on('connection', (socket) => {
         })
         socket.emit("shipReplacement", players[curplayer].shipLoc[shipName])
         players[curplayer].shipLoc[shipName] = []
-        players[curplayer].numplaceShip --;
+        players[curplayer].numplaceShip--;
     })
     socket.on("start", () => {
         if (players[curplayer].mode == "singleplayer" && players[curplayer].start == false) {
@@ -285,36 +377,69 @@ io.on('connection', (socket) => {
     })
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
-            case 1:
+            case 1: {
                 curplayer.numHits++;
                 players[opponent].board[pos] = 2;
                 const result = checkShip(opponent, pos);
-                if (result == "normal") {
-                    socket.emit("hit", pos)
+                const { row, col } = getRowAndColumn(pos);
+                socket.emit("hit", pos)
+                players[curplayer].messages.push(hitMessage(row, col));
+                socket.emit("message", players[curplayer].messages);
+                if (players[curplayer].mode == "multiplayer") {
                     io.to(opponent).emit("ohit", pos)
+                    players[opponent].messages.push(ohitMessage(row,col));
+                    io.to(opponent).emit("message", players[opponent].messages)
                 }
-                else {
+
+                if (result != "normal") {
                     players[curplayer].numDestroyShip++;
                     socket.emit("destroy", result);
-                    io.to(opponent).emit("ohit", pos)
+                    players[curplayer].messages.push(destroyMessage(result[0]))
+                    socket.emit("message",players[curplayer].messages)
+                    if (players[curplayer].mode == "multiplayer") {
+                        players[opponent].messages.push(odestroyMessage(result[0]))
+                        io.to(opponent).emit("message", players[opponent].messages)
+                    }
                 }
+
                 if (players[curplayer].numDestroyShip == 5) {
                     socket.emit("win", "You win!");
                     io.to(opponent).emit("owin", "Your opponent has won, you loss")
                 }
                 break;
+            }
             case 2:
             case 3:
                 socket.emit('InvalidAttack', "This location is not available to attack")
                 break;
-            case 0:
+            case 0: {
+                const { row, col } = getRowAndColumn(pos);
                 players[opponent].board[pos] = 3;
                 curplayer.numMisses++;
                 socket.emit('miss', pos);
-                players[curplayer].mode == "singleplayer" ? computerMove(curplayer, socket, opponent) : io.to(opponent).emit("omiss", pos), io.to(opponent).emit("turn", "Your opponent miss, it's your turn to attack")
+                players[curplayer].messages.push(missMessage(row, col))
+                socket.emit("message",players[curplayer].messages)
+                console.log(players[curplayer].mode == "singleplayer")
+                players[curplayer].mode == "singleplayer"
+                ? computerMove(curplayer, socket, opponent)
+                : (
+                    io.to(opponent).emit("omiss", pos),
+                    io.to(opponent).emit("turn", "Your opponent missed, it's your turn to attack"),
+                    players[opponent].messages.push(omissMessage(row, col)),
+                    io.to(opponent).emit("message", players[opponent].messages)
+                  );                
                 break;
+            }
         }
     })
+    socket.on('message', (message) => {
+        players[curplayer].messages.push("You: ", message); // Save the new message to the session messages
+        socket.emit("message", players[curplayer].messages)
+        if (players[curplayer].mode == "multiplayer") {
+            players[opponent].messages.push("Opponent: ", message);
+            io.to(opponent).emit("message", players[opponent].messages)
+        }
+    });
     socket.on('disconnect', () => {
         console.log(`Client ${socket.id} disconnected`);
         if (curplayer != null) {

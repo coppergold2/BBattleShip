@@ -18,6 +18,9 @@ const App = () => {
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
   const [isFlipped, setIsFlipped] = useState(false);
   const [shipLocHover, setShipLocHover] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -48,6 +51,8 @@ const App = () => {
       setIsFlipped(false);
       setShipLocHover(null);
       setActiveShip(null);
+      setMessages([]);
+      setInput('');
     });
     socket.current.on("oquit", (msg) => {
       setInfo(msg);
@@ -62,9 +67,14 @@ const App = () => {
       setIsFlipped(false);
       setShipLocHover(null);
       setActiveShip(null);
+      setMessages([]);
+      setInput('');
       socket.current.emit("oquit");
     })
     socket.current.on("id", (id) => { document.title = id })
+    socket.current.on("message", (messages) => {
+      setMessages(messages);
+    })
     socket.current.on('randomresult', (shipLoc) => {
       setPbCellClass((oldClass) => {
         const newCellClass = oldClass.map((cell) => ({
@@ -333,6 +343,16 @@ const App = () => {
     setShipLocHover(null);
   }
 
+  const sendMessage = () => {
+    if (input.trim()) {
+      const message = input.trim();
+      socket.current.emit('message', message);
+      setInput('');
+    }
+  }
+  const handleInputChange = (msg) => {
+    setInput(msg);
+  }
   if (serverDown) {
     return <h1>The server is down</h1>;
   }
@@ -352,26 +372,32 @@ const App = () => {
           <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
         </div>
       ) :
-        (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull ) ?
+        (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
           <Game
             socket={socket.current}
-            start={start} 
+            multiPlayer={multiPlayer} mult
+            start={start}
             turn={turn}
             pbCellClass={pbCellClass}
             obCellClass={obCellClass}
             placedShips={placedShips}
             activeShip={activeShip}
             shipLocHover={shipLocHover}
+            messages={messages}
+            input={input}
+            isFlipped={isFlipped}
             handleRandomPlacement={handleRandomPlacement}
             handleShipOptionClick={handleShipOptionClick}
-            handleCellClick={handleCellClick} 
+            handleCellClick={handleCellClick}
             handleShipPlacement={handleShipPlacement}
             handleShipReplacement={handleShipReplacement}
             handleHoverOut={handleHoverOut}
             handleShipHover={handleShipHover}
             flipBoat={flipBoat}
-            isFlipped={isFlipped}/> :
-            <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
+            sendMessage={sendMessage}
+            handleInputChange={handleInputChange}
+          /> :
+          <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
       }
     </>
   );

@@ -23,27 +23,57 @@ h1 {
   display: flex;
   justify-content: space-evenly;
   width: 100%;
-  margin-top: 100px;
+  margin-top: 30px;
 }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(10, 39px);
-  grid-template-rows: repeat(10, 39px);
+  grid-template-columns: 30px repeat(10, 39px);
+  grid-template-rows: 30px repeat(10, 39px);
   gap: 2px;
+}
+
+.corner {
+  grid-column: 1 / 2;
+  grid-row: 1 / 2;
+}
+
+.column-header {
+  grid-column: span 1;
+  grid-row: 1 / 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: lightgray;
+  border: 1px solid navy;
+}
+
+.row-header {
+  grid-column: 1 / 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: lightgray;
+  border: 1px solid navy;
 }
 
 .cell {
   background-color: lightblue;
   border: 1px solid navy;
+  grid-column: span 1;
+  grid-row: span 1;
 }
 
 .grab{
   cursor: pointer;
 }
 
-.hover{
-  opacity: 0.8;
+.hover {
+  opacity: 0.9; /* Slightly transparent to indicate hover */
+  background-color: rgba(0, 123, 255, 0.3); /* Light blue background with transparency */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Soft shadow around the cell */
+  border-radius: 5px; /* Slightly rounded corners */
+  transition: all 0.2s ease-in-out; /* Smooth transition effect */
 }
 
 
@@ -52,6 +82,8 @@ h1 {
   justify-content: space-evenly;
   height: 200px;
   align-items: center;
+  margin-top: 50px;
+  
 }
 
 .ship-option {
@@ -59,6 +91,7 @@ h1 {
   border: 1px solid rgb(115, 250, 4);
   border-radius: 100px;
   cursor: move;
+  transition: all 0.3s ease-in-out; /* Smooth transition for the effects */
 }
 
 .ship-option.destroyer{
@@ -137,10 +170,16 @@ button:hover {
 
 .ship-option.flipped {
   transform: rotate(90deg);
+  
 }
 
-.dragging{
+.selected {
   margin-bottom: 50px;
+  background-color: rgba(0, 123, 255, 0.2); /* Light blue background */
+  border: 2px solid #007bff; /* Solid blue border */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Soft blue glow */
+  transform: scale(1.05); /* Slightly scale up to emphasize selection */
+  transition: all 0.3s ease-in-out; /* Smooth transition for the effects */
 }
 
 .boom{

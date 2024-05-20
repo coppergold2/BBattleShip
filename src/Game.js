@@ -3,8 +3,10 @@ import Board from './Board';
 import ShipOptions from './ShipOption';
 import './App.css'
 import Buttons from './Buttons'
+import Chat from './Chat'
 const Game = ({ 
   socket, 
+  multiPlayer,
   start, 
   turn, 
   activeShip, 
@@ -12,7 +14,9 @@ const Game = ({
   obCellClass, 
   isFlipped,
   placedShips,
-  shipLocHover, 
+  shipLocHover,
+  messages,
+  input, 
   handleRandomPlacement, 
   handleCellClick, 
   handleShipPlacement, 
@@ -20,11 +24,12 @@ const Game = ({
   handleHoverOut, 
   handleShipReplacement, 
   handleShipOptionClick, 
-  handleShipHover}) => {
+  handleShipHover,
+  sendMessage,
+  handleInputChange}) => {
 
   return (
     <>
-      <>
         <div className='boards'>
           <Board className="player-board" 
           turn = {turn} 
@@ -38,9 +43,10 @@ const Game = ({
           handleShipHover = {handleShipHover}/>
           {start && <Board className="opponent-board" handleCellClick={handleCellClick} turn={turn} obCellClass={obCellClass} />}
         </div>
-        <ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick = {handleShipOptionClick} />
-        <Buttons start = {start} socket={socket} handleRandomPlacement = {handleRandomPlacement} flipBoat = {flipBoat} isFlipped = {isFlipped}/>
-      </>
+        {start == false && 
+        (<><ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick = {handleShipOptionClick} />
+        <Buttons start = {start} socket={socket} handleRandomPlacement = {handleRandomPlacement} flipBoat = {flipBoat} isFlipped = {isFlipped}/></>)}
+        {start && <Chat messages={messages} input={input} sendMessage={sendMessage} handleInputChange={handleInputChange} multiPlayer = {multiPlayer}/>}
     </>
   );
 };
