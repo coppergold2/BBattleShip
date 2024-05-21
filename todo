@@ -1,0 +1,6 @@
+if this is any miss
+    then update the possHitLoc board by checking all four direction of that miss location by the current min size ship
+if this is a miss but it is a miss when hitLocs is not null (this means that it is current trying to eliminate the hitLocs[0] element's ship/aka the origin ship it is trying to hit)
+    then set the curHitDirection's direction in hitDirection to -1 and try another direction in the hitDrections that is not -1 in the next try
+if this is a hit but hitLocs is null
+    then 

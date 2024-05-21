@@ -69,11 +69,10 @@ class Computer {
         this.numDestroyShip = 0;
         this.numHits = 0;
         this.numMisses = 0;
-        this.PossibleHitLoc = Array(100).fill(1);
-        this.hitLoc = [];
-        this.hitDirections = [0, 0, 0, 0];  // north, west, south, east
-        this.hitDirection = null; // contain the direction of hit and track the current hit locations
-        this.originHit = null;
+        this.PossibleHitLocs = Array(100).fill(1);
+        this.hitLocs = [];
+        this.possHitDirections = [-1,-1,-1,-1] // north, west, south, east
+        this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
         this.OpponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
     }
     displayGrid() {
@@ -153,7 +152,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 const findHitTarget = (computer) => {
-    players[computer].originHit = players[computer].hitLoc[0];
+    players[computer].originHit = players[computer].hitLocs[0];
 
 }
 function isValidSameRow(cellIndex, shipLength) {
@@ -182,7 +181,7 @@ function getRandomIndexWithOneValue(arr) {
   }
 
 const computerMove = (user, socket, computer) => {
-    if (players[computer].hitLoc.length != 0 && players[computer].originHit != null) {
+    if (players[computer].hitLocs.length != 0 && players[computer].originHit != null) {
 
     }
     let randomGo = Math.floor(Math.random() * width * width)
@@ -192,7 +191,7 @@ const computerMove = (user, socket, computer) => {
     else if (players[user].board[randomGo] === 0) {
         players[user].board[randomGo] = 3;
         players[computer].numMisses++;
-        players[computer].PossibleHitLoc[randomGo] = 0;
+        players[computer].PossibleHitLocs[randomGo] = 0;
         socket.emit("omiss", randomGo)
         const { row, col } = getRowAndColumn(randomGo);
         players[user].messages.push(omissMessage(row, col))
@@ -202,9 +201,9 @@ const computerMove = (user, socket, computer) => {
     else if (players[user].board[randomGo] === 1) {
         players[user].board[randomGo] = 2;
         players[computer].numHits++;
-        players[computer].hitLoc.push(randomGo);
-        console.log("hitLoc", players[computer].hitLoc)
-        players[computer].PossibleHitLoc[randomGo] = 0;
+        players[computer].hitLocs.push(randomGo);
+        console.log("hitLocs", players[computer].hitLocs)
+        players[computer].PossibleHitLocs[randomGo] = 0;
         socket.emit("ohit", randomGo)
         const { row, col } = getRowAndColumn(randomGo);
         players[user].messages.push(ohitMessage(row, col))
@@ -292,9 +291,9 @@ const checkForMPOpponent = ((curplayer) => {
 })
 
 const removeDestroyShipLoc = (computer, destroyShip) => {
-    for (let i = players[computer].hitLoc.length - 1; i >= 0; i--) {
-        if (destroyShip[1].includes(players[computer].hitLoc[i])) {
-            players[computer].hitLoc.splice(i, 1);
+    for (let i = players[computer].hitLocs.length - 1; i >= 0; i--) {
+        if (destroyShip[1].includes(players[computer].hitLocs[i])) {
+            players[computer].hitLocs.splice(i, 1);
         }
     }
 }
