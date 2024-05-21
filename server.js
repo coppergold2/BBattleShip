@@ -69,6 +69,7 @@ class Computer {
         this.numDestroyShip = 0;
         this.numHits = 0;
         this.numMisses = 0;
+        this.PossibleHitLoc = Array(100).fill(1);
         this.hitLoc = [];
         this.hitDirections = [0, 0, 0, 0];  // north, west, south, east
         this.hitDirection = null; // contain the direction of hit and track the current hit locations
@@ -171,9 +172,18 @@ const checkHorizontal = (cellIndex, shipLength) => {
 const checkVertical = (cellIndex, shiplength) => {
 
 }
+
+function getRandomIndexWithOneValue(arr) {
+    let randomIndex;
+    do {
+      randomIndex = Math.floor(Math.random() * arr.length);
+    } while (arr[randomIndex] !== 1);
+    return randomIndex;
+  }
+
 const computerMove = (user, socket, computer) => {
-    if (players[computer].hitLoc.length != 0 && players[computer].hitDirection == null) {
-        
+    if (players[computer].hitLoc.length != 0 && players[computer].originHit != null) {
+
     }
     let randomGo = Math.floor(Math.random() * width * width)
     if ([2, 3].includes(players[user].board[randomGo])) {
@@ -182,6 +192,7 @@ const computerMove = (user, socket, computer) => {
     else if (players[user].board[randomGo] === 0) {
         players[user].board[randomGo] = 3;
         players[computer].numMisses++;
+        players[computer].PossibleHitLoc[randomGo] = 0;
         socket.emit("omiss", randomGo)
         const { row, col } = getRowAndColumn(randomGo);
         players[user].messages.push(omissMessage(row, col))
@@ -193,6 +204,7 @@ const computerMove = (user, socket, computer) => {
         players[computer].numHits++;
         players[computer].hitLoc.push(randomGo);
         console.log("hitLoc", players[computer].hitLoc)
+        players[computer].PossibleHitLoc[randomGo] = 0;
         socket.emit("ohit", randomGo)
         const { row, col } = getRowAndColumn(randomGo);
         players[user].messages.push(ohitMessage(row, col))
