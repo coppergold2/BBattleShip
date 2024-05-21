@@ -72,6 +72,7 @@ class Computer {
         this.hitLoc = [];
         this.hitDirections = [0, 0, 0, 0];  // north, west, south, east
         this.hitDirection = null; // contain the direction of hit and track the current hit locations
+        this.originHit = null;
         this.OpponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
     }
     displayGrid() {
@@ -150,9 +151,29 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
+const findHitTarget = (computer) => {
+    players[computer].originHit = players[computer].hitLoc[0];
+
+}
+function isValidSameRow(cellIndex, shipLength) {
+    // Calculate the row number of the given cell
+    var rowOfCell = Math.floor(cellIndex / 10);
+    // Calculate the row number of the cell two places to the left
+    var rowOfLeftCell = Math.floor((cellIndex - shipLength) / 10);
+    // Check if the two cells are in the same row and the left cell is valid
+    return rowOfCell === rowOfLeftCell && cellIndex - shipLength >= 0;
+}
+
+const checkHorizontal = (cellIndex, shipLength) => {
+    
+}
+
+const checkVertical = (cellIndex, shiplength) => {
+
+}
 const computerMove = (user, socket, computer) => {
     if (players[computer].hitLoc.length != 0 && players[computer].hitDirection == null) {
-
+        
     }
     let randomGo = Math.floor(Math.random() * width * width)
     if ([2, 3].includes(players[user].board[randomGo])) {

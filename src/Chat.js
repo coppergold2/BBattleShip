@@ -23,12 +23,13 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) 
       </div>
       {multiPlayer && (
         <div>
-          <input
+          <textarea
             type="text"
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
+                e.preventDefault(); // Prevents the addition of a new line when pressing 'Enter'
                 sendMessage();
               }
             }}
