@@ -69,7 +69,7 @@ class Computer {
         this.numDestroyShip = 0;
         this.numHits = 0;
         this.numMisses = 0;
-        this.PossibleHitLocs = Array(100).fill(1);
+        this.possibleHitLocs = Array(100).fill(1);
         this.hitLocs = [];
         this.possHitDirections = [-1,-1,-1,-1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
@@ -151,26 +151,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
-const findHitTarget = (computer) => {
-    players[computer].originHit = players[computer].hitLocs[0];
 
-}
-function isValidSameRow(cellIndex, shipLength) {
-    // Calculate the row number of the given cell
-    var rowOfCell = Math.floor(cellIndex / 10);
-    // Calculate the row number of the cell two places to the left
-    var rowOfLeftCell = Math.floor((cellIndex - shipLength) / 10);
-    // Check if the two cells are in the same row and the left cell is valid
-    return rowOfCell === rowOfLeftCell && cellIndex - shipLength >= 0;
-}
-
-const checkHorizontal = (cellIndex, shipLength) => {
-    
-}
-
-const checkVertical = (cellIndex, shiplength) => {
-
-}
 
 function getRandomIndexWithOneValue(arr) {
     let randomIndex;
@@ -180,18 +161,22 @@ function getRandomIndexWithOneValue(arr) {
     return randomIndex;
   }
 
-const computerMove = (user, socket, computer) => {
-    if (players[computer].hitLocs.length != 0 && players[computer].originHit != null) {
-
-    }
-    let randomGo = Math.floor(Math.random() * width * width)
-    if ([2, 3].includes(players[user].board[randomGo])) {
-        computerMove(user, socket, computer);
-    }
-    else if (players[user].board[randomGo] === 0) {
-        players[user].board[randomGo] = 3;
+const handleAIMiss = (computer, loc) => {
         players[computer].numMisses++;
-        players[computer].PossibleHitLocs[randomGo] = 0;
+        players[computer].possibleHitLocs[loc] = 0;
+        if (players[computer].hitLocs.length != 0){
+            players[computer].
+        }
+}
+
+const computerMove = (user, socket, computer) => {
+    if(players[computer].hitLocs.length == 0){
+    const randomGo = getRandomIndexWithOneValue(players[computer].possibleHitLocs)
+    players[computer].possibleHitLocs[randomGo] = 0;
+
+    if (players[user].board[randomGo] === 0) {
+        players[user].board[randomGo] = 3;
+        handleAIMiss(computer, randomGo)
         socket.emit("omiss", randomGo)
         const { row, col } = getRowAndColumn(randomGo);
         players[user].messages.push(omissMessage(row, col))
@@ -203,7 +188,7 @@ const computerMove = (user, socket, computer) => {
         players[computer].numHits++;
         players[computer].hitLocs.push(randomGo);
         console.log("hitLocs", players[computer].hitLocs)
-        players[computer].PossibleHitLocs[randomGo] = 0;
+        players[computer].possibleHitLocs[randomGo] = 0;
         socket.emit("ohit", randomGo)
         const { row, col } = getRowAndColumn(randomGo);
         players[user].messages.push(ohitMessage(row, col))
@@ -227,9 +212,6 @@ const computerMove = (user, socket, computer) => {
     }
 }
 
-const smartComputerMove = (computer) => {
-
-}
 
 const randomBoatPlacement = (user) => {
     players[user].board = Array(100).fill(0);

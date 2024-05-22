@@ -1,6 +1,17 @@
 if this is any miss
-    then update the possHitLoc board by checking all four direction of that miss location by the current min size ship
+    then set the possHitLocs board of this location to 0 and update the possHitLocs board by checking all four direction of that miss location by the current min size ship
 if this is a miss but it is a miss when hitLocs is not null (this means that it is current trying to eliminate the hitLocs[0] element's ship/aka the origin ship it is trying to hit)
     then set the curHitDirection's direction in hitDirection to -1 and try another direction in the hitDrections that is not -1 in the next try
-if this is a hit but hitLocs is null
-    then 
+if this is a hit but hitLocs is null (this means that a new hit is found and has no previous hit or those previous hits has been destroyed)
+    then add this location to hitLocs and also change possHitLocs of this location to 0 (since it is hit already), update the possHitDirections and pick a direction in possHitDirections randomly and 
+    set the direction to the curHitDirection.
+if this is a hit but hitLocs is not null (this means that the currentHitDirection is sucessful)
+    then add this location to hitLocs and change possHitLocs of this location to 0, and update the possHitDirections of the curHitDirection and hit that position
+if this is destroyed 
+    then remove all the destroyed ship element from hitLocs and check if the destroyed ship makes the minSizeShip change
+        if the miniSizeShip change
+            then re-check the possHitLocs for all location that is 1
+    if hitLocs is null
+        then reset curHitDirection, posshitDirections, and choose a random hit postion based on possHitLocs
+    if hitLocs is not null
+        then set possHitDirections based on hitLocs[0] and pick a curHitDirection and hit that.
