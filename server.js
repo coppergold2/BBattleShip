@@ -163,8 +163,11 @@ function getRandomIndexWithOneValue(arr) {
 
 const handleAIMiss = (computer, loc) => {
     players[computer].numMisses++;
-    if (players[computer].curHitDirection != null){
-        players[computer].possHitDirections[curHitDirection] = -1;
+    if (players[computer].possHitDirections.some(element => element !== -1)){
+        if(players[computer].curHitDirection != null){
+            players[computer].possHitDirections[players[computer].curHitDirection] = -1;
+        }
+        players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
     }
 }
 
@@ -182,6 +185,49 @@ const handleAIHit = (computer, loc) => {
                 if (loc - cols >= 0 && players[computer].possibleHitLocs[loc - cols] == 1) {
                     players[computer].possHitDirections[0] = loc - cols
                 }
+                else {
+                    players[computer].possHitDirections[0] = -1;
+                    if (players[computer].possHitDirections[2] != -1){
+                        players[computer].curHitDirection = 2;
+                    }
+                }
+                break;
+            case 1:
+                if (loc % cols !== 0 && players[computer].possibleHitLocs[loc - 1] == 1) {
+                    players[computer].possHitDirections[1] = loc - 1
+                }
+                else {
+                    players[computer].possHitDirections[1] = -1;
+                    if (players[computer].possHitDirections[3] != -1){
+                        players[computer].curHitDirection = 3
+                    }
+                }
+                break;
+            case 2:
+                if (loc + cols < 100 && players[computer].possibleHitLocs[loc + cols] == 1) { 
+                    players[computer].possHitDirections[2] = loc + cols
+                }
+                else {
+                    players[computer].possHitDirections[2] = -1;
+                    if (players[computer].possHitDirections[0] != -1){
+                        players[computer].curHitDirection = 0;
+                    }
+                }
+                break;
+            case 3:
+                if ((loc + 1) % cols !== 0 && players[computer].possibleHitLocs[loc + 1] == 1) {
+                    players[computer].possHitDirections[3] = loc + 1
+                }
+                else {
+                    players[computer].possHitDirections[3] = -1;
+                    if (players[computer].possHitDirections[1] != -1){
+                        players[computer].curHitDirection = 1;
+                    }
+                }
+                break;
+        }
+        if (players[computer].possHitDirections[players[computer].curHitDirection] == -1 ){
+            players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
         }
     }
 }
