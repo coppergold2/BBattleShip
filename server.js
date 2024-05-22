@@ -73,7 +73,7 @@ class Computer {
         this.hitLocs = [];
         this.possHitDirections = [-1, -1, -1, -1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
-        this.OpponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
+        this.opponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
     }
     displayGrid() {
         let board = this.board;
@@ -163,7 +163,8 @@ function getRandomIndexWithOneValue(arr) {
 
 const handleAIMiss = (computer, loc) => {
     players[computer].numMisses++;
-    if (players[computer].hitLocs.length != 0) {
+    if (players[computer].curHitDirection != null){
+        players[computer].possHitDirections[curHitDirection] = -1;
     }
 }
 
@@ -171,34 +172,99 @@ const handleAIHit = (computer, loc) => {
     players[computer].numHits++;
     players[computer].hitLocs.push(loc);
     if(players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
-        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possHitDirections);
-
+        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possHitDirections, players[computer].opponentShipRemain[minSizeShip]);
+        players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
     }
-    else if (!players[computer].possHitDirections.some(element => element !== -1)) {
-        
+    else if(players[computer].curHitDirection != null) {
+        const cols = 10;
+        switch(players[computer].curHitDirection) {
+            case 0:
+                if (loc - cols >= 0 && players[computer].possibleHitLocs[loc - cols] == 1) {
+                    players[computer].possHitDirections[0] = loc - cols
+                }
+        }
     }
 }
 
-function getAdjacentCells(cellIndex, possibleHitLocs) {
+function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // check each of the cell within the minSizeShip
     const cols = 10;
-    const above = cellIndex - cols >= 0 && possibleHitLocs[cellIndex - cols] == 1 ? cellIndex - cols : -1;
-    const below = cellIndex + cols < 100 && possibleHitLocs[cellIndex + cols] == 1? cellIndex + cols : -1;
-    const left = cellIndex % cols !== 0 && possibleHitLocs[cellIndex - 1] == 1? cellIndex - 1 : -1;
-    const right = (cellIndex + 1) % cols !== 0 && possibleHitLocs[cellIndex + 1] == 1 ? cellIndex + 1 : -1;
-    return [ above, below, left, right ];
+    let horiPoss = 1;
+    let vertPoss = 1;
+    let temp = cellIndex;
+    while(horiPoss < minSizeShip){  // check west    
+        if (temp % cols !== 0 && possibleHitLocs[temp - 1] == 1){
+            horiPoss += 1;
+            temp -= 1;
+        }
+        else{
+            break;
+        }
+    }
+    temp = cellIndex;
+    while(horiPoss < minSizeShip){  //check east
+        if ((temp + 1) % cols !== 0 && possibleHitLocs[temp + 1] == 1){
+            horiPoss += 1;
+            temp += 1;
+        }
+        else{
+            break;
+        }
+    }
+    temp = cellIndex;
+    while(vertPoss < minSizeShip){ // check norht
+        if(temp - cols >= 0 && possibleHitLocs[temp - cols] == 1){
+            vertPoss +=1;
+            temp -= cols;
+        }
+        else{
+            break;
+        }
+    }
+    temp = cellIndex;
+    while(vertPoss < minSizeShip){ // check south
+        if(temp + cols < 100 && possibleHitLocs[temp + cols] == 1){
+            vertPoss +=1;
+            temp += cols;
+        }
+    }
+    const above = cellIndex - cols >= 0 && possibleHitLocs[cellIndex - cols] == 1 && vertPoss == minSizeShip ? cellIndex - cols : -1;
+    const below = cellIndex + cols < 100 && possibleHitLocs[cellIndex + cols] == 1 && vertPoss == minSizeShip ? cellIndex + cols : -1;
+    const left = cellIndex % cols !== 0 && possibleHitLocs[cellIndex - 1] == 1 && horiPoss == minSizeShip ? cellIndex - 1 : -1;
+    const right = (cellIndex + 1) % cols !== 0 && possibleHitLocs[cellIndex + 1] == 1 && horiPoss == minSizeShip ? cellIndex + 1 : -1;
+    return [ above, left, below , right ];
+}
+const pickDirection = (possHitDirections) => {
+    const numDirRemain = possHitDirections.filter(element => element === -1).length;
+    return numDirRemain == 1 ? possHitDirections.findIndex(element => element !== -1) : randomIndexNonMinusOne(possHitDirections)
 }
 
-const nextLocDir = (possHitDirections, curHitDirection) => {
-                               
-}
+function randomIndexNonMinusOne(arr) {
+    // Filter out elements that are -1
+    const nonMinusOneElements = arr.filter(element => element !== -1);
+  
+    // Check if there are any non-minus-one elements
+    if (!nonMinusOneElements.length) {
+      return "There are no elements other than -1 in the array.";
+    }
+  
+    // Generate a random index within the bounds of the filtered array
+    const randomIndex = Math.floor(Math.random() * nonMinusOneElements.length);
+  
+    // Return the original index corresponding to the random non-minus-one element
+    return arr.indexOf(nonMinusOneElements[randomIndex]);
+  }
+  
+
 const computerMove = (user, socket, computer) => {
     let hitPos;
     if (players[computer].hitLocs.length == 0) {
         hitPos = getRandomIndexWithOneValue(players[computer].possibleHitLocs)
-        players[computer].possibleHitLocs[hitPos] = 0;
     }
-
-    if (players[user].board[hitPos] === 0) {
+    else if (players[computer].curHitDirection != null) {
+        hitPos = players[computer].possHitDirections[players[computer].curHitDirection]
+    }
+    players[computer].possibleHitLocs[hitPos] = 0;
+    if (players[user].board[hitPos] === 0) {  // miss
         players[user].board[hitPos] = 3;
         handleAIMiss(computer, hitPos)
         socket.emit("omiss", hitPos)
@@ -207,7 +273,7 @@ const computerMove = (user, socket, computer) => {
         socket.emit("message", players[user].messages)
         socket.emit("turn", "Your turn to attack")
     }
-    else if (players[user].board[hitPos] === 1) {
+    else if (players[user].board[hitPos] === 1) { // hit
         players[user].board[hitPos] = 2;
         handleAIHit(computer, hitPos)
         socket.emit("ohit", hitPos)
@@ -215,7 +281,7 @@ const computerMove = (user, socket, computer) => {
         players[user].messages.push(ohitMessage(row, col))
         socket.emit("message", players[user].messages)
         const result = checkShip(user, hitPos);
-        if (result != "normal") {
+        if (result != "normal") {  // destroy
             players[computer].numDestroyShip++;
             players[user].messages.push(odestroyMessage(result[0]))
             socket.emit("message", players[user].messages)
