@@ -71,7 +71,7 @@ class Computer {
         this.numMisses = 0;
         this.possibleHitLocs = Array(100).fill(1);
         this.hitLocs = [];
-        this.possHitDirections = [-1,-1,-1,-1] // north, west, south, east
+        this.possHitDirections = [-1, -1, -1, -1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
         this.OpponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
     }
@@ -111,7 +111,7 @@ const ohitMessage = (col, row) => {
     return "Opponent hit at row " + row + " column " + col + "."
 }
 const destroyMessage = (shipName) => {
-    return "You sunk the "+ shipName + " ship" + "."
+    return "You sunk the " + shipName + " ship" + "."
 }
 const odestroyMessage = (shipName) => {
     return "Opponent sunk the " + shipName + " ship" + "."
@@ -156,46 +156,69 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 function getRandomIndexWithOneValue(arr) {
     let randomIndex;
     do {
-      randomIndex = Math.floor(Math.random() * arr.length);
+        randomIndex = Math.floor(Math.random() * arr.length);
     } while (arr[randomIndex] !== 1);
     return randomIndex;
-  }
-
-const handleAIMiss = (computer, loc) => {
-        players[computer].numMisses++;
-        players[computer].possibleHitLocs[loc] = 0;
-        if (players[computer].hitLocs.length != 0){
-            players[computer].
-        }
 }
 
-const computerMove = (user, socket, computer) => {
-    if(players[computer].hitLocs.length == 0){
-    const randomGo = getRandomIndexWithOneValue(players[computer].possibleHitLocs)
-    players[computer].possibleHitLocs[randomGo] = 0;
+const handleAIMiss = (computer, loc) => {
+    players[computer].numMisses++;
+    if (players[computer].hitLocs.length != 0) {
+    }
+}
 
-    if (players[user].board[randomGo] === 0) {
-        players[user].board[randomGo] = 3;
-        handleAIMiss(computer, randomGo)
-        socket.emit("omiss", randomGo)
-        const { row, col } = getRowAndColumn(randomGo);
+const handleAIHit = (computer, loc) => {
+    players[computer].numHits++;
+    players[computer].hitLocs.push(loc);
+    if(players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
+        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possHitDirections);
+
+    }
+    else if (!players[computer].possHitDirections.some(element => element !== -1)) {
+        
+    }
+}
+
+function getAdjacentCells(cellIndex, possibleHitLocs) {
+    const cols = 10;
+    const above = cellIndex - cols >= 0 && possibleHitLocs[cellIndex - cols] == 1 ? cellIndex - cols : -1;
+    const below = cellIndex + cols < 100 && possibleHitLocs[cellIndex + cols] == 1? cellIndex + cols : -1;
+    const left = cellIndex % cols !== 0 && possibleHitLocs[cellIndex - 1] == 1? cellIndex - 1 : -1;
+    const right = (cellIndex + 1) % cols !== 0 && possibleHitLocs[cellIndex + 1] == 1 ? cellIndex + 1 : -1;
+    return [ above, below, left, right ];
+}
+
+const nextLocDir = (possHitDirections, curHitDirection) => {
+                               
+}
+const computerMove = (user, socket, computer) => {
+    let hitPos;
+    if (players[computer].hitLocs.length == 0) {
+        hitPos = getRandomIndexWithOneValue(players[computer].possibleHitLocs)
+        players[computer].possibleHitLocs[hitPos] = 0;
+    }
+
+    if (players[user].board[hitPos] === 0) {
+        players[user].board[hitPos] = 3;
+        handleAIMiss(computer, hitPos)
+        socket.emit("omiss", hitPos)
+        const { row, col } = getRowAndColumn(hitPos);
         players[user].messages.push(omissMessage(row, col))
         socket.emit("message", players[user].messages)
         socket.emit("turn", "Your turn to attack")
     }
-    else if (players[user].board[randomGo] === 1) {
-        players[user].board[randomGo] = 2;
-        players[computer].numHits++;
-        players[computer].hitLocs.push(randomGo);
-        console.log("hitLocs", players[computer].hitLocs)
-        players[computer].possibleHitLocs[randomGo] = 0;
-        socket.emit("ohit", randomGo)
-        const { row, col } = getRowAndColumn(randomGo);
+    else if (players[user].board[hitPos] === 1) {
+        players[user].board[hitPos] = 2;
+        handleAIHit(computer, hitPos)
+        socket.emit("ohit", hitPos)
+        const { row, col } = getRowAndColumn(hitPos);
         players[user].messages.push(ohitMessage(row, col))
         socket.emit("message", players[user].messages)
-        const result = checkShip(user, randomGo);
+        const result = checkShip(user, hitPos);
         if (result != "normal") {
             players[computer].numDestroyShip++;
+            players[user].messages.push(odestroyMessage(result[0]))
+            socket.emit("message", players[user].messages)
             if (players[computer].numDestroyShip == 5) {
                 socket.emit("owin", "Your computer/robot has won, shame!");
             }
@@ -203,8 +226,6 @@ const computerMove = (user, socket, computer) => {
                 removeDestroyShipLoc(computer, result);
                 computerMove(user, socket, computer);
             }
-            players[user].messages.push(odestroyMessage(result[0]))
-            socket.emit("message", players[user].messages)
         }
         else {
             computerMove(user, socket, computer);
@@ -399,7 +420,7 @@ io.on('connection', (socket) => {
                 socket.emit("message", players[curplayer].messages);
                 if (players[curplayer].mode == "multiplayer") {
                     io.to(opponent).emit("ohit", pos)
-                    players[opponent].messages.push(ohitMessage(row,col));
+                    players[opponent].messages.push(ohitMessage(row, col));
                     io.to(opponent).emit("message", players[opponent].messages)
                 }
 
@@ -407,7 +428,7 @@ io.on('connection', (socket) => {
                     players[curplayer].numDestroyShip++;
                     socket.emit("destroy", result);
                     players[curplayer].messages.push(destroyMessage(result[0]))
-                    socket.emit("message",players[curplayer].messages)
+                    socket.emit("message", players[curplayer].messages)
                     if (players[curplayer].mode == "multiplayer") {
                         players[opponent].messages.push(odestroyMessage(result[0]))
                         io.to(opponent).emit("message", players[opponent].messages)
@@ -430,16 +451,16 @@ io.on('connection', (socket) => {
                 curplayer.numMisses++;
                 socket.emit('miss', pos);
                 players[curplayer].messages.push(missMessage(row, col))
-                socket.emit("message",players[curplayer].messages)
+                socket.emit("message", players[curplayer].messages)
                 console.log(players[curplayer].mode == "singleplayer")
                 players[curplayer].mode == "singleplayer"
-                ? computerMove(curplayer, socket, opponent)
-                : (
-                    io.to(opponent).emit("omiss", pos),
-                    io.to(opponent).emit("turn", "Your opponent missed, it's your turn to attack"),
-                    players[opponent].messages.push(omissMessage(row, col)),
-                    io.to(opponent).emit("message", players[opponent].messages)
-                  );                
+                    ? computerMove(curplayer, socket, opponent)
+                    : (
+                        io.to(opponent).emit("omiss", pos),
+                        io.to(opponent).emit("turn", "Your opponent missed, it's your turn to attack"),
+                        players[opponent].messages.push(omissMessage(row, col)),
+                        io.to(opponent).emit("message", players[opponent].messages)
+                    );
                 break;
             }
         }

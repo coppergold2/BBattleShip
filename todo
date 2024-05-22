@@ -15,3 +15,5 @@ if this is destroyed
         then reset curHitDirection, posshitDirections, and choose a random hit postion based on possHitLocs
     if hitLocs is not null
         then set possHitDirections based on hitLocs[0] and pick a curHitDirection and hit that.
+
+The criteria to make to check a cell is not a possble hit location is 
