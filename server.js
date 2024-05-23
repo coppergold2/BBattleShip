@@ -172,10 +172,13 @@ const handleAIMiss = (computer, loc) => {
 }
 
 const handleAIHit = (computer, loc) => {
+    
     players[computer].numHits++;
     players[computer].hitLocs.push(loc);
-    if(players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
-        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possHitDirections, players[computer].opponentShipRemain[minSizeShip]);
+    if(!players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
+
+        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possibleHitLocs, players[computer].opponentShipRemain.minSizeShip);  
+        
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
     }
     else if(players[computer].curHitDirection != null) {
@@ -232,11 +235,20 @@ const handleAIHit = (computer, loc) => {
     }
 }
 
+const handleAIDestroy = (computer, destroyShip) => {
+    removeDestroyShipLoc(computer, destroyShip[1]);
+    players[computer].curHitDirection = null;
+    players[computer].possHitDirections = [-1,-1,-1,-1]
+    if (players[computer].hitLocs.length != 0){
+        handleAIHit(computer, players[computer].hitLocs[0])
+    }
+}
 function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // check each of the cell within the minSizeShip
     const cols = 10;
     let horiPoss = 1;
     let vertPoss = 1;
     let temp = cellIndex;
+    console.log(temp % cols, possibleHitLocs )
     while(horiPoss < minSizeShip){  // check west    
         if (temp % cols !== 0 && possibleHitLocs[temp - 1] == 1){
             horiPoss += 1;
@@ -246,6 +258,7 @@ function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // che
             break;
         }
     }
+    
     temp = cellIndex;
     while(horiPoss < minSizeShip){  //check east
         if ((temp + 1) % cols !== 0 && possibleHitLocs[temp + 1] == 1){
@@ -256,6 +269,7 @@ function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // che
             break;
         }
     }
+    console.log("east")
     temp = cellIndex;
     while(vertPoss < minSizeShip){ // check norht
         if(temp - cols >= 0 && possibleHitLocs[temp - cols] == 1){
@@ -266,13 +280,18 @@ function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // che
             break;
         }
     }
+    console.log("north")
     temp = cellIndex;
     while(vertPoss < minSizeShip){ // check south
         if(temp + cols < 100 && possibleHitLocs[temp + cols] == 1){
             vertPoss +=1;
             temp += cols;
         }
+        else{
+            break;
+        }
     }
+    console.log(vertPoss, horiPoss)
     const above = cellIndex - cols >= 0 && possibleHitLocs[cellIndex - cols] == 1 && vertPoss == minSizeShip ? cellIndex - cols : -1;
     const below = cellIndex + cols < 100 && possibleHitLocs[cellIndex + cols] == 1 && vertPoss == minSizeShip ? cellIndex + cols : -1;
     const left = cellIndex % cols !== 0 && possibleHitLocs[cellIndex - 1] == 1 && horiPoss == minSizeShip ? cellIndex - 1 : -1;
@@ -335,7 +354,7 @@ const computerMove = (user, socket, computer) => {
                 socket.emit("owin", "Your computer/robot has won, shame!");
             }
             else {
-                removeDestroyShipLoc(computer, result);
+                handleAIDestroy(computer, result);
                 computerMove(user, socket, computer);
             }
         }
@@ -407,7 +426,7 @@ const checkForMPOpponent = ((curplayer) => {
 
 const removeDestroyShipLoc = (computer, destroyShip) => {
     for (let i = players[computer].hitLocs.length - 1; i >= 0; i--) {
-        if (destroyShip[1].includes(players[computer].hitLocs[i])) {
+        if (destroyShip.includes(players[computer].hitLocs[i])) {
             players[computer].hitLocs.splice(i, 1);
         }
     }
