@@ -135,6 +135,7 @@ const App = () => {
           }))
       )
       setStart(true)
+      setInfo("You started the game, it's your turn to attack")
     })
     socket.current.on('ostart', () => {
       socket.current.emit("findOpponent");
@@ -157,9 +158,8 @@ const App = () => {
     socket.current.on("not enough ship", (msg) => {
       setInfo(msg)
     })
-    socket.current.on('turn', (msg) => {
+    socket.current.on('turn', () => {
       setTurn(true)
-      setInfo(msg)
     })
     socket.current.on('hit', (pos) => {
       setObCellClass((oldClass) => {
@@ -220,7 +220,7 @@ const App = () => {
         // Return the updated state
         return newCellClass;
       });
-      setInfo("Your oppoenent did not hit your ship this time")
+      setInfo("Your opponent did not hit your ship this time, it's your turn to attack")
     })
     socket.current.on('ohit', (pos) => {
       setPbCellClass((oldClass) => {

@@ -165,8 +165,13 @@ const handleAIMiss = (computer, loc) => {
     players[computer].numMisses++;
     if (players[computer].possHitDirections.some(element => element !== -1)){
         if(players[computer].curHitDirection != null){
-            players[computer].possHitDirections[players[computer].curHitDirection] = -1;
+            players[computer].possHitDirections[players[computer].curHitDirection] = -1;        
+            switch(players[computer].curHitDirection) {
+                case 0: 
+                    
+            }
         }
+
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
     }
 }
@@ -336,7 +341,7 @@ const computerMove = (user, socket, computer) => {
         const { row, col } = getRowAndColumn(hitPos);
         players[user].messages.push(omissMessage(row, col))
         socket.emit("message", players[user].messages)
-        socket.emit("turn", "Your turn to attack")
+        socket.emit("turn")
     }
     else if (players[user].board[hitPos] === 1) { // hit
         players[user].board[hitPos] = 2;
@@ -355,11 +360,21 @@ const computerMove = (user, socket, computer) => {
             }
             else {
                 handleAIDestroy(computer, result);
-                computerMove(user, socket, computer);
+                socket.emit("info", "The AI is thinking ...")
+                process.nextTick(() => {
+                    setTimeout(() => {
+                        computerMove(user, socket, computer);
+                    }, 1000);
+                });
             }
         }
         else {
-            computerMove(user, socket, computer);
+            socket.emit("info", "The AI is thinking ...")
+            process.nextTick(() => {
+                setTimeout(() => {
+                    computerMove(user, socket, computer);
+                }, 1000);
+            });
         }
     }
 }
@@ -508,7 +523,7 @@ io.on('connection', (socket) => {
     socket.on("start", () => {
         if (players[curplayer].mode == "singleplayer" && players[curplayer].start == false) {
             players[curplayer].numplaceShip == 5 ?
-                (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curplayer].start = true, socket.emit("start"), socket.emit("turn", "Your turn to attack")) :
+                (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curplayer].start = true, socket.emit("start"), socket.emit("turn")) :
                 socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curplayer].mode == "multiplayer" && players[curplayer].start == false) {
@@ -527,7 +542,7 @@ io.on('connection', (socket) => {
                 players[opponent].start = true;
                 socket.emit("start");
                 io.to(opponent).emit("ostart");
-                socket.emit("turn", "Your turn to attack");
+                socket.emit("turn");
                 io.to(opponent).emit("info", "Game has started, it's your opponent's turn")
             }
 
@@ -585,10 +600,10 @@ io.on('connection', (socket) => {
                 socket.emit("message", players[curplayer].messages)
                 console.log(players[curplayer].mode == "singleplayer")
                 players[curplayer].mode == "singleplayer"
-                    ? computerMove(curplayer, socket, opponent)
+                    ? (socket.emit("info", "The AI is thinking ..."), setTimeout(() => {computerMove(curplayer, socket, opponent)}, 1000))
                     : (
                         io.to(opponent).emit("omiss", pos),
-                        io.to(opponent).emit("turn", "Your opponent missed, it's your turn to attack"),
+                        io.to(opponent).emit("turn"),
                         players[opponent].messages.push(omissMessage(row, col)),
                         io.to(opponent).emit("message", players[opponent].messages)
                     );
