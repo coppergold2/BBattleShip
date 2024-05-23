@@ -1,6 +1,6 @@
 import React from "react"
 
-const Buttons = ({ start, socket, handleRandomPlacement, flipBoat, isFlipped }) => {
+const Buttons = ({ start, socket, isFlipped, handleRandomPlacement, flipBoat }) => {
     return (
         !start && (
             <div className='button-container'>

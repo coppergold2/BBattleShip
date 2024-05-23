@@ -286,7 +286,23 @@ const App = () => {
   }
   const flipBoat = () => {
     setIsFlipped(!isFlipped);
+  };    
+  const handleRightClick = (e) => {
+      e.preventDefault();
+      if (activeShip) {
+        flipBoat();
+      }
   };
+
+  useEffect(() => {
+    if(activeShip){
+      document.addEventListener('contextmenu', handleRightClick);
+    }
+      return () => {
+    document.removeEventListener('contextmenu', handleRightClick);
+  };
+  })
+
   const handleCellClick = (id) => {
     console.log('clicked')
     socket.current.emit("attack", id);
