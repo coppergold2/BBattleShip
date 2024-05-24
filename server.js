@@ -22,15 +22,6 @@ class Player {
         this.start = false;
         this.messages = [];
     }
-    // Method to increase numHits
-    incrementHits() {
-        this.numHits++;
-    }
-
-    // Method to increase numMisses
-    incrementMisses() {
-        this.numMisses++;
-    }
     displayGrid() {
         let board = this.board;
         if (board.length !== 100) {
@@ -265,8 +256,19 @@ const handleAIDestroy = (computer, destroyShip) => {
     players[computer].curHitDirection = null;
     players[computer].possHitDirections = [-1, -1, -1, -1]
     // need to update the minSizeShip
+    players[computer].opponentShipRemain[destroyShip[0]] = 0;
+    let minSize = 5
+    for (const shipName in ships) {
+        if(players[computer].opponentShipRemain[shipName] == 1){
+            if (ships[shipName] < minSize) {
+                minSize = ships[shipName]
+            }
+        }
+      }
+    players[computer].opponentShipRemain['minSizeShip'] = minSize;
+    console.log('minSizeShip: ', players[computer].opponentShipRemain['minSizeShip'])
     if (players[computer].hitLocs.length != 0) {
-        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possibleHitLocs, players[computer].opponentShipRemain.minSizeShip);
+        players[computer].possHitDirections = getAdjacentCells(players[computer].hitLocs[0], players[computer].possibleHitLocs, players[computer].opponentShipRemain.minSizeShip);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
