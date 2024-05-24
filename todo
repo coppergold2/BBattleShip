@@ -23,3 +23,6 @@ you only have to try the opposite direction when two or more cell is hit
 
 I just need to check the one I randomly selected can be a hit position or not,
 if not then re random select ? 
+
+need to change the data structure of the AI holding the possHitLocs from array
+to sets to improve efficiency.

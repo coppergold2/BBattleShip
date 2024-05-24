@@ -61,7 +61,7 @@ class Computer {
         this.numDestroyShip = 0;
         this.numHits = 0;
         this.numMisses = 0;
-        this.possibleHitLocs = Array(100).fill(1);
+        this.possibleHitLocs = new Set(Array.from({ length: 100 }, (_, i) => i)); // changing the datastructre from array to set.
         this.hitLocs = [];
         this.possHitDirections = [-1, -1, -1, -1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east

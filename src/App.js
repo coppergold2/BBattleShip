@@ -237,8 +237,9 @@ const App = () => {
 
     })
 
-    socket.current.on("owin", (msg) => {
-      setInfo(msg)
+    socket.current.on("owin", (unHitShipLocs) => {
+      setInfo("Your computer/robot has won, shame!")
+      
     })
     socket.current.on("InvalidAttack", (msg) => {
       alert(msg)
