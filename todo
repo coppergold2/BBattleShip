@@ -20,3 +20,6 @@ The criteria to make to check a cell is not a possble hit location is
 
 when one cell is hit and one cell miss in a direction, don't have to try the opposite direction
 you only have to try the opposite direction when two or more cell is hit
+
+I just need to check the one I randomly selected can be a hit position or not,
+if not then re random select ? 
