@@ -5,7 +5,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const crypto = require('crypto');
-let connectedMPClients = 0; 
+let connectedMPClients = 0;
 const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
@@ -166,30 +166,30 @@ const handleAIMiss = (computer, loc) => {
     players[computer].numMisses++;
     if (players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
         players[computer].possHitDirections[players[computer].curHitDirection] = -1;
-        if(AIFirstTimeHitNewShip == false) {
-        switch (players[computer].curHitDirection) {
-            case 0:
-                if (players[computer].possHitDirections[2] != -1) {
-                    players[computer].curHitDirection = 2;
-                }
-                break;
-            case 1:
-                if (players[computer].possHitDirections[3] != -1) {
-                    players[computer].curHitDirection = 3;
-                }
-                break;
-            case 2:
-                if (players[computer].possHitDirections[0] != -1) {
-                    players[computer].curHitDirection = 0;
-                }
-                break;
-            case 3:
-                if (players[computer].possHitDirections[1] != -1) {
-                    players[computer].curHitDirection = 1;
-                }
-                break;
+        if (AIFirstTimeHitNewShip == false) {
+            switch (players[computer].curHitDirection) {
+                case 0:
+                    if (players[computer].possHitDirections[2] != -1) {
+                        players[computer].curHitDirection = 2;
+                    }
+                    break;
+                case 1:
+                    if (players[computer].possHitDirections[3] != -1) {
+                        players[computer].curHitDirection = 3;
+                    }
+                    break;
+                case 2:
+                    if (players[computer].possHitDirections[0] != -1) {
+                        players[computer].curHitDirection = 0;
+                    }
+                    break;
+                case 3:
+                    if (players[computer].possHitDirections[1] != -1) {
+                        players[computer].curHitDirection = 1;
+                    }
+                    break;
+            }
         }
-    }
         if (players[computer].possHitDirections[players[computer].curHitDirection] == -1 || AIFirstTimeHitNewShip == true) {
             players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
         }
@@ -264,10 +264,12 @@ const handleAIDestroy = (computer, destroyShip) => {
     removeDestroyShipLoc(computer, destroyShip[1]);
     players[computer].curHitDirection = null;
     players[computer].possHitDirections = [-1, -1, -1, -1]
+    // need to update the minSizeShip
     if (players[computer].hitLocs.length != 0) {
-        handleAIHit(computer, players[computer].hitLocs[0])
+        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possibleHitLocs, players[computer].opponentShipRemain.minSizeShip);
+        players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
+        AIFirstTimeHitNewShip = true;
     }
-    AIFirstTimeHitNewShip = true;
 }
 function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // check each of the cell within the minSizeShip
     const cols = 10;
@@ -343,7 +345,10 @@ function randomIndexNonMinusOne(arr) {
     // Return the original index corresponding to the random non-minus-one element
     return arr.indexOf(nonMinusOneElements[randomIndex]);
 }
-
+const checkPossHitLocs = (computer) => {
+    let possHitLocs = players[computer].possHitDirections;
+    possHitLocs
+}
 
 const computerMove = (user, socket, computer) => {
     let hitPos;
@@ -371,7 +376,7 @@ const computerMove = (user, socket, computer) => {
         players[user].messages.push(ohitMessage(row, col))
         socket.emit("message", players[user].messages)
         const result = checkShip(user, hitPos);
-        if (result != "normal") {  // destroy
+        if (result != "normal") {  // destroy ship
             players[computer].numDestroyShip++;
             players[user].messages.push(odestroyMessage(result[0]))
             socket.emit("message", players[user].messages)
@@ -384,16 +389,16 @@ const computerMove = (user, socket, computer) => {
                 process.nextTick(() => {
                     setTimeout(() => {
                         computerMove(user, socket, computer);
-                    }, 1000);
+                    }, 500);
                 });
             }
         }
-        else {
+        else { // normal hit
             socket.emit("info", "The AI is thinking ...")
             process.nextTick(() => {
                 setTimeout(() => {
                     computerMove(user, socket, computer);
-                }, 1000);
+                }, 500);
             });
         }
     }
@@ -620,7 +625,7 @@ io.on('connection', (socket) => {
                 socket.emit("message", players[curplayer].messages)
                 console.log(players[curplayer].mode == "singleplayer")
                 players[curplayer].mode == "singleplayer"
-                    ? (socket.emit("info", "The AI is thinking ..."), setTimeout(() => { computerMove(curplayer, socket, opponent) }, 1000))
+                    ? (socket.emit("info", "The AI is thinking ..."), setTimeout(() => { computerMove(curplayer, socket, opponent) }, 500))
                     : (
                         io.to(opponent).emit("omiss", pos),
                         io.to(opponent).emit("turn"),
