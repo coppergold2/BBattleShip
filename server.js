@@ -5,10 +5,10 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const crypto = require('crypto');
-let connectedMPClients = 0;
+let connectedMPClients = 0; 
 const maxConnections = 2;
 const width = 10;
-let AIFirstTimeHitNewShip = true;
+let AIFirstTimeHitNewShip = false;
 class Player {
     constructor(id) {
         this.id = id;
@@ -164,8 +164,9 @@ function getRandomIndexWithOneValue(arr) {
 
 const handleAIMiss = (computer, loc) => {
     players[computer].numMisses++;
-    if (players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit ? 
+    if (players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
         players[computer].possHitDirections[players[computer].curHitDirection] = -1;
+        if(AIFirstTimeHitNewShip == false) {
         switch (players[computer].curHitDirection) {
             case 0:
                 if (players[computer].possHitDirections[2] != -1) {
@@ -188,7 +189,8 @@ const handleAIMiss = (computer, loc) => {
                 }
                 break;
         }
-        if (players[computer].possHitDirections[players[computer].curHitDirection] == -1) {
+    }
+        if (players[computer].possHitDirections[players[computer].curHitDirection] == -1 || AIFirstTimeHitNewShip == true) {
             players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
         }
     }
@@ -201,8 +203,10 @@ const handleAIHit = (computer, loc) => {
     if (!players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
         players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possibleHitLocs, players[computer].opponentShipRemain.minSizeShip);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
+        AIFirstTimeHitNewShip = true;
     }
     else if (players[computer].curHitDirection != null) {
+        AIFirstTimeHitNewShip = false
         const cols = 10;
         switch (players[computer].curHitDirection) {
             case 0:
@@ -263,6 +267,7 @@ const handleAIDestroy = (computer, destroyShip) => {
     if (players[computer].hitLocs.length != 0) {
         handleAIHit(computer, players[computer].hitLocs[0])
     }
+    AIFirstTimeHitNewShip = true;
 }
 function getAdjacentCells(cellIndex, possibleHitLocs, minSizeShip) {      // check each of the cell within the minSizeShip
     const cols = 10;
@@ -342,10 +347,8 @@ function randomIndexNonMinusOne(arr) {
 
 const computerMove = (user, socket, computer) => {
     let hitPos;
-    let firstTimeHit = false;
     if (players[computer].hitLocs.length == 0) {
         hitPos = getRandomIndexWithOneValue(players[computer].possibleHitLocs)
-        firstTimeHit = true;
     }
     else if (players[computer].curHitDirection != null) {
         hitPos = players[computer].possHitDirections[players[computer].curHitDirection]
