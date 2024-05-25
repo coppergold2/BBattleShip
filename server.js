@@ -177,7 +177,7 @@ function getRandomIndexWithOneValue(computer) {
     return possHitLocations[randomIndex];
 }
 
-const handleAIMiss = (computer, loc) => {
+const handleAIMiss = (computer, socket) => {
     players[computer].numMisses++;
     if (players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
         players[computer].possHitDirections[players[computer].curHitDirection] = -1;
@@ -211,7 +211,9 @@ const handleAIMiss = (computer, loc) => {
     }
     else {
         checkPossHitLocs(computer)
-    }
+        console.log(players[computer].possHitLocations)
+        socket.emit("updatePossHitLocation", [...players[computer].possHitLocations]);
+        }
 }
 
 const handleAIHit = (computer, loc) => {
@@ -278,7 +280,7 @@ const handleAIHit = (computer, loc) => {
     }
 }
 
-const handleAIDestroy = (computer, destroyShip) => {
+const handleAIDestroy = (computer, destroyShip, socket) => {
     removeDestroyShipLoc(computer, destroyShip[1]);
     players[computer].curHitDirection = null;
     players[computer].possHitDirections = [-1, -1, -1, -1]
@@ -410,7 +412,7 @@ const computerMove = (user, socket, computer) => {
     console.log(hitPos)
     if (players[user].board[hitPos] === 0) {  // miss
         players[user].board[hitPos] = 3;
-        handleAIMiss(computer, hitPos)
+        handleAIMiss(computer, socket)
         players[computer].displayPossHitGrid()
         socket.emit("omiss", hitPos)
         const { row, col } = getRowAndColumn(hitPos);

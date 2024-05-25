@@ -222,3 +222,7 @@ button:hover {
   border: 1px solid #ddd; /* Base border */
   box-shadow: 0 0 5px rgba(255, 0, 255, 0.5), inset 0 0 2px rgba(128, 0, 128, 0.2); /* Inner pink glow, outer purple glow */
 }
+
+.possHit {
+  background-color: #e5d7b1; /* Light gray as a base shade */
+}

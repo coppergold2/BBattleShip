@@ -204,7 +204,22 @@ const App = () => {
         return newCellClass;
       });
     })
-
+    socket.current.on("updatePossHitLocation", (possHitLocations) => {
+      const receivedSet = new Set(possHitLocations);
+      console.log(receivedSet)
+      setPbCellClass((oldClass) => {
+        const newCellClass = oldClass.map((cell) => ({
+          ...cell,
+          possHitLocation: false
+        }))
+        for(let i = 0; i< 100; i++){
+          if (receivedSet.has(i)) {
+            newCellClass[i].possHitLocation = true;
+          }
+        }
+        return newCellClass
+      })
+    })
     socket.current.on("win", (msg) => {
       setInfo(msg)
       setTurn(false)

@@ -24,6 +24,10 @@ const Board = ({
         } else if (element.omiss === true) {
           classNameArr[index] += " miss";
         }
+        console.log(element.possHitLocation)
+        if (element.ohit === false && element.omiss === false && element.possHitLocation == true){
+          classNameArr[index] += " possHit"
+        }
       });
     } else if (className === "opponent-board" && pbCellClass !== null) {
       obCellClass.forEach((element, index) => {
