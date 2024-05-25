@@ -21,6 +21,7 @@ class Player {
         this.numMisses = 0;
         this.start = false;
         this.messages = [];
+        this.allHitLocations = [];
     }
     displayGrid() {
         let board = this.board;
@@ -50,6 +51,8 @@ class Player {
         this.numHits = 0;
         this.numMisses = 0;
         this.start = false;
+        this.messages = [];
+        this.allHitLocations = [];
     }
 }
 
@@ -306,7 +309,6 @@ function getAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) { 
     let horiPoss = 1;
     let vertPoss = 1;
     let temp = cellIndex;
-    console.log("was here")
     while (horiPoss < minSizeShip) {  // check west    
         if (temp % cols !== 0 && possHitLocations.has(temp - 1)) {
             horiPoss += 1;
@@ -347,7 +349,6 @@ function getAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) { 
             break;
         }
     }
-    console.log("test")
     const above = cellIndex - cols >= 0 && possHitLocations.has(cellIndex - cols) && vertPoss == minSizeShip ? cellIndex - cols : -1;
     const below = cellIndex + cols < 100 && possHitLocations.has(cellIndex + cols) && vertPoss == minSizeShip ? cellIndex + cols : -1;
     const left = cellIndex % cols !== 0 && possHitLocations.has(cellIndex - 1) && horiPoss == minSizeShip ? cellIndex - 1 : -1;
@@ -431,7 +432,7 @@ const computerMove = (user, socket, computer) => {
             players[user].messages.push(odestroyMessage(result[0]))
             socket.emit("message", players[user].messages)
             if (players[computer].numDestroyShip == 5) {
-                socket.emit("owin", "Your computer/robot has won, shame!");
+                socket.emit("owin", loserGetUnHitShip(players[user].allHitLocations, players[computer].shipLoc));
             }
             else {
                 handleAIDestroy(computer, result);
@@ -537,6 +538,21 @@ const getRowAndColumn = (index) => {
 
     return { row, col };
 }
+const loserGetUnHitShip = (loserHits, winnerShips) => {
+    const unHitShips = {}
+    for (const shipName in winnerShips) {
+      let shipLocations = winnerShips[shipName];
+  
+      // Filter out locations hit by the loser
+      shipLocations = shipLocations.filter(location => !loserHits.includes(location));
+      if(shipLocations.length > 0){
+        unHitShips[shipName] = shipLocations
+      }
+    }
+  
+    return unHitShips;
+  };
+  
 
 io.on('connection', (socket) => {
     socket.on("id", () => { socket.emit("id", socket.id) })
@@ -633,7 +649,8 @@ io.on('connection', (socket) => {
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
             case 1: {
-                curplayer.numHits++;
+                players[curplayer].numHits++;
+                players[curplayer].allHitLocations.push(pos);
                 players[opponent].board[pos] = 2;
                 const result = checkShip(opponent, pos);
                 const { row, col } = getRowAndColumn(pos);
@@ -659,7 +676,10 @@ io.on('connection', (socket) => {
 
                 if (players[curplayer].numDestroyShip == 5) {
                     socket.emit("win", "You win!");
-                    io.to(opponent).emit("owin", "Your opponent has won, you loss")
+                    if(players[curplayer].mode == "multiplayer"){
+                        io.to(opponent).emit("owin", "Your opponent has won, you loss")
+                    }
+                    
                 }
                 break;
             }
@@ -670,7 +690,7 @@ io.on('connection', (socket) => {
             case 0: {
                 const { row, col } = getRowAndColumn(pos);
                 players[opponent].board[pos] = 3;
-                curplayer.numMisses++;
+                players[curplayer].numMisses++;
                 socket.emit('miss', pos);
                 players[curplayer].messages.push(missMessage(row, col))
                 socket.emit("message", players[curplayer].messages)

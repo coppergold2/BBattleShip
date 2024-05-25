@@ -217,3 +217,8 @@ button:hover {
 .chat-button:hover {
   background-color: #006666; /* Slightly lighter teal on hover */
 }
+
+.loser {
+  border: 1px solid #ddd; /* Base border */
+  box-shadow: 0 0 5px rgba(255, 0, 255, 0.5), inset 0 0 2px rgba(128, 0, 128, 0.2); /* Inner pink glow, outer purple glow */
+}

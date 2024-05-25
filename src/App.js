@@ -237,9 +237,17 @@ const App = () => {
 
     })
 
-    socket.current.on("owin", (unHitShipLocs) => {
-      setInfo("Your computer/robot has won, shame!")
-      
+    socket.current.on("owin", (unHitShip) => {
+      setInfo("Your opponent has won, you loss")
+      setObCellClass((oldClass) => {
+        const newCellClass = [...oldClass];
+        for (const shipName in unHitShip) {
+          unHitShip[shipName].forEach((element) => {
+            newCellClass[element].unHitShip = shipName
+          })
+        }
+        return newCellClass;
+      })
     })
     socket.current.on("InvalidAttack", (msg) => {
       alert(msg)
@@ -287,21 +295,21 @@ const App = () => {
   }
   const flipBoat = () => {
     setIsFlipped(!isFlipped);
-  };    
+  };
   const handleRightClick = (e) => {
-      e.preventDefault();
-      if (activeShip) {
-        flipBoat();
-      }
+    e.preventDefault();
+    if (activeShip) {
+      flipBoat();
+    }
   };
 
   useEffect(() => {
-    if(activeShip){
+    if (activeShip) {
       document.addEventListener('contextmenu', handleRightClick);
     }
-      return () => {
-    document.removeEventListener('contextmenu', handleRightClick);
-  };
+    return () => {
+      document.removeEventListener('contextmenu', handleRightClick);
+    };
   })
 
   const handleCellClick = (id) => {
