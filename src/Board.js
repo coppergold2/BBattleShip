@@ -39,7 +39,7 @@ const Board = ({
             classNameArr[index] += " " + element.unHitShip + " loser"
           }
         }
-        if (element.shipName === null && element.hit === true) {
+        if (element.hit === true) {
           classNameArr[index] += " boom";
         } else if (element.miss === true) {
           classNameArr[index] += " miss";

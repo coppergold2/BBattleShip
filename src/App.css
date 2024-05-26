@@ -182,8 +182,54 @@ button:hover {
   transition: all 0.3s ease-in-out; /* Smooth transition for the effects */
 }
 
-.boom{
-  background-color: red !important
+.cell {
+  background-color: lightblue;
+  border: 1px solid navy;
+  grid-column: span 1;
+  grid-row: span 1;
+  position: relative;
+}
+
+.boom {
+  position: relative;
+}
+
+.boom::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background-color: red;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 1;
+}
+
+.boom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background-color: black;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  animation: bombAnimation 1s steps(10) forwards;
+}
+
+@keyframes bombAnimation {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
 }
 
 .miss{
@@ -226,3 +272,6 @@ button:hover {
 .possHit {
   background-color: #e5d7b1; /* Light gray as a base shade */
 }
+
+
+  
