@@ -20,7 +20,7 @@ const App = () => {
   const [shipLocHover, setShipLocHover] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-
+  const [hoveredCell, setHoveredCell] = useState(null);
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -379,7 +379,7 @@ const App = () => {
   const handleShipOptionClick = (shipName) => {
     setActiveShip(activeShip === shipName ? null : shipName)
   }
-  const handleHoverOut = () => {
+  const handleShipHoverOut = () => {
     setShipLocHover(null);
   }
 
@@ -392,6 +392,12 @@ const App = () => {
   }
   const handleInputChange = (msg) => {
     setInput(msg);
+  }
+  const handleCellHover = (index) => {
+    setHoveredCell(index);
+  }
+  const handleCellHoverOut = () => {
+    setHoveredCell(null);
   }
   if (serverDown) {
     return <h1>The server is down</h1>;
@@ -426,16 +432,19 @@ const App = () => {
             messages={messages}
             input={input}
             isFlipped={isFlipped}
+            hoveredCell = {hoveredCell}
             handleRandomPlacement={handleRandomPlacement}
             handleShipOptionClick={handleShipOptionClick}
             handleCellClick={handleCellClick}
             handleShipPlacement={handleShipPlacement}
             handleShipReplacement={handleShipReplacement}
-            handleHoverOut={handleHoverOut}
+            handleShipHoverOut={handleShipHoverOut}
             handleShipHover={handleShipHover}
             flipBoat={flipBoat}
             sendMessage={sendMessage}
             handleInputChange={handleInputChange}
+            handleCellHover = {handleCellHover}
+            handleCellHoverOut = {handleCellHoverOut}
           /> :
           <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
       }

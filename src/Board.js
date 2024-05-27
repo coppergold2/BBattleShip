@@ -2,9 +2,9 @@ import React from 'react';
 
 
 const Board = ({
-  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover,
+  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell,
   handleCellClick, handleShipPlacement, handleShipReplacement,
-  handleShipHover, handleHoverOut
+  handleShipHover, handleShipHoverOut, handleCellHover, handleCellHoverOut
 }) => {
 
   const cellClassName = () => {
@@ -71,14 +71,26 @@ const Board = ({
         rows.push(
           <div
             key={index}
-            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[index] != null) ? shipLocHover[index] + ' hover' : ''}`}
+            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[index] != null) ? shipLocHover[index] + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
             onClick={
-              turn && className === 'opponent-board' ? () => handleCellClick(index) :
-              turn == null && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover) } :
+              turn && className === 'opponent-board' ? () => {handleCellClick(index); handleCellHoverOut()} :
+              turn == null  && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover) } :
               turn == null && className === 'player-board' && shipLocHover == null && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName) } : null
             }
-            onMouseEnter={turn == null && activeShip != null && className === 'player-board' ? () => { handleShipHover(index) } : null}
-            onMouseLeave={turn == null && activeShip != null && className === 'player-board' ? () => { handleHoverOut() } : null}
+            onMouseEnter={() => {
+              if (turn && className === 'opponent-board') {
+                handleCellHover(index);
+              } else if (turn == null && activeShip != null && className === 'player-board') {
+                handleShipHover(index);
+              }
+            }}
+            onMouseLeave={() => {
+              if (turn && className === 'opponent-board') {
+                handleCellHoverOut();
+              } else if (turn == null && activeShip != null && className === 'player-board') {
+                handleShipHoverOut();
+              }
+            }} 
             style={{
               cursor: (activeShip && className === 'player-board' && turn == null) && 'pointer'
             }}

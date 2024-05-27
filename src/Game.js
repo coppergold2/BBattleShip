@@ -16,17 +16,20 @@ const Game = ({
   placedShips,
   shipLocHover,
   messages,
-  input, 
+  input,
+  hoveredCell, 
   handleRandomPlacement, 
   handleCellClick, 
   handleShipPlacement, 
   flipBoat, 
-  handleHoverOut, 
+  handleShipHoverOut, 
   handleShipReplacement, 
   handleShipOptionClick, 
   handleShipHover,
   sendMessage,
-  handleInputChange}) => {
+  handleInputChange,
+  handleCellHover,
+  handleCellHoverOut}) => {
 
   return (
     <>
@@ -39,9 +42,9 @@ const Game = ({
           shipLocHover={shipLocHover}
           handleShipPlacement={handleShipPlacement} 
           handleShipReplacement = {handleShipReplacement}
-          handleHoverOut = {handleHoverOut}
+          handleShipHoverOut = {handleShipHoverOut}
           handleShipHover = {handleShipHover}/>
-          {start && <Board className="opponent-board" handleCellClick={handleCellClick} turn={turn} obCellClass={obCellClass} />}
+          {start && <Board className="opponent-board" handleCellClick={handleCellClick} turn={turn} obCellClass={obCellClass} hoveredCell = {hoveredCell} handleCellHover = {handleCellHover} handleCellHoverOut = {handleCellHoverOut}/>}
         </div>
         {start == false && 
         (<><ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick = {handleShipOptionClick} />
