@@ -188,9 +188,11 @@ button:hover {
   grid-column: span 1;
   grid-row: span 1;
   position: relative;
+  transition: background-color 0.3s ease;
 }
 
 .hittable {
+  background-color: #1e90ff; /* Darker or more saturated shade of blue */
   position: relative;
   z-index: 1;
 }
@@ -198,25 +200,25 @@ button:hover {
 .hittable::before {
   content: '';
   position: absolute;
-  top: -2px;
-  left: -2px;
-  right: -2px;
-  bottom: -2px;
-  border: 2px solid rgba(255, 0, 0, 0.6);
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border: 3px solid rgba(255, 0, 0, 0.8);
   border-radius: 4px;
-  box-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
   animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 5px rgba(255, 0, 0, 0.6);
-  }
-  50% {
     box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
   }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 0, 0, 1);
+  }
   100% {
-    box-shadow: 0 0 5px rgba(255, 0, 0, 0.6);
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
   }
 }
 

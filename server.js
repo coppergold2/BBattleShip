@@ -679,9 +679,8 @@ io.on('connection', (socket) => {
                 if (players[curplayer].numDestroyShip == 5) {
                     socket.emit("win", "You win!");
                     if(players[curplayer].mode == "multiplayer"){
-                        io.to(opponent).emit("owin", "Your opponent has won, you loss")
+                        io.to(opponent).emit("owin", loserGetUnHitShip(players[opponent].allHitLocations, players[curplayer].shipLoc))
                     }
-                    
                 }
                 break;
             }
