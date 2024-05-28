@@ -395,62 +395,63 @@ const checkPossHitLocs = (computer) => {
     }
 }
 
-const computerMove = (user, socket, computer) => {
+const computerMove = (curplayer, socket, opponent) => {
     let hitPos;
-    if (players[computer].hitLocs.length == 0) {
-        hitPos = getRandomIndexWithOneValue(computer)
+    if (players[opponent].hitLocs.length == 0) {
+        hitPos = getRandomIndexWithOneValue(opponent)
     }
-    else if (players[computer].curHitDirection != null) {
-        hitPos = players[computer].possHitDirections[players[computer].curHitDirection]
+    else if (players[opponent].curHitDirection != null) {
+        hitPos = players[opponent].possHitDirections[players[opponent].curHitDirection]
     }
-    //players[computer].possHitLocations[hitPos] = 0;
-    players[computer].possHitLocations.delete(hitPos);
+    //players[opponent].possHitLocations[hitPos] = 0;
+    players[opponent].possHitLocations.delete(hitPos);
 
     console.log(hitPos)
-    if (players[user].board[hitPos] === 0) {  // miss
-        players[user].board[hitPos] = 3;
-        players[computer].numMisses++;
-        handleAIMiss(computer, socket)
-        players[computer].displayPossHitGrid()
+    if (players[curplayer].board[hitPos] === 0) {  // miss
+        handleMissComm(opponent, curplayer, hitPos, io);
+        players[curplayer].board[hitPos] = 3;
+        players[opponent].numMisses++;
+        handleAIMiss(opponent, socket)
+        players[opponent].displayPossHitGrid()
         socket.emit("omiss", hitPos)
         const { row, col } = getRowAndColumn(hitPos);
-        players[user].messages.push(omissMessage(row, col))
-        socket.emit("message", players[user].messages)
+        players[curplayer].messages.push(omissMessage(row, col))
+        socket.emit("message", players[curplayer].messages)
         socket.emit("turn")
     }
-    else if (players[user].board[hitPos] === 1) { // hit
+    else if (players[curplayer].board[hitPos] === 1) { // hit
         console.log("here")
-        players[user].board[hitPos] = 2;
-        handleAIHit(computer, hitPos)
+        players[curplayer].board[hitPos] = 2;
+        handleAIHit(opponent, hitPos)
         socket.emit("ohit", hitPos)
         const { row, col } = getRowAndColumn(hitPos);
-        players[user].messages.push(ohitMessage(row, col))
-        socket.emit("message", players[user].messages)
-        const result = checkShip(user, hitPos);
+        players[curplayer].messages.push(ohitMessage(row, col))
+        socket.emit("message", players[curplayer].messages)
+        const result = checkShip(curplayer, hitPos);
         if (result != "normal") {  // destroy ship
-            players[computer].numDestroyShip++;
-            players[user].messages.push(odestroyMessage(result[0]))
-            socket.emit("message", players[user].messages)
-            if (players[computer].numDestroyShip == 5) {
-                socket.emit("owin", loserGetUnHitShip(players[user].allHitLocations, players[computer].shipLoc));
+            players[opponent].numDestroyShip++;
+            players[curplayer].messages.push(odestroyMessage(result[0]))
+            socket.emit("message", players[curplayer].messages)
+            if (players[opponent].numDestroyShip == 5) {
+                socket.emit("owin", loserGetUnHitShip(players[curplayer].allHitLocations, players[opponent].shipLoc));
             }
             else {
-                handleAIDestroy(computer, result);
-                players[computer].displayPossHitGrid()
+                handleAIDestroy(opponent, result);
+                players[opponent].displayPossHitGrid()
                 socket.emit("info", "The AI is thinking ...")
                 process.nextTick(() => {
                     setTimeout(() => {
-                        computerMove(user, socket, computer);
+                        computerMove(curplayer, socket, opponent);
                     }, 500);
                 });
             }
         }
         else { // normal hit
-            players[computer].displayPossHitGrid()
+            players[opponent].displayPossHitGrid()
             socket.emit("info", "The AI is thinking ...")
             process.nextTick(() => {
                 setTimeout(() => {
-                    computerMove(user, socket, computer);
+                    computerMove(curplayer, socket, opponent);
                 }, 500);
             });
         }
@@ -553,8 +554,15 @@ const loserGetUnHitShip = (loserHits, winnerShips) => {
     return unHitShips;
   };
   
-  const handleMissComm = ((sender, receiver, type) => {
-    
+  const handleMissComm = ((misser, receiver, pos) => {
+    const { row, col } = getRowAndColumn(hitPos);
+    players[misser]
+        if(players[misser] instanceof Computer) {
+
+        }
+        // misser is the bot 
+        //misser is the player, receiver is the bot
+        // misser is the player, receiver is the player.
   })
 
 io.on('connection', (socket) => {
