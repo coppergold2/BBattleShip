@@ -178,7 +178,6 @@ function getRandomIndexWithOneValue(computer) {
 }
 
 const handleAIMiss = (computer, socket) => {
-    players[computer].numMisses++;
     if (players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
         players[computer].possHitDirections[players[computer].curHitDirection] = -1;
         if (AIFirstTimeHitNewShip == false) {
@@ -400,11 +399,9 @@ const computerMove = (user, socket, computer) => {
     let hitPos;
     if (players[computer].hitLocs.length == 0) {
         hitPos = getRandomIndexWithOneValue(computer)
-        console.log("from 1")
     }
     else if (players[computer].curHitDirection != null) {
         hitPos = players[computer].possHitDirections[players[computer].curHitDirection]
-        console.log("from 2")
     }
     //players[computer].possHitLocations[hitPos] = 0;
     players[computer].possHitLocations.delete(hitPos);
@@ -412,6 +409,7 @@ const computerMove = (user, socket, computer) => {
     console.log(hitPos)
     if (players[user].board[hitPos] === 0) {  // miss
         players[user].board[hitPos] = 3;
+        players[computer].numMisses++;
         handleAIMiss(computer, socket)
         players[computer].displayPossHitGrid()
         socket.emit("omiss", hitPos)
@@ -555,6 +553,9 @@ const loserGetUnHitShip = (loserHits, winnerShips) => {
     return unHitShips;
   };
   
+  const handleMissComm = ((sender, receiver, type) => {
+    
+  })
 
 io.on('connection', (socket) => {
     socket.on("id", () => { socket.emit("id", socket.id) })
