@@ -319,6 +319,14 @@ const App = () => {
   };
 
   useEffect(() => {
+    if(shipLocHover != null){  
+      const shipLocs = Object.keys(shipLocHover).map(Number);
+      const firstShipCell = Math.min(...shipLocs)
+      handleShipHover(firstShipCell)
+    }
+  }, [isFlipped])
+
+  useEffect(() => {
     if (activeShip) {
       document.addEventListener('contextmenu', handleRightClick);
     }

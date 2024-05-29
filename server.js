@@ -212,7 +212,7 @@ const handleAIMiss = (computer, socket) => {
         checkPossHitLocs(computer)
         console.log(players[computer].possHitLocations)
         socket.emit("updatePossHitLocation", [...players[computer].possHitLocations]);
-        }
+    }
 }
 
 const handleAIHit = (computer, loc) => {
@@ -408,15 +408,9 @@ const computerMove = (curplayer, socket, opponent) => {
 
     console.log(hitPos)
     if (players[curplayer].board[hitPos] === 0) {  // miss
-        handleMissComm(opponent, curplayer, hitPos, io);
-        players[curplayer].board[hitPos] = 3;
-        players[opponent].numMisses++;
+        handleMissComm(opponent, curplayer, hitPos);
         handleAIMiss(opponent, socket)
         players[opponent].displayPossHitGrid()
-        socket.emit("omiss", hitPos)
-        const { row, col } = getRowAndColumn(hitPos);
-        players[curplayer].messages.push(omissMessage(row, col))
-        socket.emit("message", players[curplayer].messages)
         socket.emit("turn")
     }
     else if (players[curplayer].board[hitPos] === 1) { // hit
@@ -542,28 +536,43 @@ const getRowAndColumn = (index) => {
 const loserGetUnHitShip = (loserHits, winnerShips) => {
     const unHitShips = {}
     for (const shipName in winnerShips) {
-      let shipLocations = winnerShips[shipName];
-  
-      // Filter out locations hit by the loser
-      shipLocations = shipLocations.filter(location => !loserHits.includes(location));
-      if(shipLocations.length > 0){
-        unHitShips[shipName] = shipLocations
-      }
-    }
-  
-    return unHitShips;
-  };
-  
-  const handleMissComm = ((misser, receiver, pos) => {
-    const { row, col } = getRowAndColumn(hitPos);
-    players[misser]
-        if(players[misser] instanceof Computer) {
+        let shipLocations = winnerShips[shipName];
 
+        // Filter out locations hit by the loser
+        shipLocations = shipLocations.filter(location => !loserHits.includes(location));
+        if (shipLocations.length > 0) {
+            unHitShips[shipName] = shipLocations
         }
-        // misser is the bot 
-        //misser is the player, receiver is the bot
-        // misser is the player, receiver is the player.
-  })
+    }
+
+    return unHitShips;
+};
+
+const handleMissComm = ((misser, receiver, pos) => {
+    const { row, col } = getRowAndColumn(pos);
+    players[misser].numMisses++;
+    players[receiver].board[pos] = 3;
+    if (players[misser] instanceof Computer) {
+        io.to(receiver).emit("omiss", pos)
+        players[receiver].messages.push(omissMessage(row, col))
+        io.to(receiver).emit("message", players[receiver].messages)
+        // io.to.emit("turn")
+    }
+    else if (players[misser] instanceof Player) {
+        io.to(misser).emit('miss', pos);
+        players[misser].messages.push(missMessage(row, col))
+        io.to(misser).emit("message", players[misser].messages)
+        if (players[receiver] instanceof Player) {
+            io.to(receiver).emit("omiss", pos);
+            io.to(receiver).emit("turn");
+            players[receiver].messages.push(omissMessage(row, col));
+            io.to(receiver).emit("message", players[receiver].messages);
+        }
+    }
+    // misser is the bot 
+    //misser is the player, receiver is the bot
+    // misser is the player, receiver is the player.
+})
 
 io.on('connection', (socket) => {
     socket.on("id", () => { socket.emit("id", socket.id) })
@@ -687,7 +696,7 @@ io.on('connection', (socket) => {
 
                 if (players[curplayer].numDestroyShip == 5) {
                     socket.emit("win", "You win!");
-                    if(players[curplayer].mode == "multiplayer"){
+                    if (players[curplayer].mode == "multiplayer") {
                         io.to(opponent).emit("owin", loserGetUnHitShip(players[opponent].allHitLocations, players[curplayer].shipLoc))
                     }
                 }
@@ -698,20 +707,11 @@ io.on('connection', (socket) => {
                 socket.emit('InvalidAttack', "This location is not available to attack")
                 break;
             case 0: {
-                const { row, col } = getRowAndColumn(pos);
-                players[opponent].board[pos] = 3;
-                players[curplayer].numMisses++;
-                socket.emit('miss', pos);
-                players[curplayer].messages.push(missMessage(row, col))
-                socket.emit("message", players[curplayer].messages)
-                players[curplayer].mode == "singleplayer"
-                    ? (socket.emit("info", "The AI is thinking ..."), setTimeout(() => { computerMove(curplayer, socket, opponent) }, 500))
-                    : (
-                        io.to(opponent).emit("omiss", pos),
-                        io.to(opponent).emit("turn"),
-                        players[opponent].messages.push(omissMessage(row, col)),
-                        io.to(opponent).emit("message", players[opponent].messages)
-                    );
+                handleMissComm(curplayer, opponent, pos)
+                if (players[curplayer].mode == "singleplayer") {
+                    socket.emit("info", "The AI is thinking ...")
+                    setTimeout(() => { computerMove(curplayer, socket, opponent) }, 500)
+                }
                 break;
             }
         }

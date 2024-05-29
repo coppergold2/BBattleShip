@@ -7,7 +7,7 @@ const Board = ({
   handleShipHover, handleShipHoverOut, handleCellHover, handleCellHoverOut
 }) => {
 
-  const cellClassName = () => {
+  const getCellsClassName = () => {
     const classNameArr = new Array(100).fill("");
     if (className === "player-board" && pbCellClass !== null) {
       pbCellClass.forEach((element, index) => {
@@ -25,7 +25,7 @@ const Board = ({
           classNameArr[index] += " miss";
         }
         console.log(element.possHitLocation)
-        if (element.ohit === false && element.omiss === false && element.possHitLocation == true){
+        if (turn != null && element.ohit === false && element.omiss === false && element.possHitLocation === true){
           classNameArr[index] += " possHit"
         }
       });
@@ -63,7 +63,7 @@ const Board = ({
 
   const renderRows = () => {
     let rows = [];
-    const cellClassNames = cellClassName();
+    const cellClassNames = getCellsClassName();
     for (let i = 0; i < 10; i++) {
       rows.push(<div key={`row-header-${i}`} className="row-header">{i + 1}</div>);
       for (let j = 0; j < 10; j++) {
@@ -78,19 +78,19 @@ const Board = ({
               turn == null && className === 'player-board' && shipLocHover == null && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName) } : null
             }
             onMouseEnter={() => {
-              if (turn && className === 'opponent-board' && cellClassNames[index] == "cell grab") {
+              if (className === 'opponent-board' && (cellClassNames[index] == "cell grab" || cellClassNames[index] == "cell")) {
                 handleCellHover(index);
               } else if (turn == null && activeShip != null && className === 'player-board') {
-                handleShipHover(index);
+                handleShipHover(index)
               }
             }}
             onMouseLeave={() => {
-              if (turn && className === 'opponent-board' && cellClassNames[index] == "cell grab") {
+              if (turn == true && className === 'opponent-board' && cellClassNames[index] == "cell grab") {
                 handleCellHoverOut();
               } else if (turn == null && activeShip != null && className === 'player-board') {
                 handleShipHoverOut();
               }
-            }} 
+            }}    
             style={{
               cursor: (activeShip && className === 'player-board' && turn == null) && 'pointer'
             }}
