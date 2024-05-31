@@ -218,9 +218,6 @@ const handleAIMiss = (computer, socket) => {
 }
 
 const handleAIHit = (computer, loc) => {
-
-    players[computer].numHits++;
-    players[computer].hitLocs.push(loc);
     if (!players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
         players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
@@ -398,31 +395,27 @@ const checkPossHitLocs = (computer) => {
 }
 
 const computerMove = (curPlayer, socket, opponent) => {
-    let hitPos;
+    let pos;
     if (players[opponent].hitLocs.length == 0) {
-        hitPos = getRandomIndexWithOneValue(opponent)
+        pos = getRandomIndexWithOneValue(opponent)
     }
     else if (players[opponent].curHitDirection != null) {
-        hitPos = players[opponent].possHitDirections[players[opponent].curHitDirection]
+        pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
     }
-    players[opponent].possHitLocations.delete(hitPos);
+    players[opponent].possHitLocations.delete(pos);
 
-    console.log(hitPos)
-    if (players[curPlayer].board[hitPos] === 0) {  // miss
-        handleMissComm(opponent, curPlayer, hitPos);
+    console.log(pos)
+    if (players[curPlayer].board[pos] === 0) {  // miss
+        handleMissComm(opponent, curPlayer, pos);
         handleAIMiss(opponent, socket)
         players[opponent].displayPossHitGrid()
         socket.emit("turn")
     }
-    else if (players[curPlayer].board[hitPos] === 1) { // hit
+    else if (players[curPlayer].board[pos] === 1) { // hit
         console.log("here")
-        players[curPlayer].board[hitPos] = 2;
-        handleAIHit(opponent, hitPos)
-        socket.emit("ohit", hitPos)
-        const { row, col } = getRowAndColumn(hitPos);
-        players[curPlayer].messages.push(ohitMessage(row, col))
-        socket.emit("message", players[curPlayer].messages)
-        const result = checkShip(curPlayer, hitPos);
+        handleHitComm(opponent, curPlayer, pos);
+        handleAIHit(opponent, pos)
+        const result = checkShip(curPlayer, pos);
         if (result != "normal") {  // destroy ship
             players[opponent].numDestroyShip++;
             players[curPlayer].messages.push(odestroyMessage(result[0]))
@@ -575,6 +568,33 @@ const handleMissComm = ((misser, receiver, pos) => {
     // misser is the player, receiver is the player.
 })
 
+const handleHitComm = ((hitter, receiver, pos) => {
+    players[receiver].board[pos] = 2;
+    players[hitter].numHits++;
+    const { row, col } = getRowAndColumn(pos);
+    if(players[receiver] instanceof Player) {
+        io.to(receiver).emit("ohit", pos)
+        players[receiver].messages.push(ohitMessage(row, col))
+        io.to(receiver).emit("message", players[receiver].messages)
+    }
+    if(players[hitter] instanceof Computer) {
+        players[hitter].hitLocs.push(pos)
+    }
+    if (players[hitter] instanceof Player) {
+        players[hitter].allHitLocations.push(pos);
+        io.to(hitter).emit('hit', pos);
+        players[hitter].messages.push(hitMessage(row, col))
+        io.to(hitter).emit("message", players[hitter].messages)
+    }   
+})
+
+const handleDestroyComm = ((hitter, receiver, pos) => {
+    const result = checkShip(hitter, pos);
+    if (result != "normal") {
+        
+    }
+})
+
 io.on('connection', (socket) => {
     socket.on("id", () => { socket.emit("id", socket.id) })
     let opponent;
@@ -722,20 +742,8 @@ io.on('connection', (socket) => {
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
             case 1: {
-                players[curPlayer].numHits++;
-                players[curPlayer].allHitLocations.push(pos);
-                players[opponent].board[pos] = 2;
+                handleHitComm(curPlayer, opponent, pos) 
                 const result = checkShip(opponent, pos);
-                const { row, col } = getRowAndColumn(pos);
-                socket.emit("hit", pos)
-                players[curPlayer].messages.push(hitMessage(row, col));
-                socket.emit("message", players[curPlayer].messages);
-                if (players[curPlayer].mode == "multiplayer") {
-                    io.to(opponent).emit("ohit", pos)
-                    players[opponent].messages.push(ohitMessage(row, col));
-                    io.to(opponent).emit("message", players[opponent].messages)
-                }
-
                 if (result != "normal") {
                     players[curPlayer].numDestroyShip++;
                     socket.emit("destroy", result);
