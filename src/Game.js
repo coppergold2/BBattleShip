@@ -21,7 +21,7 @@ const Game = ({
   handleRandomPlacement, 
   handleCellClick, 
   handleShipPlacement, 
-  flipBoat, 
+  handleFlipBoat, 
   handleShipHoverOut, 
   handleShipReplacement, 
   handleShipOptionClick, 
@@ -48,7 +48,7 @@ const Game = ({
         </div>
         {start == false && 
         (<><ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick = {handleShipOptionClick} />
-        <Buttons start = {start} socket={socket} handleRandomPlacement = {handleRandomPlacement} flipBoat = {flipBoat} isFlipped = {isFlipped}/></>)}
+        <Buttons start = {start} socket={socket} handleRandomPlacement = {handleRandomPlacement} handleFlipBoat = {handleFlipBoat} isFlipped = {isFlipped}/></>)}
         {start && <Chat messages={messages} input={input} sendMessage={sendMessage} handleInputChange={handleInputChange} multiPlayer = {multiPlayer}/>}
     </>
   );

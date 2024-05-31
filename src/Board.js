@@ -24,7 +24,6 @@ const Board = ({
         } else if (element.omiss === true) {
           classNameArr[index] += " miss";
         }
-        console.log(element.possHitLocation)
         if (turn != null && element.ohit === false && element.omiss === false && element.possHitLocation === true){
           classNameArr[index] += " possHit"
         }
@@ -71,10 +70,10 @@ const Board = ({
         rows.push(
           <div
             key={index}
-            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover[index] != null) ? shipLocHover[index] + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
+            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && Object.keys(shipLocHover).length != 1 && shipLocHover[index] != null) ? shipLocHover[index] + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
             onClick={
               turn && className === 'opponent-board' ? () => {handleCellClick(index); handleCellHoverOut()} :
-              turn == null  && activeShip != null && className === 'player-board' && shipLocHover != null ? () => { handleShipPlacement(shipLocHover) } :
+              turn == null  && activeShip != null && className === 'player-board' ? () => { handleShipPlacement(index) } :
               turn == null && className === 'player-board' && shipLocHover == null && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName) } : null
             }
             onMouseEnter={() => {

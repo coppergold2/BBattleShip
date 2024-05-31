@@ -1,11 +1,11 @@
 import React from "react"
 
-const Buttons = ({ start, socket, isFlipped, handleRandomPlacement, flipBoat }) => {
+const Buttons = ({ start, socket, isFlipped, handleRandomPlacement, handleFlipBoat }) => {
     return (
         !start && (
             <div className='button-container'>
                  <button className='random-button' onClick={() => { handleRandomPlacement() }}>Place Randomly</button>
-                 <button className='flip-button' onClick={flipBoat}>
+                 <button className='flip-button' onClick={handleFlipBoat}>
                     {isFlipped ? 'Flip to Horizontal' : 'Flip to Vertical'}
                 </button>
                

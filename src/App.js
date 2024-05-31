@@ -93,20 +93,25 @@ const App = () => {
       });
       setInfo("Start the game if you are ready")
     })
-    socket.current.on("shipPlacement", (shipLocs) => {
-      let shipName = null;
+    socket.current.on("flip", (flip) => {
+      setIsFlipped(flip);
+    })
+    socket.current.on("selectShip", (shipName) => {
+      setActiveShip(shipName);
+    })
+    socket.current.on("shipPlacement", (shipLocs, shipName) => {
       setPbCellClass((oldClass) => {
         const newCellClass = [...oldClass];
-        for (const loc of Object.keys(shipLocs)) {
-          if (shipName == null) {
-            shipName = shipLocs[loc]
-          }
-          newCellClass[loc].shipName = shipLocs[loc]
+        shipLocs.forEach((loc) => {
+          newCellClass[loc].shipName = shipName
         }
+      )
         return newCellClass
       })
 
       setPlacedShips((prevPlacedShips) => [...prevPlacedShips, shipName]);
+      setActiveShip(null);
+      setShipLocHover(null);
     })
 
     socket.current.on("shipReplacement", (shipLocs) => {
@@ -264,12 +269,9 @@ const App = () => {
         return newCellClass;
       })
     })
-    socket.current.on("InvalidAttack", (msg) => {
+    socket.current.on("alert", (msg) => {
       alert(msg)
-    })
-    socket.current.on("InvalidPlacement", (msg) => {
-      alert(msg)
-    })
+    }) 
     socket.current.on("info", (msg) => {
       setInfo(msg);
     })
@@ -308,13 +310,13 @@ const App = () => {
     setPlacedShips(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'])
     setActiveShip(null);
   }
-  const flipBoat = () => {
-    setIsFlipped(!isFlipped);
+  const handleFlipBoat = () => {
+    socket.current.emit("flip")
   };
   const handleRightClick = (e) => {
     e.preventDefault();
     if (activeShip) {
-      flipBoat();
+      handleFlipBoat();
     }
   };
 
@@ -339,16 +341,16 @@ const App = () => {
     console.log('clicked')
     socket.current.emit("attack", id);
   }
-  const handleShipPlacement = (shipLocs) => {
-    socket.current.emit("shipPlacement", shipLocs)
-    setActiveShip(null);
-    setShipLocHover(null);
+  const handleShipPlacement = (cell) => {
+    socket.current.emit("shipPlacement", cell)
+    console.log(activeShip);
   }
   const handleShipReplacement = (shipName) => {
     socket.current.emit("shipReplacement", shipName)
-    setActiveShip(shipName)
+    //setActiveShip(shipName)
   }
   const handleShipHover = (location) => {
+    console.log(activeShip);
     const row = Math.floor(location / 10);
     const col = location % 10;
     const shipSize = ships[activeShip];
@@ -382,10 +384,13 @@ const App = () => {
     if (result != null && Object.keys(result).length != 0) {
       setShipLocHover(result);
     }
+    else {
+      setShipLocHover({[location] : activeShip});
+    }
   }
 
   const handleShipOptionClick = (shipName) => {
-    setActiveShip(activeShip === shipName ? null : shipName)
+    socket.current.emit("selectShip", shipName);
   }
   const handleShipHoverOut = () => {
     setShipLocHover(null);
@@ -448,7 +453,7 @@ const App = () => {
             handleShipReplacement={handleShipReplacement}
             handleShipHoverOut={handleShipHoverOut}
             handleShipHover={handleShipHover}
-            flipBoat={flipBoat}
+            handleFlipBoat={handleFlipBoat}
             sendMessage={sendMessage}
             handleInputChange={handleInputChange}
             handleCellHover = {handleCellHover}
