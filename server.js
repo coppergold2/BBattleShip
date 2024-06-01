@@ -278,7 +278,7 @@ const handleAIHit = (computer, loc) => {
     }
 }
 
-const handleAIDestroy = (computer, destroyShip, socket) => {
+const handleAIDestroy = (computer, destroyShip) => {
     removeDestroyShipLoc(computer, destroyShip[1]);
     players[computer].curHitDirection = null;
     players[computer].possHitDirections = [-1, -1, -1, -1]
@@ -572,12 +572,12 @@ const handleHitComm = ((hitter, receiver, pos) => {
     players[receiver].board[pos] = 2;
     players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
-    if(players[receiver] instanceof Player) {
+    if (players[receiver] instanceof Player) {
         io.to(receiver).emit("ohit", pos)
         players[receiver].messages.push(ohitMessage(row, col))
         io.to(receiver).emit("message", players[receiver].messages)
     }
-    if(players[hitter] instanceof Computer) {
+    if (players[hitter] instanceof Computer) {
         players[hitter].hitLocs.push(pos)
     }
     if (players[hitter] instanceof Player) {
@@ -585,12 +585,24 @@ const handleHitComm = ((hitter, receiver, pos) => {
         io.to(hitter).emit('hit', pos);
         players[hitter].messages.push(hitMessage(row, col))
         io.to(hitter).emit("message", players[hitter].messages)
-    }   
+    }
 })
 
 const handleDestroyComm = ((hitter, receiver, pos) => {
     const result = checkShip(hitter, pos);
     if (result != "normal") {
+        players[hitter].numDestroyShip++;
+        if (players[receiver] instanceof Player) {
+            players[opponent].push(odestroyMessage(result[0]))
+            io.to(receiver).emit("message", players[receiver].messages);
+        }
+        if (players[hitter] instanceof Player) {
+            io.to(hitter).emit("destroy", result);
+            players[hitter].messages.push(destroyMessage(result[0]));
+            io.to(hitter).emit("message", players[hitter].messages);
+        }
+    }
+    else{
         
     }
 })
@@ -742,7 +754,7 @@ io.on('connection', (socket) => {
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
             case 1: {
-                handleHitComm(curPlayer, opponent, pos) 
+                handleHitComm(curPlayer, opponent, pos)
                 const result = checkShip(opponent, pos);
                 if (result != "normal") {
                     players[curPlayer].numDestroyShip++;
