@@ -253,7 +253,7 @@ const App = () => {
         // Return the updated state
         return newCellClass;
       });
-      setInfo("Your oppoenent hit your ship")
+      setInfo("Your opponent hit your ship")
 
     })
 

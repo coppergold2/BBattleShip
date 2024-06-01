@@ -415,33 +415,12 @@ const computerMove = (curPlayer, socket, opponent) => {
         console.log("here")
         handleHitComm(opponent, curPlayer, pos);
         handleAIHit(opponent, pos)
-        const result = checkShip(curPlayer, pos);
-        if (result != "normal") {  // destroy ship
-            players[opponent].numDestroyShip++;
-            players[curPlayer].messages.push(odestroyMessage(result[0]))
-            socket.emit("message", players[curPlayer].messages)
-            if (players[opponent].numDestroyShip == 5) {
-                socket.emit("owin", loserGetUnHitShip(players[curPlayer].allHitLocations, players[opponent].shipLoc));
-            }
-            else {
-                handleAIDestroy(opponent, result);
-                players[opponent].displayPossHitGrid()
-                socket.emit("info", "The AI is thinking ...")
-                process.nextTick(() => {
-                    setTimeout(() => {
-                        computerMove(curPlayer, socket, opponent);
-                    }, 500);
-                });
-            }
-        }
-        else { // normal hit
-            players[opponent].displayPossHitGrid()
+        handleDestroyComm(opponent, curPlayer, pos);
+        if (players[opponent].numDestroyShip < 5) {
             socket.emit("info", "The AI is thinking ...")
-            process.nextTick(() => {
-                setTimeout(() => {
-                    computerMove(curPlayer, socket, opponent);
-                }, 500);
-            });
+            setTimeout(() => {
+                computerMove(curPlayer, socket, opponent);
+            }, 500);
         }
     }
 }
@@ -589,11 +568,11 @@ const handleHitComm = ((hitter, receiver, pos) => {
 })
 
 const handleDestroyComm = ((hitter, receiver, pos) => {
-    const result = checkShip(hitter, pos);
+    const result = checkShip(receiver, pos);
     if (result != "normal") {
         players[hitter].numDestroyShip++;
         if (players[receiver] instanceof Player) {
-            players[opponent].push(odestroyMessage(result[0]))
+            players[receiver].messages.push(odestroyMessage(result[0]))
             io.to(receiver).emit("message", players[receiver].messages);
         }
         if (players[hitter] instanceof Player) {
@@ -601,10 +580,19 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
             players[hitter].messages.push(destroyMessage(result[0]));
             io.to(hitter).emit("message", players[hitter].messages);
         }
+        if (players[hitter].numDestroyShip == 5) {
+            if (players[receiver] instanceof Player) {
+                io.to(receiver).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc))
+            }
+            if (players[hitter] instanceof Player) {
+                io.to(hitter).emit("win", "You win!");
+            }
+        }
+        else if (players[hitter] instanceof Computer) {
+            handleAIDestroy(hitter, result)
+        }
     }
-    else{
-        
-    }
+
 })
 
 io.on('connection', (socket) => {
@@ -754,25 +742,8 @@ io.on('connection', (socket) => {
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
             case 1: {
-                handleHitComm(curPlayer, opponent, pos)
-                const result = checkShip(opponent, pos);
-                if (result != "normal") {
-                    players[curPlayer].numDestroyShip++;
-                    socket.emit("destroy", result);
-                    players[curPlayer].messages.push(destroyMessage(result[0]))
-                    socket.emit("message", players[curPlayer].messages)
-                    if (players[curPlayer].mode == "multiplayer") {
-                        players[opponent].messages.push(odestroyMessage(result[0]))
-                        io.to(opponent).emit("message", players[opponent].messages)
-                    }
-                }
-
-                if (players[curPlayer].numDestroyShip == 5) {
-                    socket.emit("win", "You win!");
-                    if (players[curPlayer].mode == "multiplayer") {
-                        io.to(opponent).emit("owin", loserGetUnHitShip(players[opponent].allHitLocations, players[curPlayer].shipLoc))
-                    }
-                }
+                handleHitComm(curPlayer, opponent, pos);
+                handleDestroyComm(curPlayer, opponent, pos);
                 break;
             }
             case 2:
