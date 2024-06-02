@@ -542,9 +542,6 @@ const handleMissComm = ((misser, receiver, pos) => {
             io.to(receiver).emit("message", players[receiver].messages);
         }
     }
-    // misser is the bot 
-    //misser is the player, receiver is the bot
-    // misser is the player, receiver is the player.
 })
 
 const handleHitComm = ((hitter, receiver, pos) => {

@@ -417,8 +417,8 @@ const App = () => {
   }
   return (
     <>
-      <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
       <h2>Info: {info}</h2>
+      <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
       {(!singlePlayer && !multiPlayer) ? (
         <div style={{
           display: 'flex',
