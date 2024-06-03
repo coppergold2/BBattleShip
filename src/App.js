@@ -36,9 +36,7 @@ const App = () => {
       socket.current.emit("id");
       setServerDown(false);
     });
-    socket.current.on('disconnect', () => {
-      console.log('Disconnected from server');
-      setServerDown(true);
+    const reset = () => {
       setSinglePlayer(false);
       setMultiPlayer(false);
       setInfo("Select Your Mode");
@@ -48,28 +46,25 @@ const App = () => {
       setPbCellClass(null);
       setGameFull(false);
       setPlacedShips([]);
+      setActiveShip(null);
       setIsFlipped(false);
       setShipLocHover(null);
-      setActiveShip(null);
       setMessages([]);
       setInput('');
+      setHoveredCell(null);
+    }
+    socket.current.on('disconnect', () => {
+      console.log('Disconnected from server');
+      setServerDown(true);
+      reset();
     });
     socket.current.on("oquit", (msg) => {
+      reset();
       setInfo(msg);
-      setSinglePlayer(false);
-      setMultiPlayer(false);
-      setTurn(null);
-      setStart(false);
-      setObCellClass(null);
-      setPbCellClass(null);
-      setGameFull(false);
-      setPlacedShips([]);
-      setIsFlipped(false);
-      setShipLocHover(null);
-      setActiveShip(null);
-      setMessages([]);
-      setInput('');
       socket.current.emit("oquit");
+    })
+    socket.current.on("home", () => {
+      reset();
     })
     socket.current.on("id", (id) => { document.title = id })
     socket.current.on("message", (messages) => {
@@ -307,7 +302,7 @@ const App = () => {
         })))
   }
   const handleHomeClick = () => {
-    
+    socket.current.emit("home")
   }
   const handleRandomPlacement = () => {
     socket.current.emit("random")
@@ -463,6 +458,7 @@ const App = () => {
             handleInputChange={handleInputChange}
             handleCellHover = {handleCellHover}
             handleCellHoverOut = {handleCellHoverOut}
+            handleHomeClick = {handleHomeClick}
           /> :
           <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
       }

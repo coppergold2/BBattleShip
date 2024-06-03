@@ -782,6 +782,18 @@ io.on('connection', (socket) => {
             }
         }
     });
+    socket.on("home", () => {
+        players[curPlayer].reset();
+        connectedMPClients--;
+        if(players[opponent] != null && players[curPlayer].mode == "multiplayer"){
+            io.to(opponent).emit("oquit", "Your opponent has quit, please restart")
+        }
+        else if(players[opponent] != null && players[curPlayer].mode == "singleplayer"){
+            delete players[opponent];
+        }
+        opponent = null;
+        socket.emit("home");
+    })
     socket.on("oquit", () => {
         players[curPlayer].reset();
         connectedMPClients--;

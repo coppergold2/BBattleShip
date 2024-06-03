@@ -29,13 +29,14 @@ const Game = ({
   sendMessage,
   handleInputChange,
   handleCellHover,
-  handleCellHoverOut }) => {
+  handleCellHoverOut,
+  handleHomeClick }) => {
 
   return (
     <>
-      {/* <button className="home-button" onClick={handleHomeClick}>
+      <button className="home-button" onClick={handleHomeClick}>
         Home
-      </button> */}
+      </button>
       <div className='boards'>
         <Board className="player-board"
           turn={turn}
