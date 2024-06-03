@@ -74,7 +74,7 @@ const Board = ({
             onClick={
               turn && className === 'opponent-board' ? () => {handleCellClick(index); handleCellHoverOut()} :
               turn == null  && activeShip != null && className === 'player-board' ? () => { handleShipPlacement(index) } :
-              turn == null && className === 'player-board' && shipLocHover == null && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName) } : null
+              turn == null && className === 'player-board' && activeShip == null && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName); } : null
             }
             onMouseEnter={() => {
               if (className === 'opponent-board' && (cellClassNames[index] == "cell grab" || cellClassNames[index] == "cell")) {

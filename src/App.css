@@ -13,14 +13,12 @@ h1 {
   text-align: center;
   color: #fffacd;
   font-family: 'Lucida Handwriting', cursive;
-  margin: 10px 0;
 }
 
 .boards {
   display: flex;
-  justify-content: space-evenly;
+  justify-content: center;
   width: 100%;
-  margin-top: 30px;
 }
 
 .board {
@@ -76,11 +74,10 @@ h1 {
 
 .ship-options {
   display: flex;
-  justify-content: space-evenly;
+  justify-content: center;
   height: 200px;
   align-items: center;
   margin-top: 50px;
-  
 }
 
 .ship-option {
@@ -89,33 +86,17 @@ h1 {
   border-radius: 100px;
   cursor: move;
   transition: all 0.3s ease-in-out; /* Smooth transition for the effects */
+  margin: 0 20px; /* Adjust the margin value as needed */
 }
 
-.ship-option.destroyer{
+.ship-option.destroyer {
   width: calc(39px * 2);
-  background-color: rgb(7, 88, 77);
-}
-
-.cell.destroyer{
   background-color: rgb(7, 88, 77);
 }
 
 .ship-option.submarine {
   width: calc(39px * 3);
-  background-color:rgba(119, 47, 187, 0.64) ;
-}
-
-.cell.submarine{
-  background-color:rgba(119, 47, 187, 0.64)
-}
-
-.ship-option.cruiser {
-  width: calc(39px * 3);
-  background-color:rgb(154, 61, 61) ;
-}
-
-.cell.cruiser{
-  background-color:rgb(154, 61, 61) ;
+  background-color: rgba(119, 47, 187, 0.64);
 }
 
 .ship-option.battleship {
@@ -123,14 +104,30 @@ h1 {
   background-color: rgb(94, 83, 83);
 }
 
-.cell.battleship{
-  background-color: rgb(94, 83, 83);
-}
-
 .ship-option.carrier {
   width: calc(39px * 5);
   background-color: rgb(122, 68, 122);
 }
+
+.ship-option.cruiser {
+  width: calc(39px * 3);
+  background-color: rgb(154, 61, 61);
+}
+
+.cell.destroyer{
+  background-color: rgb(7, 88, 77);
+}
+.cell.submarine{
+  background-color:rgba(119, 47, 187, 0.64)
+}
+.cell.cruiser{
+  background-color:rgb(154, 61, 61) ;
+}
+
+.cell.battleship{
+  background-color: rgb(94, 83, 83);
+}
+
 
 .cell.carrier{
   background-color: rgb(122, 68, 122);
@@ -162,7 +159,6 @@ button {
 button:hover {
   background-color: white;
   color: black;
-  border: 2px solid #4CAF50;
 }
 
 .ship-option.flipped {
@@ -304,5 +300,21 @@ button:hover {
   background-color: #e5d7b1; /* Light gray as a base shade */
 }
 
+.home-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.home-button:hover {
+  background-color: #0056b3;
+}
 
   

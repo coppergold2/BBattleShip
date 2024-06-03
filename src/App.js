@@ -114,20 +114,21 @@ const App = () => {
       setShipLocHover(null);
     })
 
-    socket.current.on("shipReplacement", (shipLocs) => {
-
-      let shipName = null;
+    socket.current.on("shipReplacement", (shipLocs, shipName) => {
       setPbCellClass((oldClass) => {
         const newCellClass = [...oldClass];
         for (const loc of shipLocs) {
-          if (shipName == null) {
-            shipName = newCellClass[loc].shipName;
-          }
           newCellClass[loc].shipName = null;
         }
         return newCellClass;
       });
+      console.log(shipLocs);
       setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
+      const result = {};
+      shipLocs.forEach((element) => {
+        result[element] = shipName
+      })
+      setShipLocHover(result)
     })
     socket.current.on('start', () => {
       setObCellClass(
@@ -305,10 +306,21 @@ const App = () => {
           omiss: false
         })))
   }
+  const handleHomeClick = () => {
+    
+  }
   const handleRandomPlacement = () => {
     socket.current.emit("random")
     setPlacedShips(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'])
     setActiveShip(null);
+  }
+  const handleShipPlacement = (cell) => {
+    socket.current.emit("shipPlacement", cell)
+    console.log(activeShip);
+  }
+  const handleShipReplacement = (shipName) => {
+    socket.current.emit("shipReplacement", shipName)
+    //setActiveShip(shipName)
   }
   const handleFlipBoat = () => {
     socket.current.emit("flip")
@@ -321,6 +333,7 @@ const App = () => {
   };
 
   useEffect(() => {
+    console.log(activeShip);
     if(shipLocHover != null){  
       const shipLocs = Object.keys(shipLocHover).map(Number);
       const firstShipCell = Math.min(...shipLocs)
@@ -340,14 +353,6 @@ const App = () => {
   const handleCellClick = (id) => {
     console.log('clicked')
     socket.current.emit("attack", id);
-  }
-  const handleShipPlacement = (cell) => {
-    socket.current.emit("shipPlacement", cell)
-    console.log(activeShip);
-  }
-  const handleShipReplacement = (shipName) => {
-    socket.current.emit("shipReplacement", shipName)
-    //setActiveShip(shipName)
   }
   const handleShipHover = (location) => {
     console.log(activeShip);
@@ -369,7 +374,7 @@ const App = () => {
         }
       }
     }
-    else {
+    else {  
       if (col + shipSize <= 10) {
         for (let i = 0; i < shipSize; i++) {
           const loc = row * 10 + col + i;
@@ -385,7 +390,7 @@ const App = () => {
       setShipLocHover(result);
     }
     else {
-      setShipLocHover({[location] : activeShip});
+      setShipLocHover({[location] : activeShip});  // why did I do this, put it as an array because to convert to a number
     }
   }
 

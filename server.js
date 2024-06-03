@@ -696,11 +696,11 @@ io.on('connection', (socket) => {
             players[curPlayer].shipLoc[shipName].forEach((element) => {
                 players[curPlayer].board[element] = 0;
             })
-            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName])
+            socket.emit("selectShip", shipName)
+            players[curPlayer].activeShip = shipName
+            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName)
             players[curPlayer].shipLoc[shipName] = []
             players[curPlayer].numPlaceShip--;
-            players[curPlayer].activeShip = shipName
-            socket.emit("selectShip", shipName)
         }
     })
     socket.on("start", () => {
