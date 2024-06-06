@@ -11,7 +11,7 @@ const App = () => {
   const [turn, setTurn] = useState(null);
   const [start, setStart] = useState(false);
   const [obCellClass, setObCellClass] = useState(null);
-  const [pbCellClass, setPbCellClass] = useState([]);
+  const [pbCellClass, setPbCellClass] = useState(null);
   const [multiPlayerGameFull, setGameFull] = useState(false);
   const [serverDown, setServerDown] = useState(true);
   const [placedShips, setPlacedShips] = useState([]);
@@ -109,8 +109,16 @@ const App = () => {
       setShipLocHover(null);
     })
 
-    socket.current.on("shipReplacement", (shipLocs, shipName) => {
-      handleShipReplacementServer(shipLocs, shipName);
+    socket.current.on("shipReplacement", (shipLocs, shipName, isFlipped) => {
+      setPbCellClass((oldClass) => {
+        const newCellClass = [...oldClass];
+        for (const loc of shipLocs) {
+          newCellClass[loc].shipName = null;
+        }
+        return newCellClass;
+      });
+      setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
+      handleShipHover(shipLocs[0], shipName, isFlipped);
     })
     socket.current.on('start', () => {
       setObCellClass(
@@ -194,7 +202,6 @@ const App = () => {
     })
     socket.current.on("updatePossHitLocation", (possHitLocations) => {
       const receivedSet = new Set(possHitLocations);
-      console.log(receivedSet)
       setPbCellClass((oldClass) => {
         const newCellClass = oldClass.map((cell) => ({
           ...cell,
@@ -298,7 +305,6 @@ const App = () => {
   }
   const handleShipPlacement = (cell) => {
     socket.current.emit("shipPlacement", cell)
-    console.log(activeShip);
   }
   const handleShipReplacement = (shipName) => {
     setActiveShip(() => {
@@ -307,29 +313,19 @@ const App = () => {
     socket.current.emit("shipReplacement", shipName)
     
   }
-  const handleShipReplacementServer = (shipLocs, shipName) => {
-    console.log(pbCellClass)
-    setPbCellClass((oldClass) => {
-      const newCellClass = [...oldClass];
-      for (const loc of shipLocs) {
-        newCellClass[loc].shipName = null;
-      }
-      return newCellClass;
-    });
-    setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
-    handleShipHover(shipLocs[0], shipName);
-  }
 
-  const handleShipHover = (location, ship) => {
+  const handleShipHover = (location, ship, isFlipped) => {
     if(ship == null){
       ship = activeShip;
     }
-    console.log(ship);
+    console.log("handleShipHover", isFlipped);
     const row = Math.floor(location / 10);
     const col = location % 10;
     const shipSize = ships[ship];
     const isValidLocation = (loc) => loc >= 0 && loc < 100;
-    const isLocationOccupied = (loc) => pbCellClass[loc].shipName != null;
+    const isLocationOccupied = (loc) => {
+      return pbCellClass != null && pbCellClass[loc] != null && pbCellClass[loc].shipName != null;
+    };
     let result = {}
     console.log("loc", pbCellClass)
     if (isFlipped) {
@@ -375,7 +371,6 @@ const App = () => {
   };
 
   useEffect(() => {
-    console.log(activeShip);
     if(shipLocHover != null){  
       const shipLocs = Object.keys(shipLocHover).map(Number);
       const firstShipCell = Math.min(...shipLocs)
@@ -393,7 +388,6 @@ const App = () => {
   })
 
   const handleCellClick = (id) => {
-    console.log('clicked')
     socket.current.emit("attack", id);
   }
 

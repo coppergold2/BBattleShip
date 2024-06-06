@@ -704,7 +704,7 @@ io.on('connection', (socket) => {
             console.log(players[curPlayer].shipLoc[shipName], shipName)
             players[curPlayer].activeShip = shipName;
             //socket.emit("selectShip", players[curPlayer].activeShip)
-            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName);
+            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName, players[curPlayer].isFlipped);
             players[curPlayer].shipLoc[shipName] = [];
             players[curPlayer].numPlaceShip--;
             
