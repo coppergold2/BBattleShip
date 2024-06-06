@@ -395,6 +395,7 @@ const checkPossHitLocs = (computer) => {
 }
 
 const computerMove = (curPlayer, socket, opponent) => {
+    if(players[curPlayer] != null && players[opponent] != null){
     let pos;
     if (players[opponent].hitLocs.length == 0) {
         pos = getRandomIndexWithOneValue(opponent)
@@ -423,6 +424,7 @@ const computerMove = (curPlayer, socket, opponent) => {
             }, 500);
         }
     }
+}
 }
 
 
@@ -691,17 +693,23 @@ io.on('connection', (socket) => {
     socket.on("shipReplacement", (shipName) => {
         if (players[curPlayer].shipLoc[shipName].length == 0) {
             socket.emit("alert", "There is an issue with ship replacement, your game is potentially modified illegally, consider refreshing the page")
+            socket.emit("selectShip", null);
         }
         else {
+           
             players[curPlayer].shipLoc[shipName].forEach((element) => {
                 players[curPlayer].board[element] = 0;
             })
-            socket.emit("selectShip", shipName)
-            players[curPlayer].activeShip = shipName
-            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName)
-            players[curPlayer].shipLoc[shipName] = []
+            players[curPlayer].shipLoc[shipName].forEach((loc) => {players[curPlayer].board[loc] = 0})
+            console.log(players[curPlayer].shipLoc[shipName], shipName)
+            players[curPlayer].activeShip = shipName;
+            //socket.emit("selectShip", players[curPlayer].activeShip)
+            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName);
+            players[curPlayer].shipLoc[shipName] = [];
             players[curPlayer].numPlaceShip--;
-        }
+            
+            players[curPlayer].displayGrid()
+        } 
     })
     socket.on("start", () => {
         if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {

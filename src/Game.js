@@ -34,9 +34,11 @@ const Game = ({
 
   return (
     <>
+      {/* {(start == false || turn == true) && */}
       <button className="home-button" onClick={handleHomeClick}>
         Home
       </button>
+      {/* } */}
       <div className='boards'>
         <Board className="player-board"
           turn={turn}
