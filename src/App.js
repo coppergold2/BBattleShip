@@ -314,10 +314,13 @@ const App = () => {
     
   }
 
-  const handleShipHover = (location, ship, isFlipped) => {
-    if(ship == null){
+  const handleShipHover = (location, ship, isFlippedServer) => {
+    
+    if(ship == null && isFlippedServer == null){
       ship = activeShip;
+      isFlippedServer = isFlipped
     }
+
     console.log("handleShipHover", isFlipped);
     const row = Math.floor(location / 10);
     const col = location % 10;
