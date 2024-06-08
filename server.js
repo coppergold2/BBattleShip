@@ -696,7 +696,6 @@ io.on('connection', (socket) => {
             socket.emit("selectShip", null);
         }
         else {
-           
             players[curPlayer].shipLoc[shipName].forEach((element) => {
                 players[curPlayer].board[element] = 0;
             })
@@ -707,7 +706,6 @@ io.on('connection', (socket) => {
             socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName, players[curPlayer].isFlipped);
             players[curPlayer].shipLoc[shipName] = [];
             players[curPlayer].numPlaceShip--;
-            
             players[curPlayer].displayGrid()
         } 
     })

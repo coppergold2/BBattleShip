@@ -109,7 +109,7 @@ const App = () => {
       setShipLocHover(null);
     })
 
-    socket.current.on("shipReplacement", (shipLocs, shipName, isFlipped) => {
+    socket.current.on("shipReplacement", (shipLocs, shipName, isFlippedServer) => {
       setPbCellClass((oldClass) => {
         const newCellClass = [...oldClass];
         for (const loc of shipLocs) {
@@ -118,7 +118,7 @@ const App = () => {
         return newCellClass;
       });
       setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
-      handleShipHover(shipLocs[0], shipName, isFlipped);
+      handleShipHover(shipLocs[0], shipName, isFlippedServer);
     })
     socket.current.on('start', () => {
       setObCellClass(
@@ -315,13 +315,15 @@ const App = () => {
   }
 
   const handleShipHover = (location, ship, isFlippedServer) => {
-    
+    console.log("isFlipped in handleShipHover", isFlipped)
+    console.log("activeShip in handleShipHover", activeShip)
+    console.log("pbCellClass in handleShipHover", pbCellClass)
     if(ship == null && isFlippedServer == null){
       ship = activeShip;
       isFlippedServer = isFlipped
     }
 
-    console.log("handleShipHover", isFlipped);
+    console.log("handleShipHover isFlippedServer:", isFlippedServer);
     const row = Math.floor(location / 10);
     const col = location % 10;
     const shipSize = ships[ship];
@@ -330,8 +332,7 @@ const App = () => {
       return pbCellClass != null && pbCellClass[loc] != null && pbCellClass[loc].shipName != null;
     };
     let result = {}
-    console.log("loc", pbCellClass)
-    if (isFlipped) {
+    if (isFlippedServer) {
       if (row + shipSize <= 10) {
         for (let i = 0; i < shipSize; i++) {
           const loc = row * 10 + col + i * 10;
@@ -356,6 +357,7 @@ const App = () => {
         }
       }
     }
+    console.log("result in handleShipHover", result);
     if (result != null && Object.keys(result).length != 0) {
       setShipLocHover(result);
     }
@@ -393,8 +395,7 @@ const App = () => {
   const handleCellClick = (id) => {
     socket.current.emit("attack", id);
   }
-
-
+  
   const handleShipOptionClick = (shipName) => {
     socket.current.emit("selectShip", shipName);
   }
