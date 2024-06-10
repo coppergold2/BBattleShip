@@ -700,10 +700,9 @@ io.on('connection', (socket) => {
                 players[curPlayer].board[element] = 0;
             })
             players[curPlayer].shipLoc[shipName].forEach((loc) => {players[curPlayer].board[loc] = 0})
-            console.log(players[curPlayer].shipLoc[shipName], shipName)
             players[curPlayer].activeShip = shipName;
-            //socket.emit("selectShip", players[curPlayer].activeShip)
-            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName, players[curPlayer].isFlipped);
+            socket.emit("selectShip", players[curPlayer].activeShip)
+            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName);
             players[curPlayer].shipLoc[shipName] = [];
             players[curPlayer].numPlaceShip--;
             players[curPlayer].displayGrid()

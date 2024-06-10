@@ -109,7 +109,7 @@ const App = () => {
       setShipLocHover(null);
     })
 
-    socket.current.on("shipReplacement", (shipLocs, shipName, isFlippedServer) => {
+    socket.current.on("shipReplacement", (shipLocs, shipName) => {
       setPbCellClass((oldClass) => {
         const newCellClass = [...oldClass];
         for (const loc of shipLocs) {
@@ -117,8 +117,8 @@ const App = () => {
         }
         return newCellClass;
       });
-      setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
-      handleShipHover(shipLocs[0], shipName, isFlippedServer);
+      setShipLocHover(new Set([shipLocs[0]]))
+      setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName)); 
     })
     socket.current.on('start', () => {
       setObCellClass(
@@ -307,32 +307,20 @@ const App = () => {
     socket.current.emit("shipPlacement", cell)
   }
   const handleShipReplacement = (shipName) => {
-    setActiveShip(() => {
-      return shipName
-    });
     socket.current.emit("shipReplacement", shipName)
-    
   }
 
-  const handleShipHover = (location, ship, isFlippedServer) => {
-    console.log("isFlipped in handleShipHover", isFlipped)
-    console.log("activeShip in handleShipHover", activeShip)
-    console.log("pbCellClass in handleShipHover", pbCellClass)
-    if(ship == null && isFlippedServer == null){
-      ship = activeShip;
-      isFlippedServer = isFlipped
-    }
+  const handleShipHover = (location) => {
 
-    console.log("handleShipHover isFlippedServer:", isFlippedServer);
     const row = Math.floor(location / 10);
     const col = location % 10;
-    const shipSize = ships[ship];
+    const shipSize = ships[activeShip];
     const isValidLocation = (loc) => loc >= 0 && loc < 100;
     const isLocationOccupied = (loc) => {
       return pbCellClass != null && pbCellClass[loc] != null && pbCellClass[loc].shipName != null;
     };
-    let result = {}
-    if (isFlippedServer) {
+    let result = new Set();
+    if (isFlipped) {
       if (row + shipSize <= 10) {
         for (let i = 0; i < shipSize; i++) {
           const loc = row * 10 + col + i * 10;
@@ -340,7 +328,7 @@ const App = () => {
             result = null;
             break;
           }
-          result[loc] = ship;
+          result.add(loc)
         }
       }
     }
@@ -353,16 +341,16 @@ const App = () => {
             result = null;
             break;
           }
-          result[loc] = ship;
+          result.add(loc)
         }
       }
     }
     console.log("result in handleShipHover", result);
-    if (result != null && Object.keys(result).length != 0) {
+    if (result != null && result.size != 0) {
       setShipLocHover(result);
     }
     else {
-      setShipLocHover({[location] : ship});  // why did I do this -> put it as an array because to convert to a number
+      setShipLocHover(new Set([location]));  // why did I do this -> put it as an array because to convert to a number
     }
   }
   const handleFlipBoat = () => {
@@ -377,11 +365,11 @@ const App = () => {
 
   useEffect(() => {
     if(shipLocHover != null){  
-      const shipLocs = Object.keys(shipLocHover).map(Number);
-      const firstShipCell = Math.min(...shipLocs)
+      const shipLocs = Array.from(shipLocHover).map(Number);
+      const firstShipCell = Math.min(...shipLocs);
       handleShipHover(firstShipCell)
     }
-  }, [isFlipped])
+  }, [isFlipped, placedShips])
 
   useEffect(() => {
     if (activeShip) {
@@ -391,7 +379,6 @@ const App = () => {
       document.removeEventListener('contextmenu', handleRightClick);
     };
   })
-
   const handleCellClick = (id) => {
     socket.current.emit("attack", id);
   }
