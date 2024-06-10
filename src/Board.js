@@ -70,7 +70,7 @@ const Board = ({
         rows.push(
           <div
             key={index}
-            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && Object.keys(shipLocHover).length != 1 && shipLocHover[index] != null) ? shipLocHover[index] + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
+            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover.size != 1 && shipLocHover.has(index)) ? activeShip + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
             onClick={
               turn && className === 'opponent-board' ? () => {handleCellClick(index); handleCellHoverOut()} :
               turn == null  && activeShip != null && className === 'player-board' ? () => { handleShipPlacement(index) } :

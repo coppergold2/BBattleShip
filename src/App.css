@@ -64,7 +64,7 @@ h1 {
 }
 
 .hover {
-  opacity: 0.9; /* Slightly transparent to indicate hover */
+  opacity: 0.2; /* Slightly transparent to indicate hover */
   background-color: rgba(0, 123, 255, 0.3); /* Light blue background with transparency */
   box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Soft shadow around the cell */
   border-radius: 5px; /* Slightly rounded corners */

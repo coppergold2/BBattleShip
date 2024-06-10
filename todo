@@ -27,7 +27,10 @@ if not then re random select ?
 need to change the data structure of the AI holding the possHitLocs from array
 to sets to improve efficiency.
 
+- pick up ship after placing it fix
 - have a home button that returns to the initial page.
+- delete possHit if the Ai is in the process of hitting a ship
 - make the boards bigger on the screen
 - put all the board state into pbCellClass and obCellClass
+- fix the layout of chat and boards
 
