@@ -690,7 +690,7 @@ io.on('connection', (socket) => {
             }
         }
     })
-    socket.on("shipReplacement", (shipName) => {
+    socket.on("shipReplacement", (shipName, index) => {
         if (players[curPlayer].shipLoc[shipName].length == 0) {
             socket.emit("alert", "There is an issue with ship replacement, your game is potentially modified illegally, consider refreshing the page")
             socket.emit("selectShip", null);
@@ -702,7 +702,7 @@ io.on('connection', (socket) => {
             players[curPlayer].shipLoc[shipName].forEach((loc) => {players[curPlayer].board[loc] = 0})
             players[curPlayer].activeShip = shipName;
             socket.emit("selectShip", players[curPlayer].activeShip)
-            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName);
+            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName, index);
             players[curPlayer].shipLoc[shipName] = [];
             players[curPlayer].numPlaceShip--;
             players[curPlayer].displayGrid()

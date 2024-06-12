@@ -109,7 +109,7 @@ const App = () => {
       setShipLocHover(null);
     })
 
-    socket.current.on("shipReplacement", (shipLocs, shipName) => {
+    socket.current.on("shipReplacement", (shipLocs, shipName, index) => {
       setPbCellClass((oldClass) => {
         const newCellClass = [...oldClass];
         for (const loc of shipLocs) {
@@ -117,7 +117,8 @@ const App = () => {
         }
         return newCellClass;
       });
-      setShipLocHover(new Set([shipLocs[0]]))
+      console.log(index);
+      setShipLocHover(new Set([index]))
       setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName)); 
     })
     socket.current.on('start', () => {
@@ -306,8 +307,8 @@ const App = () => {
   const handleShipPlacement = (cell) => {
     socket.current.emit("shipPlacement", cell)
   }
-  const handleShipReplacement = (shipName) => {
-    socket.current.emit("shipReplacement", shipName)
+  const handleShipReplacement = (shipName, index) => {
+    socket.current.emit("shipReplacement", shipName, index)
   }
 
   const handleShipHover = (location) => {

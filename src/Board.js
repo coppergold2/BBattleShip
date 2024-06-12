@@ -73,13 +73,13 @@ const Board = ({
             className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover.size != 1 && shipLocHover.has(index)) ? activeShip + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
             onClick={
               turn && className === 'opponent-board' ? () => {handleCellClick(index); handleCellHoverOut()} :
-              turn == null  && activeShip != null && className === 'player-board' ? () => { handleShipPlacement(index) } :
-              turn == null && className === 'player-board' && activeShip == null && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName); } : null
+              turn == null  && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null ? () => { handleShipPlacement(index) } :
+              turn == null && className === 'player-board' && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName, index); } : null
             }
             onMouseEnter={() => {
               if (className === 'opponent-board' && (cellClassNames[index] == "cell grab" || cellClassNames[index] == "cell")) {
                 handleCellHover(index);
-              } else if (turn == null && activeShip != null && className === 'player-board') {
+              } else if (turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null) {
                 handleShipHover(index)
               }
             }}
