@@ -104,6 +104,8 @@ const Board = ({
       <div className={`${turn === null ? 'board-before' : 'board-after'} ${className}`}>
         {renderColumnHeaders()}
         {renderRows()}
+        <div>Number of Hits: </div>
+        <div>Number of Miss: </div>
      </div>
   );
 };
