@@ -101,12 +101,10 @@ const Board = ({
   };
 
   return (
-    <div className="boards">
-      <div className={`board ${className}`}>
+      <div className={`${turn === null ? 'board-before' : 'board-after'} ${className}`}>
         {renderColumnHeaders()}
         {renderRows()}
-      </div>
-    </div>
+     </div>
   );
 };
 

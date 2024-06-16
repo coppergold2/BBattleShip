@@ -15,17 +15,36 @@ h1 {
   font-family: 'Lucida Handwriting', cursive;
 }
 
+.game-container {
+  display: flex; /* Makes the container a flex container */
+}
+
 .boards {
+  display: flex;
+  /* flex-direction: column; Optional: Align boards vertically */
+  width: 80%; /* Adjust as necessary */
+}
+
+.boards_before {
   display: flex;
   justify-content: center;
   width: 100%;
 }
 
-.board {
+.board-before {
   display: grid;
   grid-template-columns: 30px repeat(10, 39px);
   grid-template-rows: 30px repeat(10, 39px);
   gap: 2px;
+  
+}
+
+.board-after {
+  display: grid;
+  grid-template-columns: 30px repeat(10, 60px);
+  grid-template-rows: 30px repeat(10, 60px);
+  gap: 2px;
+  margin: 0px 50px ;
 }
 
 .corner {
@@ -224,8 +243,8 @@ button:hover {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   background-color: red;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -237,8 +256,8 @@ button:hover {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 20px;
-  height: 20px;
+  width: 30px;
+  height: 30px;
   background-color: black;
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(1);
@@ -262,10 +281,12 @@ button:hover {
 }
 
 .chat-container {
+  flex: 1; /* Takes up remaining space */
   color: #FFFFFF;
   width: 100%;
   max-width: 300px;
-  margin: 10px auto;
+  padding: 10px;
+  margin-left: 10px; /* Optional: Add space between boards and chat */
 }
 
 .chat-input {
