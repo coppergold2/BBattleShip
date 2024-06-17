@@ -125,22 +125,22 @@ const ships = {
 
 const players = {};
 const hitMessage = (col, row) => {
-    return "You hit at row " + row + " column " + col + "."
+    return {'player' : "You hit at row " + row + " column " + col + "."}
 }
 const ohitMessage = (col, row) => {
-    return "Opponent hit at row " + row + " column " + col + "."
+    return {'opponent' : "Opponent hit at row " + row + " column " + col + "."}
 }
 const destroyMessage = (shipName) => {
-    return "You sunk the " + shipName + " ship" + "."
+    return {'player' : "You sunk the " + shipName + " ship" + "."}
 }
 const odestroyMessage = (shipName) => {
-    return "Opponent sunk the " + shipName + " ship" + "."
-}
+    return {'opponent' : "Opponent sunk the " + shipName + " ship" + "."}
+    }
 const missMessage = (col, row) => {
-    return "You miss at row " + row + " column " + col + "."
+    return {'player' : "You miss at row " + row + " column " + col + "."}
 }
 const omissMessage = (col, row) => {
-    return "Opponent miss at row " + row + " column " + col + "."
+    return {'opponent' : "Opponent miss at row " + row + " column " + col + "."}
 }
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
@@ -763,10 +763,10 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        players[curPlayer].messages.push("You: " + message); // Save the new message to the session messages
+        players[curPlayer].messages.push({'player' : "You: " + message}); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
         if (players[curPlayer].mode == "multiplayer") {
-            players[opponent].messages.push("Opponent: " + message);
+            players[opponent].messages.push({'opponent' : "Opponent: " + message});
             io.to(opponent).emit("message", players[opponent].messages)
         }
     });

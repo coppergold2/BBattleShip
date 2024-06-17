@@ -34,3 +34,7 @@ to sets to improve efficiency.
 - put all the board state into pbCellClass and obCellClass
 - fix the layout of chat and boards
 
+- figure out how to differentiate My Message and opponent message in chat *
+- make the chat display window a little bigger, the one that display the message *
+- change the damn header message css.
+- fix the problem where the mouse is not tz`here waiting for next player's turn, it still hovers.

@@ -90,6 +90,11 @@ h1 {
   transition: all 0.2s ease-in-out; /* Smooth transition effect */
 }
 
+.stats-container{
+  margin-Left: 50px;
+  margin-top : 30px;
+  color : white
+}
 
 .ship-options {
   display: flex;
@@ -281,36 +286,103 @@ button:hover {
 }
 
 .chat-container {
-  flex: 1; /* Takes up remaining space */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   color: #FFFFFF;
   width: 100%;
-  max-width: 300px;
-  padding: 10px;
+  max-width: 400px; /* Increased width for better readability */
+  padding: 15px;
   margin-left: 10px; /* Optional: Add space between boards and chat */
+  background: linear-gradient(135deg, #008B8B, #005F5F); /* Subtle gradient background with darker shades */
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow */
+}
+
+.chat-header {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #FFD700; /* High contrast yellow for the header */
+}
+
+.chat-messages {
+  border: 1px solid #FFFFFF;
+  height: 350px;
+  overflow-y: scroll;
+  padding: 10px;
+  border-radius: 5px;
+  background: #001F1F; /* Dark background for messages container */
+  color: #FFFFFF; /* Ensure text is readable */
+}
+
+.chat-message {
+  padding: 5px 10px;
+  margin: 5px 0;
+  border-radius: 5px;
+  color: #000000; /* Ensure text is readable */
+}
+
+.chat-message-player {
+  background-color: #00CED1; /* Bright cyan for player messages */
+}
+
+.chat-message-opponent {
+  background-color: #FF7F50; /* Light coral for opponent messages */
+}
+
+.chat-input-container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
 }
 
 .chat-input {
   width: 100%;
-  max-width: 300px;
+  max-width: 400px;
   height: auto;
-  min-height: 30px;
+  min-height: 150px;
   resize: none;
   box-sizing: border-box;
-  padding: 5px;
+  padding: 10px;
   margin-bottom: 10px;
   word-wrap: break-word;
+  border: 1px solid #FFFFFF;
+  border-radius: 5px;
+  background: #00CED1; /* Dark background for input area */
+  color: #000000;
+  font-size: 16px;
 }
 
+.chat-input::placeholder {
+  color: #652020; /* Replace with your desired color */
+}
 .chat-button {
-  background-color: #004D4D;
-  color: #FFFFFF;
+  background-color: #FFD700; /* Bright yellow button */
+  color: #000000;
   border: 1px solid #FFFFFF;
-  padding: 5px 10px;
+  padding: 10px 15px;
   cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
 }
 
 .chat-button:hover {
-  background-color: #006666;
+  background-color: #FFA500; /* Darker shade of yellow on hover */
+}
+
+/* Custom scrollbar styling */
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: #FFD700; /* Yellow scrollbar for high contrast */
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: #001F1F;
 }
 .loser {
   border: 1px solid #ddd; /* Base border */

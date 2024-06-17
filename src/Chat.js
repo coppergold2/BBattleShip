@@ -14,15 +14,25 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) 
 
   return (
     <div className="chat-container">
-      Chat
-      <div style={{ border: '1px solid #FFFFFF', height: '250px', overflowY: 'scroll', padding: '10px' }}>
-        {messages.map((msg, index) => (
-          <div key={index}>{msg}</div>
-        ))}
+      <div className="chat-header">Chat</div>
+      <div className="chat-messages">
+        {messages.map((msg, index) => {
+          let owner = '';
+          if (msg['player'] != null) {
+            owner = 'player';
+          } else if (msg['opponent'] != null) {
+            owner = 'opponent';
+          }
+          return (
+            <div key={index} className={`chat-message chat-message-${owner}`}>
+              {msg[owner]}
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
       {multiPlayer && (
-        <div>
+        <div className="chat-input-container">
           <textarea
             type="text"
             value={input}
@@ -33,6 +43,7 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) 
                 sendMessage();
               }
             }}
+            placeholder="Type here"
             className="chat-input"
           />
           <button onClick={sendMessage} className="chat-button">Send</button>
