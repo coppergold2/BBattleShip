@@ -2,7 +2,7 @@ import React from 'react';
 
 
 const Board = ({
-  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell,
+  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell, stats,
   handleCellClick, handleShipPlacement, handleShipReplacement,
   handleShipHover, handleShipHoverOut, handleCellHover, handleCellHoverOut
 }) => {
@@ -101,12 +101,25 @@ const Board = ({
   };
 
   return (
-      <div className={`${turn === null ? 'board-before' : 'board-after'} ${className}`}>
-        {renderColumnHeaders()}
-        {renderRows()}
-        <div>Number of Hits: </div>
-        <div>Number of Miss: </div>
-     </div>
+    <div>
+    <div className={`${turn === null ? 'board-before' : 'board-after'} ${className}`}>
+      {renderColumnHeaders()}
+      {renderRows()}
+    </div>
+    {turn != null && (
+      <>
+        <div style = {{marginLeft: '30px'}}>
+          Number of Hits: {className === 'player-board' ? stats.onumHits : stats.numHits}
+        </div>
+        <div style = {{marginLeft: '30px'}}>
+          Number of Misses: {className === 'player-board' ? stats.onumMisses : stats.numMisses}
+        </div>
+        <div style = {{marginLeft: '30px'}}>
+          Total Moves: {className === 'player-board' ? stats.onumMisses+stats.onumHits : stats.numHits + stats.numMisses}
+        </div>
+      </>
+    )}
+    </div>
   );
 };
 

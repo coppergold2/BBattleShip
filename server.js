@@ -528,17 +528,17 @@ const handleMissComm = ((misser, receiver, pos) => {
     players[misser].numMisses++;
     players[receiver].board[pos] = 3;
     if (players[misser] instanceof Computer) {
-        io.to(receiver).emit("omiss", pos)
+        io.to(receiver).emit("omiss", pos, players[misser].numMisses)
         players[receiver].messages.push(omissMessage(row, col))
         io.to(receiver).emit("message", players[receiver].messages)
         // io.to.emit("turn")
     }
     else if (players[misser] instanceof Player) {
-        io.to(misser).emit('miss', pos);
+        io.to(misser).emit('miss', pos, players[misser].numMisses);
         players[misser].messages.push(missMessage(row, col))
         io.to(misser).emit("message", players[misser].messages)
         if (players[receiver] instanceof Player) {
-            io.to(receiver).emit("omiss", pos);
+            io.to(receiver).emit("omiss", pos, players[misser].numMisses);
             io.to(receiver).emit("turn");
             players[receiver].messages.push(omissMessage(row, col));
             io.to(receiver).emit("message", players[receiver].messages);
@@ -551,7 +551,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
     if (players[receiver] instanceof Player) {
-        io.to(receiver).emit("ohit", pos)
+        io.to(receiver).emit("ohit", pos, players[hitter].numHits)
         players[receiver].messages.push(ohitMessage(row, col))
         io.to(receiver).emit("message", players[receiver].messages)
     }
@@ -560,7 +560,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     }
     if (players[hitter] instanceof Player) {
         players[hitter].allHitLocations.push(pos);
-        io.to(hitter).emit('hit', pos);
+        io.to(hitter).emit('hit', pos, players[hitter].numHits);
         players[hitter].messages.push(hitMessage(row, col))
         io.to(hitter).emit("message", players[hitter].messages)
     }
