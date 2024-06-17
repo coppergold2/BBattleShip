@@ -21,6 +21,13 @@ const App = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [hoveredCell, setHoveredCell] = useState(null);
+  const [stats, setStats] = useState({
+    numHits: 0,
+    numMisses: 0,
+    onumHits: 0,
+    onumMisses: 0,
+  });
+
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -52,6 +59,12 @@ const App = () => {
       setMessages([]);
       setInput('');
       setHoveredCell(null);
+      setStats({
+        numHits: 0,
+        numMisses: 0,
+        onumHits: 0,
+        onumMisses: 0,
+      });
     }
     socket.current.on('disconnect', () => {
       console.log('Disconnected from server');
@@ -158,7 +171,7 @@ const App = () => {
     socket.current.on('turn', () => {
       setTurn(true)
     })
-    socket.current.on('hit', (pos) => {
+    socket.current.on('hit', (pos, num) => {
       setObCellClass((oldClass) => {
         // Create a new array by cloning the old state
         const newCellClass = [...oldClass];
@@ -169,9 +182,13 @@ const App = () => {
         // Return the updated state
         return newCellClass;
       });
+      setStats((prevStats) => ({
+        ...prevStats,
+        numHits : num
+      }))
       setInfo("You hit the opponent's ship, please go again")
     })
-    socket.current.on('miss', (pos) => {
+    socket.current.on('miss', (pos, num) => {
       setObCellClass((oldClass) => {
         // Create a new array by cloning the old state
         const newCellClass = [...oldClass];
@@ -182,6 +199,10 @@ const App = () => {
         // Return the updated state
         return newCellClass;
       });
+      setStats((prevStats) => ({
+        ...prevStats,
+        numMisses: num
+      }))
       setInfo("You did not hit the opponent's ship this time")
       setTurn(false);
     })
@@ -220,7 +241,7 @@ const App = () => {
       setInfo(msg)
       setTurn(false)
     })
-    socket.current.on('omiss', (pos) => {
+    socket.current.on('omiss', (pos, num) => {
       setPbCellClass((oldClass) => {
         // Create a new array by cloning the old state
         const newCellClass = [...oldClass];
@@ -231,9 +252,13 @@ const App = () => {
         // Return the updated state
         return newCellClass;
       });
+      setStats((prevStats) => ({
+        ...prevStats,
+        onumMisses: num
+      }))
       setInfo("Your opponent did not hit your ship this time, it's your turn to attack")
     })
-    socket.current.on('ohit', (pos) => {
+    socket.current.on('ohit', (pos, num) => {
       setPbCellClass((oldClass) => {
         // Create a new array by cloning the old state
         const newCellClass = [...oldClass];
@@ -245,6 +270,10 @@ const App = () => {
         return newCellClass;
       });
       setInfo("Your opponent hit your ship")
+      setStats((prevStats) => ({
+        ...prevStats,
+        onumHits : num
+      }))
 
     })
 
@@ -412,7 +441,7 @@ const App = () => {
   }
   return (
     <>
-      <h2>Info: {info}</h2>
+      <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
       <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
       {(!singlePlayer && !multiPlayer) ? (
         <div style={{
@@ -441,6 +470,7 @@ const App = () => {
             input={input}
             isFlipped={isFlipped}
             hoveredCell = {hoveredCell}
+            stats = {stats}
             handleRandomPlacement={handleRandomPlacement}
             handleShipOptionClick={handleShipOptionClick}
             handleCellClick={handleCellClick}

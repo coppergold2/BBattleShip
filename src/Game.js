@@ -18,6 +18,7 @@ const Game = ({
   messages,
   input,
   hoveredCell,
+  stats,
   handleRandomPlacement,
   handleCellClick,
   handleShipPlacement,
@@ -48,8 +49,9 @@ const Game = ({
             handleShipPlacement={handleShipPlacement}
             handleShipReplacement={handleShipReplacement}
             handleShipHoverOut={handleShipHoverOut}
-            handleShipHover={handleShipHover} />
-          {start && <Board className="opponent-board" handleCellClick={handleCellClick} turn={turn} obCellClass={obCellClass} hoveredCell={hoveredCell} handleCellHover={handleCellHover} handleCellHoverOut={handleCellHoverOut} />}
+            handleShipHover={handleShipHover}
+            stats = {stats} />
+          {start && <Board className="opponent-board" handleCellClick={handleCellClick} turn={turn} obCellClass={obCellClass} hoveredCell={hoveredCell} handleCellHover={handleCellHover} handleCellHoverOut={handleCellHoverOut} stats = {stats}/>}
         </div>
         {start && <Chat messages={messages} input={input} sendMessage={sendMessage} handleInputChange={handleInputChange} multiPlayer={multiPlayer} />}
       </div>

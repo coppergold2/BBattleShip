@@ -2,7 +2,7 @@ import React from 'react';
 
 
 const Board = ({
-  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell,
+  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell, stats,
   handleCellClick, handleShipPlacement, handleShipReplacement,
   handleShipHover, handleShipHoverOut, handleCellHover, handleCellHoverOut
 }) => {
@@ -24,7 +24,7 @@ const Board = ({
         } else if (element.omiss === true) {
           classNameArr[index] += " miss";
         }
-        if (turn != null && element.ohit === false && element.omiss === false && element.possHitLocation === true){
+        if (turn != null && element.ohit === false && element.omiss === false && element.possHitLocation === true) {
           classNameArr[index] += " possHit"
         }
       });
@@ -70,11 +70,11 @@ const Board = ({
         rows.push(
           <div
             key={index}
-            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover.size != 1 && shipLocHover.has(index)) ? activeShip + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}            
+            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover.size != 1 && shipLocHover.has(index)) ? activeShip + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}
             onClick={
-              turn && className === 'opponent-board' ? () => {handleCellClick(index); handleCellHoverOut()} :
-              turn == null  && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null ? () => { handleShipPlacement(index) } :
-              turn == null && className === 'player-board' && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName, index); } : null
+              turn && className === 'opponent-board' ? () => { handleCellClick(index); handleCellHoverOut() } :
+                turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null ? () => { handleShipPlacement(index) } :
+                  turn == null && className === 'player-board' && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName, index); } : null
             }
             onMouseEnter={() => {
               if (className === 'opponent-board' && (cellClassNames[index] == "cell grab" || cellClassNames[index] == "cell")) {
@@ -89,7 +89,7 @@ const Board = ({
               } else if (turn == null && activeShip != null && className === 'player-board') {
                 handleShipHoverOut();
               }
-            }}    
+            }}
             style={{
               cursor: (activeShip && className === 'player-board' && turn == null) && 'pointer'
             }}
@@ -101,10 +101,25 @@ const Board = ({
   };
 
   return (
+    <div>
       <div className={`${turn === null ? 'board-before' : 'board-after'} ${className}`}>
         {renderColumnHeaders()}
         {renderRows()}
-     </div>
+      </div>
+      {turn != null && (
+        <div className="stats-container">
+          <div>
+            Number of Hits: {className === 'player-board' ? stats.onumHits : stats.numHits}
+          </div>
+          <div>
+            Number of Misses: {className === 'player-board' ? stats.onumMisses : stats.numMisses}
+          </div>
+          <div>
+            Total Moves: {className === 'player-board' ? stats.onumMisses + stats.onumHits : stats.numHits + stats.numMisses}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

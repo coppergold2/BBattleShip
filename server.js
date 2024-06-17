@@ -125,22 +125,22 @@ const ships = {
 
 const players = {};
 const hitMessage = (col, row) => {
-    return "You hit at row " + row + " column " + col + "."
+    return {'player' : "You hit at row " + row + " column " + col + "."}
 }
 const ohitMessage = (col, row) => {
-    return "Opponent hit at row " + row + " column " + col + "."
+    return {'opponent' : "Opponent hit at row " + row + " column " + col + "."}
 }
 const destroyMessage = (shipName) => {
-    return "You sunk the " + shipName + " ship" + "."
+    return {'player' : "You sunk the " + shipName + " ship" + "."}
 }
 const odestroyMessage = (shipName) => {
-    return "Opponent sunk the " + shipName + " ship" + "."
-}
+    return {'opponent' : "Opponent sunk the " + shipName + " ship" + "."}
+    }
 const missMessage = (col, row) => {
-    return "You miss at row " + row + " column " + col + "."
+    return {'player' : "You miss at row " + row + " column " + col + "."}
 }
 const omissMessage = (col, row) => {
-    return "Opponent miss at row " + row + " column " + col + "."
+    return {'opponent' : "Opponent miss at row " + row + " column " + col + "."}
 }
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
@@ -528,17 +528,17 @@ const handleMissComm = ((misser, receiver, pos) => {
     players[misser].numMisses++;
     players[receiver].board[pos] = 3;
     if (players[misser] instanceof Computer) {
-        io.to(receiver).emit("omiss", pos)
+        io.to(receiver).emit("omiss", pos, players[misser].numMisses)
         players[receiver].messages.push(omissMessage(row, col))
         io.to(receiver).emit("message", players[receiver].messages)
         // io.to.emit("turn")
     }
     else if (players[misser] instanceof Player) {
-        io.to(misser).emit('miss', pos);
+        io.to(misser).emit('miss', pos, players[misser].numMisses);
         players[misser].messages.push(missMessage(row, col))
         io.to(misser).emit("message", players[misser].messages)
         if (players[receiver] instanceof Player) {
-            io.to(receiver).emit("omiss", pos);
+            io.to(receiver).emit("omiss", pos, players[misser].numMisses);
             io.to(receiver).emit("turn");
             players[receiver].messages.push(omissMessage(row, col));
             io.to(receiver).emit("message", players[receiver].messages);
@@ -551,7 +551,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
     if (players[receiver] instanceof Player) {
-        io.to(receiver).emit("ohit", pos)
+        io.to(receiver).emit("ohit", pos, players[hitter].numHits)
         players[receiver].messages.push(ohitMessage(row, col))
         io.to(receiver).emit("message", players[receiver].messages)
     }
@@ -560,7 +560,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     }
     if (players[hitter] instanceof Player) {
         players[hitter].allHitLocations.push(pos);
-        io.to(hitter).emit('hit', pos);
+        io.to(hitter).emit('hit', pos, players[hitter].numHits);
         players[hitter].messages.push(hitMessage(row, col))
         io.to(hitter).emit("message", players[hitter].messages)
     }
@@ -763,10 +763,10 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        players[curPlayer].messages.push("You: " + message); // Save the new message to the session messages
+        players[curPlayer].messages.push({'player' : "You: " + message}); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
         if (players[curPlayer].mode == "multiplayer") {
-            players[opponent].messages.push("Opponent: " + message);
+            players[opponent].messages.push({'opponent' : "Opponent: " + message});
             io.to(opponent).emit("message", players[opponent].messages)
         }
     });
