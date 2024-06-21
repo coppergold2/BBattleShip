@@ -441,7 +441,7 @@ const App = () => {
   }
   return (
     <>
-      <h2>Info: {info}</h2>
+      <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
       <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
       {(!singlePlayer && !multiPlayer) ? (
         <div style={{
