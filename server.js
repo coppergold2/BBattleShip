@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -9,6 +10,13 @@ let connectedMPClients = 0;
 const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
+const mongoose = require('mongoose');
+mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => console.log('MongoDB connected'))
+  .catch(err => console.log(err));
+
 class Player {
     constructor(id) {
         this.id = id;
