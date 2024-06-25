@@ -27,6 +27,8 @@ const App = () => {
     onumHits: 0,
     onumMisses: 0,
   });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userId, setUserId] = useState('');
 
   const ships = {
     'carrier': 5, //length of ship 
@@ -427,6 +429,14 @@ const App = () => {
       setInput('');
     }
   }
+
+  const handleLoginClick = () => {
+    if (input.trim()) {
+      const message = input.trim();
+      socket.current.emit("login", message);
+      setInput('');
+    }
+  }
   const handleInputChange = (msg) => {
     setInput(msg);
   }
@@ -441,52 +451,75 @@ const App = () => {
   }
   return (
     <>
-      <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
-      <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
-      {(!singlePlayer && !multiPlayer) ? (
+      {isLoggedIn ? (
+        <>
+          <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
+          <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
+          {(!singlePlayer && !multiPlayer) ? (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              height: '100vh',
+              textAlign: 'center'
+            }}>
+              <button onClick={handleSinglePlayerClick}>Single Player vs Computer</button>
+              <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
+            </div>
+          ) :
+            (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
+              <Game
+                socket={socket.current}
+                multiPlayer={multiPlayer}
+                start={start}
+                turn={turn}
+                pbCellClass={pbCellClass}
+                obCellClass={obCellClass}
+                placedShips={placedShips}
+                activeShip={activeShip}
+                shipLocHover={shipLocHover}
+                messages={messages}
+                input={input}
+                isFlipped={isFlipped}
+                hoveredCell={hoveredCell}
+                stats={stats}
+                handleRandomPlacement={handleRandomPlacement}
+                handleShipOptionClick={handleShipOptionClick}
+                handleCellClick={handleCellClick}
+                handleShipPlacement={handleShipPlacement}
+                handleShipReplacement={handleShipReplacement}
+                handleShipHoverOut={handleShipHoverOut}
+                handleShipHover={handleShipHover}
+                handleFlipBoat={handleFlipBoat}
+                sendMessage={sendMessage}
+                handleInputChange={handleInputChange}
+                handleCellHover={handleCellHover}
+                handleCellHoverOut={handleCellHoverOut}
+                handleHomeClick={handleHomeClick}
+              /> :
+              <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
+          }
+        </>
+      ) : (
         <div style={{
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
           height: '100vh',
           textAlign: 'center'
         }}>
-          <button onClick={handleSinglePlayerClick}>Single Player vs Computer</button>
-          <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
+          <input
+            type="text"
+            value={userId}
+            onChange={handleInputChange}
+            placeholder="Enter your ID"
+            style={{ marginBottom: '10px', padding: '5px' }}
+          />
+          <button onClick={handleLoginClick} style={{ marginBottom: '5px' }}>Login</button>
+          <button onClick={handleNewUserClick}>New User</button>
         </div>
-      ) :
-        (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
-          <Game
-            socket={socket.current}
-            multiPlayer={multiPlayer} mult
-            start={start}
-            turn={turn}
-            pbCellClass={pbCellClass}
-            obCellClass={obCellClass}
-            placedShips={placedShips}
-            activeShip={activeShip}
-            shipLocHover={shipLocHover}
-            messages={messages}
-            input={input}
-            isFlipped={isFlipped}
-            hoveredCell = {hoveredCell}
-            stats = {stats}
-            handleRandomPlacement={handleRandomPlacement}
-            handleShipOptionClick={handleShipOptionClick}
-            handleCellClick={handleCellClick}
-            handleShipPlacement={handleShipPlacement}
-            handleShipReplacement={handleShipReplacement}
-            handleShipHoverOut={handleShipHoverOut}
-            handleShipHover={handleShipHover}
-            handleFlipBoat={handleFlipBoat}
-            sendMessage={sendMessage}
-            handleInputChange={handleInputChange}
-            handleCellHover = {handleCellHover}
-            handleCellHoverOut = {handleCellHoverOut}
-            handleHomeClick = {handleHomeClick}
-          /> :
-          <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
-      }
+      )}
     </>
   );
 };

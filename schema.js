@@ -5,18 +5,20 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    gameTime : {
-
-    },
-    gameMode : {
-
-    },
     createdAt : {
         type: Date,
         immutable: true,
         default: () => Date.now()
-    }
+    } ,
+    winStep : {
+        type: [Number],
+        default : []
+    },
+    lossStep: {
+        type: [Number],
+        default : []
+    } 
 })
 
-mondule.exports = mongoose.model("User", userSchema)
+module.exports = mongoose.model("User", UserSchema)
 

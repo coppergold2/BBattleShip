@@ -2,6 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const mongoose = require('mongoose');
+const User = require('./schema');  // Import the User model
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
@@ -11,15 +14,16 @@ const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
 
-const mongoose = require('mongoose');
+// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
-}).then(() => console.log('MongoDB connected'))
-  .catch(err => console.log(err));
+})
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => console.log(err));
 
- 
-  
+
+
 class Player {
     constructor(id) {
         this.id = id;
@@ -136,22 +140,22 @@ const ships = {
 
 const players = {};
 const hitMessage = (col, row) => {
-    return {'player' : "You hit at row " + row + " column " + col + "."}
+    return { 'player': "You hit at row " + row + " column " + col + "." }
 }
 const ohitMessage = (col, row) => {
-    return {'opponent' : "Opponent hit at row " + row + " column " + col + "."}
+    return { 'opponent': "Opponent hit at row " + row + " column " + col + "." }
 }
 const destroyMessage = (shipName) => {
-    return {'player' : "You sunk the " + shipName + " ship" + "."}
+    return { 'player': "You sunk the " + shipName + " ship" + "." }
 }
 const odestroyMessage = (shipName) => {
-    return {'opponent' : "Opponent sunk the " + shipName + " ship" + "."}
-    }
+    return { 'opponent': "Opponent sunk the " + shipName + " ship" + "." }
+}
 const missMessage = (col, row) => {
-    return {'player' : "You miss at row " + row + " column " + col + "."}
+    return { 'player': "You miss at row " + row + " column " + col + "." }
 }
 const omissMessage = (col, row) => {
-    return {'opponent' : "Opponent miss at row " + row + " column " + col + "."}
+    return { 'opponent': "Opponent miss at row " + row + " column " + col + "." }
 }
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
@@ -406,36 +410,36 @@ const checkPossHitLocs = (computer) => {
 }
 
 const computerMove = (curPlayer, socket, opponent) => {
-    if(players[curPlayer] != null && players[opponent] != null){
-    let pos;
-    if (players[opponent].hitLocs.length == 0) {
-        pos = getRandomIndexWithOneValue(opponent)
-    }
-    else if (players[opponent].curHitDirection != null) {
-        pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
-    }
-    players[opponent].possHitLocations.delete(pos);
+    if (players[curPlayer] != null && players[opponent] != null) {
+        let pos;
+        if (players[opponent].hitLocs.length == 0) {
+            pos = getRandomIndexWithOneValue(opponent)
+        }
+        else if (players[opponent].curHitDirection != null) {
+            pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
+        }
+        players[opponent].possHitLocations.delete(pos);
 
-    console.log(pos)
-    if (players[curPlayer].board[pos] === 0) {  // miss
-        handleMissComm(opponent, curPlayer, pos);
-        handleAIMiss(opponent, socket)
-        players[opponent].displayPossHitGrid()
-        socket.emit("turn")
-    }
-    else if (players[curPlayer].board[pos] === 1) { // hit
-        console.log("here")
-        handleHitComm(opponent, curPlayer, pos);
-        handleAIHit(opponent, pos)
-        handleDestroyComm(opponent, curPlayer, pos);
-        if (players[opponent].numDestroyShip < 5) {
-            socket.emit("info", "The AI is thinking ...")
-            setTimeout(() => {
-                computerMove(curPlayer, socket, opponent);
-            }, 500);
+        console.log(pos)
+        if (players[curPlayer].board[pos] === 0) {  // miss
+            handleMissComm(opponent, curPlayer, pos);
+            handleAIMiss(opponent, socket)
+            players[opponent].displayPossHitGrid()
+            socket.emit("turn")
+        }
+        else if (players[curPlayer].board[pos] === 1) { // hit
+            console.log("here")
+            handleHitComm(opponent, curPlayer, pos);
+            handleAIHit(opponent, pos)
+            handleDestroyComm(opponent, curPlayer, pos);
+            if (players[opponent].numDestroyShip < 5) {
+                socket.emit("info", "The AI is thinking ...")
+                setTimeout(() => {
+                    computerMove(curPlayer, socket, opponent);
+                }, 500);
+            }
         }
     }
-}
 }
 
 
@@ -593,9 +597,20 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
         if (players[hitter].numDestroyShip == 5) {
             if (players[receiver] instanceof Player) {
                 io.to(receiver).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc))
+                User.findOne({id : receiver}).then(user => {
+                    if (user) {
+                        user.lossStep.push(players[receiver].numHits + players[receiver].numMisses)
+                    }
+                }).catch(err => console.log('Error updating lossStep for user:', err))
             }
             if (players[hitter] instanceof Player) {
                 io.to(hitter).emit("win", "You win!");
+                User.findOne({ id: hitter }).then(user => {
+                    if (user) {
+                        user.winStep.push(players[hitter].numHits + players[hitter].numMisses)
+                        return user.save();
+                    }
+                }).catch(err => console.log('Error updating winStep for user:', err));
             }
         }
         else if (players[hitter] instanceof Computer) {
@@ -606,6 +621,30 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
 })
 
 io.on('connection', (socket) => {
+    socket.on("login", async (userId) => {
+        try{
+            const user = await User.findOne({id : userId});
+            if(user) {
+                socket.emit('login', userId);
+            } else {
+                socket.emit('alert', "invalid ID, please retry or be a new user ")
+            }
+        }
+        catch (err) {
+            socket.emit('alert', 'An error occurred while logging in');
+        }
+    })
+    
+    const newUser = new User({
+        id: socket.id
+    });
+
+    // Save the new user to the database
+    newUser.save()
+        .then(() => console.log('User added to the database'))
+        .catch(err => console.log('Error adding user to the database:', err));
+    
+
     socket.on("id", () => { socket.emit("id", socket.id) })
     let opponent;
     let curPlayer;
@@ -710,14 +749,14 @@ io.on('connection', (socket) => {
             players[curPlayer].shipLoc[shipName].forEach((element) => {
                 players[curPlayer].board[element] = 0;
             })
-            players[curPlayer].shipLoc[shipName].forEach((loc) => {players[curPlayer].board[loc] = 0})
+            players[curPlayer].shipLoc[shipName].forEach((loc) => { players[curPlayer].board[loc] = 0 })
             players[curPlayer].activeShip = shipName;
             socket.emit("selectShip", players[curPlayer].activeShip)
             socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName, index);
             players[curPlayer].shipLoc[shipName] = [];
             players[curPlayer].numPlaceShip--;
             players[curPlayer].displayGrid()
-        } 
+        }
     })
     socket.on("start", () => {
         if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {
@@ -774,10 +813,10 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        players[curPlayer].messages.push({'player' : "You: " + message}); // Save the new message to the session messages
+        players[curPlayer].messages.push({ 'player': "You: " + message }); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
         if (players[curPlayer].mode == "multiplayer") {
-            players[opponent].messages.push({'opponent' : "Opponent: " + message});
+            players[opponent].messages.push({ 'opponent': "Opponent: " + message });
             io.to(opponent).emit("message", players[opponent].messages)
         }
     });
@@ -801,10 +840,10 @@ io.on('connection', (socket) => {
     socket.on("home", () => {
         players[curPlayer].reset();
         connectedMPClients--;
-        if(players[opponent] != null && players[curPlayer].mode == "multiplayer"){
+        if (players[opponent] != null && players[curPlayer].mode == "multiplayer") {
             io.to(opponent).emit("oquit", "Your opponent has quit, please restart")
         }
-        else if(players[opponent] != null && players[curPlayer].mode == "singleplayer"){
+        else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {
             delete players[opponent];
         }
         opponent = null;
