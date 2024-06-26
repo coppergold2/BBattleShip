@@ -621,6 +621,8 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
 })
 
 io.on('connection', (socket) => {
+    let opponent;
+    let curPlayer;
     socket.on("login", async (userId) => {
         try{
             const user = await User.findOne({id : userId});
@@ -634,24 +636,23 @@ io.on('connection', (socket) => {
             socket.emit('alert', 'An error occurred while logging in');
         }
     })
-    
-    const newUser = new User({
-        id: socket.id
+    socket.on("new", async () => {
+        try {
+            const newUser = new User();
+            // Save the new user to the database
+            await newUser.save();
+            console.log('User added to the database');
+            curPlayer = newUser._id;
+            // Emit the user's ID after successful save
+            socket.emit("id", newUser._id);
+        } catch (err) {
+            console.log('Error adding user to the database:', err);
+        }
     });
 
-    // Save the new user to the database
-    newUser.save()
-        .then(() => console.log('User added to the database'))
-        .catch(err => console.log('Error adding user to the database:', err));
-    
-
-    socket.on("id", () => { socket.emit("id", socket.id) })
-    let opponent;
-    let curPlayer;
     socket.on("singleplayer", () => {
-        if (players[socket.id] == null) {
-            players[socket.id] = new Player(socket.id);
-            curPlayer = socket.id;
+        if (players[curPlayer] == null) {
+            players[curPlayer] = new Player(curPlayer);
         }
         players[curPlayer].mode = "singleplayer";
         opponent = generateRandomString(10);
@@ -661,13 +662,11 @@ io.on('connection', (socket) => {
         if (connectedMPClients >= maxConnections) {
             socket.emit("full", "sorry, the game room is currently full. Please try again later.")
         } else {
-            if (players[socket.id] == null) {
-                players[socket.id] = new Player(socket.id);
-                curPlayer = socket.id;
+            if (players[curPlayer] == null) {
+                players[curPlayer] = new Player(curPlayer);
             }
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
-
         }
         console.log("connectedMPClients", connectedMPClients)
     })

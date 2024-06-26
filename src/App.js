@@ -28,7 +28,6 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userId, setUserId] = useState('');
 
   const ships = {
     'carrier': 5, //length of ship 
@@ -42,9 +41,12 @@ const App = () => {
     socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
     socket.current.on('connect', () => {
       console.log('Connected to server');
-      socket.current.emit("id");
       setServerDown(false);
     });
+    socket.current.on('login', (id) => {
+      document.title = id;
+      setIsLoggedIn(true);
+    })
     const reset = () => {
       setSinglePlayer(false);
       setMultiPlayer(false);
@@ -81,7 +83,6 @@ const App = () => {
     socket.current.on("home", () => {
       reset();
     })
-    socket.current.on("id", (id) => { document.title = id })
     socket.current.on("message", (messages) => {
       setMessages(messages);
     })
@@ -437,6 +438,11 @@ const App = () => {
       setInput('');
     }
   }
+
+  const handleNewUserClick = () => {
+    socket.current.emit("new")
+  }
+
   const handleInputChange = (msg) => {
     setInput(msg);
   }
@@ -511,8 +517,8 @@ const App = () => {
         }}>
           <input
             type="text"
-            value={userId}
-            onChange={handleInputChange}
+            value={input}
+            onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Enter your ID"
             style={{ marginBottom: '10px', padding: '5px' }}
           />
