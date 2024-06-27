@@ -73,6 +73,7 @@ const App = () => {
     socket.current.on('disconnect', () => {
       console.log('Disconnected from server');
       setServerDown(true);
+      setIsLoggedIn(false);
       reset();
     });
     socket.current.on("oquit", (msg) => {

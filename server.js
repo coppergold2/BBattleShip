@@ -625,7 +625,8 @@ io.on('connection', (socket) => {
     let curPlayer;
     socket.on("login", async (userId) => {
         try{
-            const user = await User.findOne({id : userId});
+            console.log("userId:", userId)
+            const user = await User.findOne({_id : userId});
             if(user) {
                 socket.emit('login', userId);
             } else {
@@ -644,7 +645,7 @@ io.on('connection', (socket) => {
             console.log('User added to the database');
             curPlayer = newUser._id;
             // Emit the user's ID after successful save
-            socket.emit("id", newUser._id);
+            socket.emit("login", newUser._id);
         } catch (err) {
             console.log('Error adding user to the database:', err);
         }
@@ -821,11 +822,11 @@ io.on('connection', (socket) => {
     });
     socket.on('disconnect', () => {
         console.log(`Client ${socket.id} disconnected`);
-        if (curPlayer != null) {
-            if (players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
+        if (curPlayer != null && players[curPlayer] != null) {
+            if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
                 io.to(opponent).emit("oquit", "Your opponent has quit, please restart")
             }
-            else if (players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
+            else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
                 delete players[opponent];
             }
             if (players[curPlayer] != null) {

@@ -1,20 +1,20 @@
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
+const moment = require("moment-timezone");
 
 const UserSchema = new mongoose.Schema({
-    createdAt : {
+    createdAt: {
         type: Date,
         immutable: true,
-        default: () => Date.now()
-    } ,
-    winStep : {
+        default: () => moment.tz(Date.now(), "America/Toronto").toDate()
+    },
+    winStep: {
         type: [Number],
-        default : []
+        default: []
     },
     lossStep: {
         type: [Number],
-        default : []
-    } 
-})
+        default: []
+    }
+});
 
-module.exports = mongoose.model("User", UserSchema)
-
+module.exports = mongoose.model("User", UserSchema);
