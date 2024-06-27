@@ -45,7 +45,7 @@ class Player {
             console.error("Invalid board size. Expected an array of length 100.");
             return;
         }
-        console.log(this.id)
+        console.log("player displayGrid", this.id)
         const grid = [];
 
         for (let i = 0; i < 100; i += 10) {
@@ -93,7 +93,7 @@ class Computer {
             console.error("Invalid board size. Expected an array of length 100.");
             return;
         }
-        console.log(this.id)
+        console.log("computer displayGrid", this.id)
         const grid = [];
 
         for (let i = 0; i < 100; i += 10) {
@@ -420,7 +420,7 @@ const computerMove = (curPlayer, socket, opponent) => {
         }
         players[opponent].possHitLocations.delete(pos);
 
-        console.log(pos)
+        console.log("computer move", pos)
         if (players[curPlayer].board[pos] === 0) {  // miss
             handleMissComm(opponent, curPlayer, pos);
             handleAIMiss(opponent, socket)
@@ -543,20 +543,20 @@ const handleMissComm = ((misser, receiver, pos) => {
     players[misser].numMisses++;
     players[receiver].board[pos] = 3;
     if (players[misser] instanceof Computer) {
-        io.to(receiver).emit("omiss", pos, players[misser].numMisses)
+        io.to(players[receiver].socketId).emit("omiss", pos, players[misser].numMisses)  // players[receiver].socketId
         players[receiver].messages.push(omissMessage(row, col))
-        io.to(receiver).emit("message", players[receiver].messages)
+        io.to(players[receiver].socketId).emit("message", players[receiver].messages)
         // io.to.emit("turn")
     }
     else if (players[misser] instanceof Player) {
-        io.to(misser).emit('miss', pos, players[misser].numMisses);
+        io.to(players[misser].socketId).emit('miss', pos, players[misser].numMisses);
         players[misser].messages.push(missMessage(row, col))
-        io.to(misser).emit("message", players[misser].messages)
+        io.to(players[misser].socketId).emit("message", players[misser].messages)
         if (players[receiver] instanceof Player) {
-            io.to(receiver).emit("omiss", pos, players[misser].numMisses);
-            io.to(receiver).emit("turn");
+            io.to(players[receiver].socketId).emit("omiss", pos, players[misser].numMisses);
+            io.to(players[receiver].socketId).emit("turn");
             players[receiver].messages.push(omissMessage(row, col));
-            io.to(receiver).emit("message", players[receiver].messages);
+            io.to(players[receiver].socketId).emit("message", players[receiver].messages);
         }
     }
 })
@@ -566,18 +566,18 @@ const handleHitComm = ((hitter, receiver, pos) => {
     players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
     if (players[receiver] instanceof Player) {
-        io.to(receiver).emit("ohit", pos, players[hitter].numHits)
+        io.to(players[receiver].socketId).emit("ohit", pos, players[hitter].numHits)
         players[receiver].messages.push(ohitMessage(row, col))
-        io.to(receiver).emit("message", players[receiver].messages)
+        io.to(players[receiver].socketId).emit("message", players[receiver].messages)
     }
     if (players[hitter] instanceof Computer) {
         players[hitter].hitLocs.push(pos)
     }
     if (players[hitter] instanceof Player) {
         players[hitter].allHitLocations.push(pos);
-        io.to(hitter).emit('hit', pos, players[hitter].numHits);
+        io.to(players[hitter].socketId).emit('hit', pos, players[hitter].numHits); //players[hitter].socketId
         players[hitter].messages.push(hitMessage(row, col))
-        io.to(hitter).emit("message", players[hitter].messages)
+        io.to(players[hitter].socketId).emit("message", players[hitter].messages)
     }
 })
 
@@ -587,25 +587,26 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
         players[hitter].numDestroyShip++;
         if (players[receiver] instanceof Player) {
             players[receiver].messages.push(odestroyMessage(result[0]))
-            io.to(receiver).emit("message", players[receiver].messages);
+            io.to(players[receiver].socketId).emit("message", players[receiver].messages);
         }
         if (players[hitter] instanceof Player) {
-            io.to(hitter).emit("destroy", result);
+            io.to(players[hitter].socketId).emit("destroy", result);
             players[hitter].messages.push(destroyMessage(result[0]));
-            io.to(hitter).emit("message", players[hitter].messages);
+            io.to(players[hitter].socketId).emit("message", players[hitter].messages);
         }
         if (players[hitter].numDestroyShip == 5) {
             if (players[receiver] instanceof Player) {
-                io.to(receiver).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc))
-                User.findOne({id : receiver}).then(user => {
+                io.to(players[receiver].socketId).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc))
+                User.findOne({_id : receiver}).then(user => {
                     if (user) {
                         user.lossStep.push(players[receiver].numHits + players[receiver].numMisses)
+                        return user.save();
                     }
                 }).catch(err => console.log('Error updating lossStep for user:', err))
             }
             if (players[hitter] instanceof Player) {
-                io.to(hitter).emit("win", "You win!");
-                User.findOne({ id: hitter }).then(user => {
+                io.to(players[hitter].socketId).emit("win", "You win!");
+                User.findOne({_id: hitter }).then(user => {
                     if (user) {
                         user.winStep.push(players[hitter].numHits + players[hitter].numMisses)
                         return user.save();
@@ -655,6 +656,7 @@ io.on('connection', (socket) => {
     socket.on("singleplayer", () => {
         if (players[curPlayer] == null) {
             players[curPlayer] = new Player(curPlayer);
+            players[curPlayer].socketId = socket.id;
         }
         players[curPlayer].mode = "singleplayer";
         opponent = generateRandomString(10);
@@ -666,6 +668,7 @@ io.on('connection', (socket) => {
         } else {
             if (players[curPlayer] == null) {
                 players[curPlayer] = new Player(curPlayer);
+                players[curPlayer].socketId = socket.id;
             }
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
@@ -780,9 +783,9 @@ io.on('connection', (socket) => {
                 players[curPlayer].start = true;
                 players[opponent].start = true;
                 socket.emit("start");
-                io.to(opponent).emit("ostart");
+                io.to(players[opponent].socketId).emit("ostart");
                 socket.emit("turn");
-                io.to(opponent).emit("info", "Game has started, it's your opponent's turn")
+                io.to(players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
             }
 
         }
@@ -793,6 +796,8 @@ io.on('connection', (socket) => {
         players[curPlayer].displayGrid()
     })
     socket.on("attack", (pos) => {
+        console.log("player move", pos);
+        console.log("players[opponent].board[pos]",players[opponent].board[pos])
         switch (players[opponent].board[pos]) {
             case 1: {
                 handleHitComm(curPlayer, opponent, pos);
@@ -818,14 +823,14 @@ io.on('connection', (socket) => {
         socket.emit("message", players[curPlayer].messages)
         if (players[curPlayer].mode == "multiplayer") {
             players[opponent].messages.push({ 'opponent': "Opponent: " + message });
-            io.to(opponent).emit("message", players[opponent].messages)
+            io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
     socket.on('disconnect', () => {
         console.log(`Client ${socket.id} disconnected`);
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
-                io.to(opponent).emit("oquit", "Your opponent has quit, please restart")
+                io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
             }
             else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
                 delete players[opponent];
@@ -842,7 +847,7 @@ io.on('connection', (socket) => {
         players[curPlayer].reset();
         connectedMPClients--;
         if (players[opponent] != null && players[curPlayer].mode == "multiplayer") {
-            io.to(opponent).emit("oquit", "Your opponent has quit, please restart")
+            io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
         }
         else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {
             delete players[opponent];
