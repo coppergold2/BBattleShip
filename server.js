@@ -628,6 +628,7 @@ io.on('connection', (socket) => {
             console.log("userId:", userId)
             const user = await User.findOne({_id : userId});
             if(user) {
+                curPlayer = user._id.toString()
                 socket.emit('login', userId);
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
@@ -643,9 +644,9 @@ io.on('connection', (socket) => {
             // Save the new user to the database
             await newUser.save();
             console.log('User added to the database');
-            curPlayer = newUser._id;
+            curPlayer = newUser._id.toString();
             // Emit the user's ID after successful save
-            socket.emit("login", newUser._id);
+            socket.emit("login", newUser._id.toString());
         } catch (err) {
             console.log('Error adding user to the database:', err);
         }
