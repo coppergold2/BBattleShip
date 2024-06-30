@@ -14,15 +14,24 @@ const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => console.log(err));
+// MongoDB connection URI
+const uri = process.env.MONGO_URI;
 
+// Mongoose connection options
+const mongooseOptions = {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+  socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
+};
 
+mongoose.connect(uri, mongooseOptions)
+  .then(() => {
+    console.log('MongoDB connected');
+  })
+  .catch(err => {
+    console.error('Error connecting to MongoDB', err);
+  });
 
 class Player {
     constructor(id) {

@@ -6,7 +6,8 @@ Built with React and Node JS
 Aimed to store and manage all the game state in the server side and the AI should be good, if not AGI
 
 Have a .env file with this
-MONGO_URI=mongodb://localhost:27017/battleship.
+Local: MONGO_URI=mongodb://localhost:27017/battleship.
+Online: MONGO_URI=mongodb+srv://username:pwd@battleship.ikcw47f.mongodb.net/battleship?retryWrites=true&w=majority&appName=Battleship
 
 Linux user run this to start mongoDB
 sudo service mongod start
