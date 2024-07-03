@@ -40,3 +40,5 @@ to sets to improve efficiency.
 - fix the problem where the mouse is not tz`here waiting for next player's turn, it still hovers.
 
 - fix the problem where login does not work properly
+
+- have a log out button at home page

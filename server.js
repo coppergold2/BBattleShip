@@ -26,12 +26,12 @@ const mongooseOptions = {
 };
 
 mongoose.connect(uri, mongooseOptions)
-  .then(() => {
+.then(() => {
     console.log('MongoDB connected');
-  })
-  .catch(err => {
+})
+.catch(err => {
     console.error('Error connecting to MongoDB', err);
-  });
+});
 
 class Player {
     constructor(id) {
@@ -168,8 +168,8 @@ const omissMessage = (col, row) => {
 }
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
-        (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
-        (startIndex <= width * width - width * shipLength ? startIndex : startIndex - shipLength * width + width)
+    (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
+    (startIndex <= width * width - width * shipLength ? startIndex : startIndex - shipLength * width + width)
 
     let shipBlocks = []
     for (let i = 0; i < shipLength; i++) {
@@ -187,7 +187,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     } else {
         shipBlocks.every((_shipBlock, index) =>
             valid = shipBlocks[0] < 90 + (width * index + 1)
-        )
+            )
     }
 
     const notTaken = shipBlocks.every(shipBlock => allBoardBlocks[shipBlock] != 1)
@@ -197,10 +197,12 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 
 
+
+
 function getRandomIndexWithOneValue(computer) {
-    const possHitLocations = Array.from(players[computer].possHitLocations);
-    const randomIndex = Math.floor(Math.random() * possHitLocations.length);
-    return possHitLocations[randomIndex];
+    const nextHitLocations = checkMinAllDirection(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
+    const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
+    return nextHitLocations[randomIndex];
 }
 
 const handleAIMiss = (computer, socket) => {
@@ -208,26 +210,26 @@ const handleAIMiss = (computer, socket) => {
         players[computer].possHitDirections[players[computer].curHitDirection] = -1;
         if (AIFirstTimeHitNewShip == false) {
             switch (players[computer].curHitDirection) {
-                case 0:
-                    if (players[computer].possHitDirections[2] != -1) {
-                        players[computer].curHitDirection = 2;
-                    }
-                    break;
-                case 1:
-                    if (players[computer].possHitDirections[3] != -1) {
-                        players[computer].curHitDirection = 3;
-                    }
-                    break;
-                case 2:
-                    if (players[computer].possHitDirections[0] != -1) {
-                        players[computer].curHitDirection = 0;
-                    }
-                    break;
-                case 3:
-                    if (players[computer].possHitDirections[1] != -1) {
-                        players[computer].curHitDirection = 1;
-                    }
-                    break;
+            case 0:
+                if (players[computer].possHitDirections[2] != -1) {
+                    players[computer].curHitDirection = 2;
+                }
+                break;
+            case 1:
+                if (players[computer].possHitDirections[3] != -1) {
+                    players[computer].curHitDirection = 3;
+                }
+                break;
+            case 2:
+                if (players[computer].possHitDirections[0] != -1) {
+                    players[computer].curHitDirection = 0;
+                }
+                break;
+            case 3:
+                if (players[computer].possHitDirections[1] != -1) {
+                    players[computer].curHitDirection = 1;
+                }
+                break;
             }
         }
         if (players[computer].possHitDirections[players[computer].curHitDirection] == -1 || AIFirstTimeHitNewShip == true) {
@@ -243,7 +245,7 @@ const handleAIMiss = (computer, socket) => {
 
 const handleAIHit = (computer, loc) => {
     if (!players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
-        players[computer].possHitDirections = getAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
+        players[computer].possHitDirections = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
@@ -251,50 +253,50 @@ const handleAIHit = (computer, loc) => {
         AIFirstTimeHitNewShip = false
         const cols = 10;
         switch (players[computer].curHitDirection) {
-            case 0:
-                if (loc - cols >= 0 && players[computer].possHitLocations.has(loc - cols)) {
-                    players[computer].possHitDirections[0] = loc - cols
+        case 0:
+            if (loc - cols >= 0 && players[computer].possHitLocations.has(loc - cols)) {
+                players[computer].possHitDirections[0] = loc - cols
+            }
+            else {
+                players[computer].possHitDirections[0] = -1;
+                if (players[computer].possHitDirections[2] != -1) {
+                    players[computer].curHitDirection = 2;
                 }
-                else {
-                    players[computer].possHitDirections[0] = -1;
-                    if (players[computer].possHitDirections[2] != -1) {
-                        players[computer].curHitDirection = 2;
-                    }
+            }
+            break;
+        case 1:
+            if (loc % cols !== 0 && players[computer].possHitLocations.has(loc - 1)) {
+                players[computer].possHitDirections[1] = loc - 1
+            }
+            else {
+                players[computer].possHitDirections[1] = -1;
+                if (players[computer].possHitDirections[3] != -1) {
+                    players[computer].curHitDirection = 3
                 }
-                break;
-            case 1:
-                if (loc % cols !== 0 && players[computer].possHitLocations.has(loc - 1)) {
-                    players[computer].possHitDirections[1] = loc - 1
+            }
+            break;
+        case 2:
+            if (loc + cols < 100 && players[computer].possHitLocations.has(loc + cols)) {
+                players[computer].possHitDirections[2] = loc + cols
+            }
+            else {
+                players[computer].possHitDirections[2] = -1;
+                if (players[computer].possHitDirections[0] != -1) {
+                    players[computer].curHitDirection = 0;
                 }
-                else {
-                    players[computer].possHitDirections[1] = -1;
-                    if (players[computer].possHitDirections[3] != -1) {
-                        players[computer].curHitDirection = 3
-                    }
+            }
+            break;
+        case 3:
+            if ((loc + 1) % cols !== 0 && players[computer].possHitLocations.has(loc + 1)) {
+                players[computer].possHitDirections[3] = loc + 1
+            }
+            else {
+                players[computer].possHitDirections[3] = -1;
+                if (players[computer].possHitDirections[1] != -1) {
+                    players[computer].curHitDirection = 1;
                 }
-                break;
-            case 2:
-                if (loc + cols < 100 && players[computer].possHitLocations.has(loc + cols)) {
-                    players[computer].possHitDirections[2] = loc + cols
-                }
-                else {
-                    players[computer].possHitDirections[2] = -1;
-                    if (players[computer].possHitDirections[0] != -1) {
-                        players[computer].curHitDirection = 0;
-                    }
-                }
-                break;
-            case 3:
-                if ((loc + 1) % cols !== 0 && players[computer].possHitLocations.has(loc + 1)) {
-                    players[computer].possHitDirections[3] = loc + 1
-                }
-                else {
-                    players[computer].possHitDirections[3] = -1;
-                    if (players[computer].possHitDirections[1] != -1) {
-                        players[computer].curHitDirection = 1;
-                    }
-                }
-                break;
+            }
+            break;
         }
         if (players[computer].possHitDirections[players[computer].curHitDirection] == -1) {
             players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
@@ -320,7 +322,7 @@ const handleAIDestroy = (computer, destroyShip) => {
     console.log('minSizeShip: ', players[computer].opponentShipRemain['minSizeShip'])
 
     if (players[computer].hitLocs.length != 0) {
-        players[computer].possHitDirections = getAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
+        players[computer].possHitDirections = checkAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
@@ -328,13 +330,13 @@ const handleAIDestroy = (computer, destroyShip) => {
         checkPossHitLocs(computer)
     }
 }
-function getAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) {      // check each of the cell within the minSizeShip
+function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) {      // check each of the cell within the minSizeShip
     const cols = 10;
-    let horiPoss = 1;
+    let horiPoss = 1;   
     let vertPoss = 1;
     let temp = cellIndex;
     while (horiPoss < minSizeShip) {  // check west    
-        if (temp % cols !== 0 && possHitLocations.has(temp - 1)) {
+        if ((temp) % cols !== 0 && possHitLocations.has(temp - 1)) {
             horiPoss += 1;
             temp -= 1;
         }
@@ -354,7 +356,7 @@ function getAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) { 
         }
     }
     temp = cellIndex;
-    while (vertPoss < minSizeShip) { // check norht
+    while (vertPoss < minSizeShip) { // check north
         if (temp - cols >= 0 && possHitLocations.has(temp - cols)) {
             vertPoss += 1;
             temp -= cols;
@@ -386,8 +388,109 @@ function getAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) { 
         } else {
             return true;
         }
-    }
+    }           
 }
+
+const checkMinAllDirection = (possHitLocations, minSizeShip) => {
+    console.log("minSizeShip", minSizeShip)
+    const countDirctionLocation = {0:[], 1:[], 2:[], 3:[], 4:[]}
+    let temp = 1
+    let count = 0
+    for(let loc of possHitLocations)    
+    {
+        while(temp <= minSizeShip) {   // check west
+            if(temp == minSizeShip){
+                count ++;
+                temp = 1;
+                break;
+            }
+            else{
+                if((loc - temp + 1) % 10 !== 0 && possHitLocations.has(loc - temp)) {
+                    temp +=1;
+                }
+                else{
+                    temp = 1
+                    break;
+                }
+            }
+        }
+        while(temp <= minSizeShip) { // check east
+            if(temp == minSizeShip){
+                count ++;
+                temp = 1;
+                break;
+            }
+            else{
+                if ((loc + temp) % 10 !== 0 && possHitLocations.has(loc + temp)) {
+                    temp += 1;
+                }
+                else{
+                    temp = 1;
+                    break;
+                }
+            }
+        }
+        while(temp <= minSizeShip) { // check north
+            if(temp == minSizeShip){
+                count ++;
+                temp = 1;
+                break;
+            }
+            else{
+                if(((loc - (temp*10)) >= 0 && possHitLocations.has(loc - (temp *10)))) {
+                    temp += 1;
+                }
+                else{
+                    temp = 1;
+                    break;
+                }
+            }
+        }
+
+        while(temp <= minSizeShip) { // check south
+            if(temp == minSizeShip) {
+                count ++;
+                temp = 1;
+                break;
+            }
+            else{
+            if(((loc + (temp*10)) < 100) && possHitLocations.has(loc + (temp * 10))) {
+                temp += 1;
+            }
+            else{
+                temp = 1;
+                break
+            }
+        }
+        }
+        countDirctionLocation[count].push(loc);
+        temp = 1;
+        count = 0;
+    }
+        
+    return getBiggestKeyWithElements(countDirctionLocation);
+}
+
+function getBiggestKeyWithElements(obj) {
+    // Initialize the biggest key variable to null
+    let biggestKey = null;
+
+    // Iterate through the keys in the object
+    for (let key in obj) {
+        // Convert the key to a number
+        let numKey = Number(key);
+
+        // Check if the array associated with the key has at least one element
+        if (obj[key].length > 0) {
+            // Update the biggest key if it is null or if the current key is larger
+            if (biggestKey === null || numKey > biggestKey) {
+                biggestKey = numKey;
+            }
+        }
+    }
+    return obj[biggestKey];
+}
+
 const pickDirection = (possHitDirections) => {
     const numDirRemain = possHitDirections.filter(element => element === -1).length;
     return numDirRemain == 1 ? possHitDirections.findIndex(element => element !== -1) : randomIndexNonMinusOne(possHitDirections)
@@ -411,7 +514,7 @@ function randomIndexNonMinusOne(arr) {
 const checkPossHitLocs = (computer) => {
     let possHitLocations = players[computer].possHitLocations;
     for (let loc of possHitLocations) {
-        const result = getAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false)
+        const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false)
         if (result == false) {
             players[computer].possHitLocations.delete(loc)
         }
@@ -433,7 +536,6 @@ const computerMove = (curPlayer, socket, opponent) => {
         if (players[curPlayer].board[pos] === 0) {  // miss
             handleMissComm(opponent, curPlayer, pos);
             handleAIMiss(opponent, socket)
-            players[opponent].displayPossHitGrid()
             socket.emit("turn")
         }
         else if (players[curPlayer].board[pos] === 1) { // hit
@@ -639,7 +741,7 @@ io.on('connection', (socket) => {
             const user = await User.findOne({_id : userId});
             if(user) {
                 curPlayer = user._id.toString()
-                socket.emit('login', userId);
+                socket.emit('login', userId, user.averageGameOverSteps);
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
             }
@@ -656,7 +758,7 @@ io.on('connection', (socket) => {
             console.log('User added to the database');
             curPlayer = newUser._id.toString();
             // Emit the user's ID after successful save
-            socket.emit("login", newUser._id.toString());
+            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps);
         } catch (err) {
             console.log('Error adding user to the database:', err);
         }
@@ -774,8 +876,8 @@ io.on('connection', (socket) => {
     socket.on("start", () => {
         if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {
             players[curPlayer].numPlaceShip == 5 ?
-                (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curPlayer].start = true, socket.emit("start"), socket.emit("turn")) :
-                socket.emit("not enough ship", "Please place all your ship before starting")
+            (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curPlayer].start = true, socket.emit("start"), socket.emit("turn")) :
+            socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
             opponent = checkForMPOpponent(curPlayer);
@@ -808,25 +910,25 @@ io.on('connection', (socket) => {
         console.log("player move", pos);
         console.log("players[opponent].board[pos]",players[opponent].board[pos])
         switch (players[opponent].board[pos]) {
-            case 1: {
-                handleHitComm(curPlayer, opponent, pos);
-                handleDestroyComm(curPlayer, opponent, pos);
-                break;
-            }
-            case 2:
-            case 3:
-                socket.emit('alert', "This location is not available to attack")
-                break;
-            case 0: {
-                handleMissComm(curPlayer, opponent, pos)
-                if (players[curPlayer].mode == "singleplayer") {
-                    socket.emit("info", "The AI is thinking ...")
-                    setTimeout(() => { computerMove(curPlayer, socket, opponent) }, 500)
-                }
-                break;
-            }
+        case 1: {
+            handleHitComm(curPlayer, opponent, pos);
+            handleDestroyComm(curPlayer, opponent, pos);
+            break;
         }
-    })
+    case 2:
+    case 3:
+        socket.emit('alert', "This location is not available to attack")
+        break;
+    case 0: {
+        handleMissComm(curPlayer, opponent, pos)
+        if (players[curPlayer].mode == "singleplayer") {
+            socket.emit("info", "The AI is thinking ...")
+            setTimeout(() => { computerMove(curPlayer, socket, opponent) }, 500)
+        }
+        break;
+    }
+}
+})
     socket.on('message', (message) => {
         players[curPlayer].messages.push({ 'player': "You: " + message }); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)

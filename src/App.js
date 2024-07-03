@@ -43,9 +43,10 @@ const App = () => {
       console.log('Connected to server');
       setServerDown(false);
     });
-    socket.current.on('login', (id) => {
+    socket.current.on('login', (id, averageGameOverSteps) => {
       document.title = id;
       setIsLoggedIn(true);
+      console.log(averageGameOverSteps)
     })
     const reset = () => {
       setSinglePlayer(false);
@@ -74,6 +75,7 @@ const App = () => {
       console.log('Disconnected from server');
       setServerDown(true);
       setIsLoggedIn(false);
+      document.title = "BattleShip"
       reset();
     });
     socket.current.on("oquit", (msg) => {
@@ -453,6 +455,7 @@ const App = () => {
   const handleCellHoverOut = () => {
     setHoveredCell(null);
   }
+
   if (serverDown) {
     return <h1>The server is down</h1>;
   }
@@ -522,7 +525,8 @@ const App = () => {
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Enter your ID"
             style={{ marginBottom: '10px', padding: '5px' }}
-          />
+            onKeyDown={(e) => e.key === 'Enter' && handleLoginClick()}          
+            />
           <button onClick={handleLoginClick} style={{ marginBottom: '5px' }}>Login</button>
           <button onClick={handleNewUserClick}>New User</button>
         </div>
