@@ -496,30 +496,31 @@ function getBiggestKeyWithElements(obj) {
 }
 
 const checkMostValueableHit = (possHitLocations, minSizeShip) => {
-    const mostEliminate = 0;
-    const mostELocations = new Set();
-    let tempPossHItLocations = possHitLocations;
-    for(let pos of tempPossHItLocations) {
-        tempPossHItLocations.delete(pos);
-        for (let loc of tempPossHItLocations) {
-            const result = checkAdjacentCells(loc, tempPossHItLocations, minSizeShip, false);
+    let mostEliminate = 0;
+    let mostELocations = new Set();
+    let tempPossHitLocations = new Set(possHitLocations);
+    for(let pos of tempPossHitLocations) {
+        tempPossHitLocations.delete(pos);
+        for (let loc of tempPossHitLocations) { 
+            const result = checkAdjacentCells(loc, tempPossHitLocations, minSizeShip, false);
             if (result == false) {
-                tempPossHItLocations.delete(loc);
+                tempPossHitLocations.delete(loc);
             }
         }
-        let diffSize = possHitLocations.size - tempPossHItLocations.size;
+        let diffSize = possHitLocations.size - tempPossHitLocations.size;
         if(diffSize >= mostEliminate) {
             if(diffSize == mostEliminate){
                 mostELocations.add(pos)
             }
             else{
                 mostEliminate = diffSize;
-                mostELocations = new Set(pos)
+                mostELocations = new Set([pos])
             }
         }
-        tempPossHItLocations = possHitLocations
+        tempPossHitLocations = new Set(possHitLocations)
     }
     console.log("mostELocations", mostELocations);
+    console.log("possHitLocations on cmvh", possHitLocations);
     if(mostELocations.length > 1){
         return checkMinAllDirection(mostELocations, minSizeShip)
     }
