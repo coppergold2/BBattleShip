@@ -200,7 +200,8 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 
 function getRandomIndexWithOneValue(computer) {
-    const nextHitLocations = checkMostValueableHit(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
+    let nextHitLocations = checkMinAllDirection(players[computer].possHitLocations, players[computer].minSizeShip)
+    nextHitLocations = checkMostValueableHit(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
@@ -469,8 +470,12 @@ const checkMinAllDirection = (possHitLocations, minSizeShip) => {
         temp = 1;
         count = 0;
     }
-        
-    return getBiggestKeyWithElements(countDirctionLocation);
+    
+    let pickNum = pickNumber();
+    while(countDirctionLocation[pickNum].length == 0){
+        pickNum = pickNumber();
+    }  
+    return countDirctionLocation[pickNum];
 }
 
 
@@ -521,13 +526,22 @@ const checkMostValueableHit = (possHitLocations, minSizeShip) => {
     }
     console.log("mostELocations", mostELocations);
     console.log("possHitLocations on cmvh", possHitLocations);
-    if(mostELocations.size > 1){
-        console.log("return from mostELocations.length > 1")
-        return checkMinAllDirection(mostELocations, minSizeShip)
-    }
-    else {
-        return [...mostELocations]
-    }
+    return [...mostELocations]
+}
+
+function pickNumber() {
+  const probabilities = [
+    { number: 4, probability: 50 },
+    { number: 3, probability: 25 },
+    { number: 2, probability: 15 },
+    { number: 1, probability: 8 },
+    { number: 0, probability: 2 }
+  ];
+
+  const weightedArray = probabilities.flatMap(item => Array(item.probability).fill(item.number));
+  const randomIndex = Math.floor(Math.random() * weightedArray.length);
+  
+  return weightedArray[randomIndex];
 }
 
 const pickDirection = (possHitDirections) => {
