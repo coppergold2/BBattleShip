@@ -201,7 +201,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 function getRandomIndexWithOneValue(computer) {
     const nextHitLocations = checkMostValueableHit(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
-    console.log(nextHitLocations);
+    console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
     return nextHitLocations[randomIndex];
@@ -521,11 +521,12 @@ const checkMostValueableHit = (possHitLocations, minSizeShip) => {
     }
     console.log("mostELocations", mostELocations);
     console.log("possHitLocations on cmvh", possHitLocations);
-    if(mostELocations.length > 1){
+    if(mostELocations.size > 1){
+        console.log("return from mostELocations.length > 1")
         return checkMinAllDirection(mostELocations, minSizeShip)
     }
     else {
-        return mostELocations
+        return [...mostELocations]
     }
 }
 
@@ -550,8 +551,7 @@ function randomIndexNonMinusOne(arr) {
     return arr.indexOf(nonMinusOneElements[randomIndex]);
 }
 const checkPossHitLocs = (computer) => {
-    let possHitLocations = players[computer].possHitLocations;
-    for (let loc of possHitLocations) {
+    for (let loc of players[computer].possHitLocations) {
         const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false)
         if (result == false) {
             players[computer].possHitLocations.delete(loc)
