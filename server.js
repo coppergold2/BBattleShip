@@ -200,8 +200,10 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 
 function getRandomIndexWithOneValue(computer) {
-    const nextHitLocations = checkMinAllDirection(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
+    const nextHitLocations = checkMostValueableHit(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
+    console.log(nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
+
     return nextHitLocations[randomIndex];
 }
 
@@ -471,6 +473,8 @@ const checkMinAllDirection = (possHitLocations, minSizeShip) => {
     return getBiggestKeyWithElements(countDirctionLocation);
 }
 
+
+
 function getBiggestKeyWithElements(obj) {
     // Initialize the biggest key variable to null
     let biggestKey = null;
@@ -491,9 +495,42 @@ function getBiggestKeyWithElements(obj) {
     return obj[biggestKey];
 }
 
+const checkMostValueableHit = (possHitLocations, minSizeShip) => {
+    const mostEliminate = 0;
+    const mostELocations = new Set();
+    let tempPossHItLocations = possHitLocations;
+    for(let pos of tempPossHItLocations) {
+        tempPossHItLocations.delete(pos);
+        for (let loc of tempPossHItLocations) {
+            const result = checkAdjacentCells(loc, tempPossHItLocations, minSizeShip, false);
+            if (result == false) {
+                tempPossHItLocations.delete(loc);
+            }
+        }
+        let diffSize = possHitLocations.size - tempPossHItLocations.size;
+        if(diffSize >= mostEliminate) {
+            if(diffSize == mostEliminate){
+                mostELocations.add(pos)
+            }
+            else{
+                mostEliminate = diffSize;
+                mostELocations = new Set(pos)
+            }
+        }
+        tempPossHItLocations = possHitLocations
+    }
+    console.log("mostELocations", mostELocations);
+    if(mostELocations.length > 1){
+        return checkMinAllDirection(mostELocations, minSizeShip)
+    }
+    else {
+        return mostELocations
+    }
+}
+
 const pickDirection = (possHitDirections) => {
     const numDirRemain = possHitDirections.filter(element => element === -1).length;
-    return numDirRemain == 1 ? possHitDirections.findIndex(element => element !== -1) : randomIndexNonMinusOne(possHitDirections)
+    return numDirRemain == 1 ? possHitDirections.findIndex(element => element !== -1) : randomIndexNonMinusOne(possHitDirections);
 }
 
 function randomIndexNonMinusOne(arr) {
