@@ -200,8 +200,8 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 
 function getRandomIndexWithOneValue(computer) {
-    let nextHitLocations = checkMinAllDirection(players[computer].possHitLocations, players[computer].minSizeShip)
-    nextHitLocations = checkMostValueableHit(players[computer].possHitLocations,players[computer].opponentShipRemain['minSizeShip'])
+    let nextHitLocations = checkMinAllDirection(players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
+    nextHitLocations = checkMostValueableHit(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
@@ -241,7 +241,6 @@ const handleAIMiss = (computer, socket) => {
     }
     else {
         checkPossHitLocs(computer)
-        console.log(players[computer].possHitLocations)
         socket.emit("updatePossHitLocation", [...players[computer].possHitLocations]);
     }
 }
@@ -474,7 +473,8 @@ const checkMinAllDirection = (possHitLocations, minSizeShip) => {
     let pickNum = pickNumber();
     while(countDirctionLocation[pickNum].length == 0){
         pickNum = pickNumber();
-    }  
+    }
+    console.log("checkMinAllDirection Result", pickNum);   
     return countDirctionLocation[pickNum];
 }
 
@@ -500,11 +500,11 @@ function getBiggestKeyWithElements(obj) {
     return obj[biggestKey];
 }
 
-const checkMostValueableHit = (possHitLocations, minSizeShip) => {
+const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) => {
     let mostEliminate = 0;
     let mostELocations = new Set();
     let tempPossHitLocations = new Set(possHitLocations);
-    for(let pos of tempPossHitLocations) {
+    for(let pos of nextHitLocations) {
         tempPossHitLocations.delete(pos);
         for (let loc of tempPossHitLocations) { 
             const result = checkAdjacentCells(loc, tempPossHitLocations, minSizeShip, false);
@@ -524,8 +524,7 @@ const checkMostValueableHit = (possHitLocations, minSizeShip) => {
         }
         tempPossHitLocations = new Set(possHitLocations)
     }
-    console.log("mostELocations", mostELocations);
-    console.log("possHitLocations on cmvh", possHitLocations);
+    console.log("mostEliminate", mostEliminate);
     return [...mostELocations]
 }
 
@@ -540,7 +539,6 @@ function pickNumber() {
 
   const weightedArray = probabilities.flatMap(item => Array(item.probability).fill(item.number));
   const randomIndex = Math.floor(Math.random() * weightedArray.length);
-  
   return weightedArray[randomIndex];
 }
 
@@ -591,7 +589,6 @@ const computerMove = (curPlayer, socket, opponent) => {
             socket.emit("turn")
         }
         else if (players[curPlayer].board[pos] === 1) { // hit
-            console.log("here")
             handleHitComm(opponent, curPlayer, pos);
             handleAIHit(opponent, pos)
             handleDestroyComm(opponent, curPlayer, pos);
@@ -959,8 +956,6 @@ io.on('connection', (socket) => {
         players[curPlayer].displayGrid()
     })
     socket.on("attack", (pos) => {
-        console.log("player move", pos);
-        console.log("players[opponent].board[pos]",players[opponent].board[pos])
         switch (players[opponent].board[pos]) {
         case 1: {
             handleHitComm(curPlayer, opponent, pos);
