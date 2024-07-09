@@ -42,3 +42,7 @@ to sets to improve efficiency.
 - fix the problem where login does not work properly
 
 - have a log out button at home page
+
+- have a load set up button to load ship placement setup for this user
+
+- have more user related info displayed on home page

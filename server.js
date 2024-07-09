@@ -247,11 +247,11 @@ const handleAIMiss = (computer, socket) => {
 
 const handleAIHit = (computer, loc) => {
     if (!players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
-        players[computer].possHitDirections = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
+        players[computer].possHitDirections = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true, players[computer].hitLocs);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
-    else if (players[computer].curHitDirection != null) {
+    else if (players[computer].curHitDirection != null) {   // if some of the possHitDirections is not -1 and curHitDirection is not null ?
         AIFirstTimeHitNewShip = false
         const cols = 10;
         switch (players[computer].curHitDirection) {
@@ -324,7 +324,7 @@ const handleAIDestroy = (computer, destroyShip) => {
     console.log('minSizeShip: ', players[computer].opponentShipRemain['minSizeShip'])
 
     if (players[computer].hitLocs.length != 0) {
-        players[computer].possHitDirections = checkAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true);
+        players[computer].possHitDirections = checkAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true, players[computer].hitLocs);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
@@ -332,13 +332,13 @@ const handleAIDestroy = (computer, destroyShip) => {
         checkPossHitLocs(computer)
     }
 }
-function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) {      // check each of the cell within the minSizeShip
+function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit, hitLocs) {      // check each of the cell within the minSizeShip
     const cols = 10;
     let horiPoss = 1;   
     let vertPoss = 1;
     let temp = cellIndex;
     while (horiPoss < minSizeShip) {  // check west    
-        if ((temp) % cols !== 0 && possHitLocations.has(temp - 1)) {
+        if ((temp) % cols !== 0 && (possHitLocations.has(temp - 1) || hitLocs.includes(temp - 1))) {
             horiPoss += 1;
             temp -= 1;
         }
@@ -349,17 +349,17 @@ function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) 
 
     temp = cellIndex;
     while (horiPoss < minSizeShip) {  //check east
-        if ((temp + 1) % cols !== 0 && possHitLocations.has(temp + 1)) {
+        if ((temp + 1) % cols !== 0 && (possHitLocations.has(temp + 1) || hitLocs.includes(temp + 1))) {
             horiPoss += 1;
             temp += 1;
         }
         else {
             break;
         }
-    }
+    }// check above
     temp = cellIndex;
     while (vertPoss < minSizeShip) { // check north
-        if (temp - cols >= 0 && possHitLocations.has(temp - cols)) {
+        if (temp - cols >= 0 && (possHitLocations.has(temp - cols) || hitLocs.includes(temp - cols))) {
             vertPoss += 1;
             temp -= cols;
         }
@@ -369,7 +369,7 @@ function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) 
     }
     temp = cellIndex;
     while (vertPoss < minSizeShip) { // check south
-        if (temp + cols < 100 && possHitLocations.has(temp + cols)) {
+        if (temp + cols < 100 && (possHitLocations.has(temp + cols) || hitLocs.includes(temp + cols))) {
             vertPoss += 1;
             temp += cols;
         }
@@ -377,20 +377,101 @@ function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit) 
             break;
         }
     }
-    const above = cellIndex - cols >= 0 && possHitLocations.has(cellIndex - cols) && vertPoss == minSizeShip ? cellIndex - cols : -1;
-    const below = cellIndex + cols < 100 && possHitLocations.has(cellIndex + cols) && vertPoss == minSizeShip ? cellIndex + cols : -1;
-    const left = cellIndex % cols !== 0 && possHitLocations.has(cellIndex - 1) && horiPoss == minSizeShip ? cellIndex - 1 : -1;
-    const right = (cellIndex + 1) % cols !== 0 && possHitLocations.has(cellIndex + 1) && horiPoss == minSizeShip ? cellIndex + 1 : -1;
-    if (checkHit === true) {
-        return [above, left, below, right];
-    }
-    else if (checkHit === false) {
-        if (above === -1 && below === -1 && left === -1 && right === -1) {
-            return false;
-        } else {
-            return true;
+    if(horiPoss == minSizeShip || vertPoss == minSizeShip) {
+        if (checkHit == false) {
+            return true
         }
-    }           
+        else if(checkHit == true) {
+            return getNextFourDirection(cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip)
+        }
+    }
+    else if (checkHit == false) {
+        return false;
+    }
+    // const above = cellIndex - cols >= 0 && (possHitLocations.has(cellIndex - cols) || hitLocs.includes(cellIndex-cols)) && vertPoss == minSizeShip ? cellIndex - cols : -1;
+    // const below = cellIndex + cols < 100 && (possHitLocations.has(cellIndex + cols) || hitLocs.includes(cellIndex+cols))  && vertPoss == minSizeShip ? cellIndex + cols : -1;
+    // const left = cellIndex % cols !== 0 && (possHitLocations.has(cellIndex - 1) || hitLocs.includes(cellIndex-1)) && horiPoss == minSizeShip ? cellIndex - 1 : -1;
+    // const right = (cellIndex + 1) % cols !== 0 && (possHitLocations.has(cellIndex + 1) || hitLocs.includes(cellIndex+1)) && horiPoss == minSizeShip ? cellIndex + 1 : -1;
+    // if (checkHit === true) {
+    //     if (hitLocs.includes(above)) {
+
+    //     }
+    //     return [above, left, below, right];
+    // }
+    // else if (checkHit === false) {
+    //     if (above === -1 && below === -1 && left === -1 && right === -1) {
+    //         return false;
+    //     } else {
+    //         return true;
+    //     }
+    // }           
+}
+
+const getNextFourDirection = (cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip) => {
+    const nextHitLocations = [-1,-1,-1,-1]
+    const cols = 10;
+    let temp = cellIndex;
+    if (horiPoss == minSizeShip) {
+        if(temp % cols !== 0 && possHitLocations.has(temp - 1)) {  // check left
+            temp = temp - 1;
+            nextHitLocations[1] = temp;
+        }
+        else if(temp % cols !== 0 && hitLocs.includes(temp - 1)) {
+            temp = temp - 1;
+            while(temp % cols !== 0 && hitLocs.includes(temp - 1)) {
+                temp = temp - 1;
+            }
+            if(possHitLocations.has(temp)) {
+                nextHitLocations[1] = temp
+            }
+        }
+        temp = cellIndex;
+        if((temp + 1) % cols !== 0 && possHitLocations.has(temp + 1)) { // check right
+            temp = temp + 1;
+            nextHitLocations[3] = temp;
+        } 
+        else if((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
+            temp = temp + 1;
+            while((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
+                temp = temp + 1;
+            }
+            if(possHitLocations.has(temp)) {
+                nextHitLocations[3] = temp;
+            }
+        }
+        temp = cellIndex;
+    }
+
+    if (vertPoss == minSizeShip) {
+        if((temp - cols) >=0 && (possHitLocations.has(temp - cols))) { // check above
+            temp = temp - cols;
+            nextHitLocations[0] = temp
+        } 
+        else if((temp - cols) >= 0 && hitLocs.includes(temp - cols)) {
+            temp = temp - cols;
+            while((temp - cols) >=0 && hitLocs.includes(temp - cols)){
+                temp = temp - cols;
+            }
+            if(possHitLocations.has(temp)) {
+                nextHitLocations[0] = temp;
+            }
+        }
+        temp = cellIndex;
+        if((temp + cols) < 100 && (possHitLocations.has(temp + cols))) { //check below
+            temp = temp + cols;
+            nextHitLocations[2] = temp;
+        }
+        else if((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
+            temp = temp + cols;
+            while((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
+                temp = temp + cols;
+            }
+            if(possHitLocations.has(temp)) {
+                nextHitLocations[2] = temp;
+            }
+        }    
+    }
+    return nextHitLocations;
 }
 
 const checkMinAllDirection = (possHitLocations, minSizeShip) => {
@@ -456,14 +537,14 @@ const checkMinAllDirection = (possHitLocations, minSizeShip) => {
                 break;
             }
             else{
-            if(((loc + (temp*10)) < 100) && possHitLocations.has(loc + (temp * 10))) {
-                temp += 1;
+                if(((loc + (temp*10)) < 100) && possHitLocations.has(loc + (temp * 10))) {
+                    temp += 1;
+                }
+                else{
+                    temp = 1;
+                    break
+                }
             }
-            else{
-                temp = 1;
-                break
-            }
-        }
         }
         countDirctionLocation[count].push(loc);
         temp = 1;
@@ -507,7 +588,7 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) 
     for(let pos of nextHitLocations) {
         tempPossHitLocations.delete(pos);
         for (let loc of tempPossHitLocations) { 
-            const result = checkAdjacentCells(loc, tempPossHitLocations, minSizeShip, false);
+            const result = checkAdjacentCells(loc, tempPossHitLocations, minSizeShip, false, []);
             if (result == false) {
                 tempPossHitLocations.delete(loc);
             }
@@ -530,12 +611,12 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) 
 
 function pickNumber() {
   const probabilities = [
-    { number: 4, probability: 50 },
-    { number: 3, probability: 25 },
-    { number: 2, probability: 15 },
-    { number: 1, probability: 8 },
-    { number: 0, probability: 2 }
-  ];
+    { number: 4, probability: 70 },
+    { number: 3, probability: 20 },
+    { number: 2, probability: 7 },
+    { number: 1, probability: 2 },
+    { number: 0, probability: 1 }
+    ];
 
   const weightedArray = probabilities.flatMap(item => Array(item.probability).fill(item.number));
   const randomIndex = Math.floor(Math.random() * weightedArray.length);
@@ -543,7 +624,8 @@ function pickNumber() {
 }
 
 const pickDirection = (possHitDirections) => {
-    const numDirRemain = possHitDirections.filter(element => element === -1).length;
+    const numDirRemain = possHitDirections.filter(element => element !== -1).length;
+    console.log("numDirRemain", numDirRemain);
     return numDirRemain == 1 ? possHitDirections.findIndex(element => element !== -1) : randomIndexNonMinusOne(possHitDirections);
 }
 
@@ -564,7 +646,7 @@ function randomIndexNonMinusOne(arr) {
 }
 const checkPossHitLocs = (computer) => {
     for (let loc of players[computer].possHitLocations) {
-        const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false)
+        const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false, players[computer].hitLocs)
         if (result == false) {
             players[computer].possHitLocations.delete(loc)
         }
@@ -577,14 +659,15 @@ const computerMove = (curPlayer, socket, opponent) => {
         if (players[opponent].hitLocs.length == 0) {
             pos = getRandomIndexWithOneValue(opponent)
         }
-        else if (players[opponent].curHitDirection != null) {
+        else if (players[opponent].curHitDirection != null) { // what if hitLocs is not null and curHitDirection is null.   
             pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
+
         }
         players[opponent].possHitLocations.delete(pos);
 
         console.log("computer move", pos)
         if (players[curPlayer].board[pos] === 0) {  // miss
-            handleMissComm(opponent, curPlayer, pos);
+            handleMissComm(opponent, curPlayer, pos);   
             handleAIMiss(opponent, socket)
             socket.emit("turn")
         }
