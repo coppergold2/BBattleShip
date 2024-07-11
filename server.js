@@ -33,6 +33,20 @@ mongoose.connect(uri, mongooseOptions)
     console.error('Error connecting to MongoDB', err);
 });
 
+process.on('SIGINT', async () => {
+    console.log('Shutting down server...');
+
+    try {
+        // Update the isLoggedIn status of all players to false
+        await User.updateMany({ isLoggedIn: true }, { $set: { isLoggedIn: false } });
+        console.log('All players have been logged out.');
+    } catch (err) {
+        console.error('Error logging out players:', err);
+    }
+
+    // Gracefully close the server
+    process.exit();
+});
 class Player {
     constructor(id) {
         this.id = id;
@@ -872,8 +886,15 @@ io.on('connection', (socket) => {
             console.log("userId:", userId)
             const user = await User.findOne({_id : userId});
             if(user) {
-                curPlayer = user._id.toString()
-                socket.emit('login', userId, user.averageGameOverSteps);
+                if(user.isLoggedIn == true) {
+                    socket.emit('alert', "This user is already logged in");
+                }
+                else{
+                    user.isLoggedIn = true;
+                    await user.save(); // Save the updated user to the database
+                    curPlayer = user._id.toString()
+                    socket.emit('login', userId, user.averageGameOverSteps);
+                }
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
             }
@@ -882,9 +903,40 @@ io.on('connection', (socket) => {
             socket.emit('alert', 'An error occurred while logging in');
         }
     })
+    socket.on("logout", async () => {
+        try {
+            if (curPlayer) {
+            // Find the user by curPlayer (which contains the userId)
+                const user = await User.findOne({ _id: curPlayer });
+
+                if (user) {
+                // Set the user's isLoggedIn status to false
+                    user.isLoggedIn = false;
+                    await user.save();
+                }
+
+            // Clean up the players object if the player exists
+                if (players[curPlayer] != null) {
+                    delete players[curPlayer];
+                }
+
+            // Reset curPlayer
+                curPlayer = null;
+
+            // Emit the logout event
+                socket.emit("logout");
+            } else {
+                socket.emit("alert", "No user is currently logged in");
+            }
+        } catch (err) {
+        console.error(err); // Log the error for debugging
+        socket.emit('alert', 'An error occurred while logging out');
+    }
+});
     socket.on("new", async () => {
         try {
             const newUser = new User();
+            newUser.isLoggedIn = true;
             // Save the new user to the database
             await newUser.save();
             console.log('User added to the database');
@@ -1067,7 +1119,7 @@ io.on('connection', (socket) => {
             io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async   () => {
         console.log(`Client ${socket.id} disconnected`);
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
@@ -1083,11 +1135,30 @@ io.on('connection', (socket) => {
                 delete players[curPlayer];
             }
         }
+
+        if (curPlayer != null) {
+            try {
+            // Find the user in the db and set isLoggedIn to false
+                const user = await User.findOne({ _id: curPlayer });
+
+                if (user) {
+                    user.isLoggedIn = false;
+                    await user.save();
+                    console.log(`User ${curPlayer} logged out successfully.`);
+                } else {
+                    console.log(`User ${curPlayer} not found in database.`);
+                }
+            } catch (err) {
+                console.error(`Error logging out user ${curPlayer}:`, err);
+            }
+        }
+
     });
     socket.on("home", () => {
         players[curPlayer].reset();
-        connectedMPClients--;
         if (players[opponent] != null && players[curPlayer].mode == "multiplayer") {
+            connectedMPClients--;
+            players[curPlayer].mode = null;
             io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
         }
         else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {

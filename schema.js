@@ -1,21 +1,25 @@
 const mongoose = require("mongoose");
 const moment = require("moment-timezone");
 
-    const UserSchema = new mongoose.Schema({
-        createdAt: {
-            type: Date,
-            immutable: true,
-            default: () => moment.tz(Date.now(), "America/Toronto").toDate()
-        },
-        winStep: {
-            type: [Number],
-            default: []
-        },
-        lossStep: {
-            type: [Number],
-            default: []
-        }
-    });
+const UserSchema = new mongoose.Schema({
+    createdAt: {
+        type: Date,
+        immutable: true,
+    default: () => moment.tz(Date.now(), "America/Toronto").toDate()
+    },
+    winStep: {
+        type: [Number],
+    default: []
+    },
+    lossStep: {
+        type: [Number],
+    default: []
+    },
+    isLoggedIn: {
+        type: Boolean,
+    default: false
+    }
+});
 
 // Define the virtual field for averageGameOverSteps
 UserSchema.virtual('averageGameOverSteps').get(function() {
