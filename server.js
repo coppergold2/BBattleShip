@@ -209,13 +209,9 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
-
-
-
-
 function getRandomIndexWithOneValue(computer) {
     let nextHitLocations = checkMinAllDirection(players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
-    nextHitLocations = checkMostValueableHit(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
+    if(players[computer].opponentShipRemain['minSizeShip'] > 2 || (players[computer].numHits + players[computer].numMisses) >= 30) {nextHitLocations = checkMostValueableHit(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])}
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
@@ -401,24 +397,7 @@ function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit, 
     }
     else if (checkHit == false) {
         return false;
-    }
-    // const above = cellIndex - cols >= 0 && (possHitLocations.has(cellIndex - cols) || hitLocs.includes(cellIndex-cols)) && vertPoss == minSizeShip ? cellIndex - cols : -1;
-    // const below = cellIndex + cols < 100 && (possHitLocations.has(cellIndex + cols) || hitLocs.includes(cellIndex+cols))  && vertPoss == minSizeShip ? cellIndex + cols : -1;
-    // const left = cellIndex % cols !== 0 && (possHitLocations.has(cellIndex - 1) || hitLocs.includes(cellIndex-1)) && horiPoss == minSizeShip ? cellIndex - 1 : -1;
-    // const right = (cellIndex + 1) % cols !== 0 && (possHitLocations.has(cellIndex + 1) || hitLocs.includes(cellIndex+1)) && horiPoss == minSizeShip ? cellIndex + 1 : -1;
-    // if (checkHit === true) {
-    //     if (hitLocs.includes(above)) {
-
-    //     }
-    //     return [above, left, below, right];
-    // }
-    // else if (checkHit === false) {
-    //     if (above === -1 && below === -1 && left === -1 && right === -1) {
-    //         return false;
-    //     } else {
-    //         return true;
-    //     }
-    // }           
+    }         
 }
 
 const getNextFourDirection = (cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip) => {
@@ -565,15 +544,10 @@ const checkMinAllDirection = (possHitLocations, minSizeShip) => {
         count = 0;
     }
     
-    let pickNum = pickNumber();
-    while(countDirctionLocation[pickNum].length == 0){
-        pickNum = pickNumber();
-    }
+    let pickNum = pickNumber(countDirctionLocation);
     console.log("checkMinAllDirection Result", pickNum);   
     return countDirctionLocation[pickNum];
 }
-
-
 
 function getBiggestKeyWithElements(obj) {
     // Initialize the biggest key variable to null
@@ -623,19 +597,33 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) 
     return [...mostELocations]
 }
 
-function pickNumber() {
-  const probabilities = [
-    { number: 4, probability: 70 },
-    { number: 3, probability: 20 },
-    { number: 2, probability: 7 },
-    { number: 1, probability: 2 },
-    { number: 0, probability: 1 }
+function pickNumber(countDirectionLocation) {
+    
+    let probabilities = [
+      { number: 4, probability: 70 },
+      { number: 3, probability: 20 },
+      { number: 2, probability: 7 },
+      { number: 1, probability: 2 },
+      { number: 0, probability: 1 }
     ];
-
-  const weightedArray = probabilities.flatMap(item => Array(item.probability).fill(item.number));
-  const randomIndex = Math.floor(Math.random() * weightedArray.length);
-  return weightedArray[randomIndex];
-}
+  
+    // Filter out numbers with empty arrays
+    probabilities = probabilities.filter(item => countDirectionLocation[item.number].length > 0);
+  
+    // Calculate the sum of the remaining probabilities
+    const totalProbability = probabilities.reduce((sum, item) => sum + item.probability, 0);
+  
+    // Normalize the probabilities to sum to 100%
+    probabilities.forEach(item => {
+      item.probability = (item.probability / totalProbability) * 100;
+    });
+  
+    // Create the weighted array based on the adjusted probabilities
+    const weightedArray = probabilities.flatMap(item => Array(Math.round(item.probability)).fill(item.number));
+    const randomIndex = Math.floor(Math.random() * weightedArray.length);
+    
+    return weightedArray[randomIndex];
+  }
 
 const pickDirection = (possHitDirections) => {
     const numDirRemain = possHitDirections.filter(element => element !== -1).length;
@@ -853,22 +841,34 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
         }
         if (players[hitter].numDestroyShip == 5) {
             if (players[receiver] instanceof Player) {
-                io.to(players[receiver].socketId).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc))
+                let winRate;    
                 User.findOne({_id : receiver}).then(user => {
                     if (user) {
                         user.lossStep.push(players[receiver].numHits + players[receiver].numMisses)
+                        user.games.push("loss")
+                        if (user.games.length > 10) {
+                            user.games = user.games.slice(-10);
+                        }
+                        winRate = user.games
                         return user.save();
                     }
                 }).catch(err => console.log('Error updating lossStep for user:', err))
+                io.to(players[receiver].socketId).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc), winRate)
             }
             if (players[hitter] instanceof Player) {
-                io.to(players[hitter].socketId).emit("win", "You win!");
+                let winRate;
                 User.findOne({_id: hitter }).then(user => {
                     if (user) {
                         user.winStep.push(players[hitter].numHits + players[hitter].numMisses)
+                        user.games.push("win")
+                        if (user.games.length > 10) {
+                            user.games = user.games.slice(-10);
+                        }
+                        winRate = user.games;
                         return user.save();
                     }
-                }).catch(err => console.log('Error updating winStep for user:', err));
+                }).catch(err => console.log('Error updating winStep for user:', err));               
+                io.to(players[hitter].socketId).emit("win", "You win!", winRate);
             }
         }
         else if (players[hitter] instanceof Computer) {
@@ -885,6 +885,7 @@ io.on('connection', (socket) => {
         try{
             console.log("userId:", userId)
             const user = await User.findOne({_id : userId});
+            console.log("user", user)
             if(user) {
                 if(user.isLoggedIn == true) {
                     socket.emit('alert', "This user is already logged in");
@@ -893,7 +894,7 @@ io.on('connection', (socket) => {
                     user.isLoggedIn = true;
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    socket.emit('login', userId, user.averageGameOverSteps);
+                    socket.emit('login', userId, user.averageGameOverSteps, user.games);
                 }
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
@@ -947,7 +948,11 @@ io.on('connection', (socket) => {
             console.log('Error adding user to the database:', err);
         }
     });
-
+    socket.on('heartbeat', async () => {
+        if (curPlayer) {
+            await User.updateOne({ _id: curPlayer }, { $set: { lastSeen: new Date() } });
+        }
+    });
     socket.on("singleplayer", () => {
         if (players[curPlayer] == null) {
             players[curPlayer] = new Player(curPlayer);
@@ -1165,6 +1170,7 @@ io.on('connection', (socket) => {
             delete players[opponent];
         }
         opponent = null;
+
         socket.emit("home");
     })
     socket.on("oquit", () => {
@@ -1173,5 +1179,19 @@ io.on('connection', (socket) => {
         opponent = null;
     })
 });
+
+setInterval(async () => {
+    const timeout = 60 * 1000; // 60 seconds timeout for example
+    const inactiveSince = new Date(Date.now() - timeout);
+
+    try {
+        await User.updateMany(
+            { lastSeen: { $lt: inactiveSince }, isLoggedIn: true },
+            { $set: { isLoggedIn: false } }
+        );
+    } catch (err) {
+        console.error('Error logging out inactive users:', err);
+    }
+}, 30000); // Check every 30 seconds
 
 server.listen(3001, () => { console.log('Server listening on port 3001'); });

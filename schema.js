@@ -18,6 +18,14 @@ const UserSchema = new mongoose.Schema({
     isLoggedIn: {
         type: Boolean,
     default: false
+    },
+    lastSeen: {
+        type: Date,
+        default: () => new Date()
+    },
+    games: {
+        type: [String], // Store 'win' or 'loss' for each game
+        default: []
     }
 });
 

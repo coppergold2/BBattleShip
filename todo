@@ -46,3 +46,6 @@ to sets to improve efficiency.
 - have a load set up button to load ship placement setup for this user
 
 - have more user related info displayed on home page
+    - show the last 10 game win rate vs bot
+
+- show a hold click and release animation
