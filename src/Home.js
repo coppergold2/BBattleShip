@@ -1,22 +1,24 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, lastTenWinRate}) => {
-    let win = 0 ;
-    let loss = 0;
-    let winRate;
-    const calculateWinRate = (statArr) => {
-
+    const { win, loss, winRate } = useMemo(() => {
+        console.log("Memo ran", lastTenWinRate)
+        let win = 0;
+        let loss = 0;
+        
         // Loop through the statArr
-        for (let i = 0; i < statArr.length; i++) {
-            if (statArr[i] === "win") {
+        for (let i = 0; i < lastTenWinRate.length; i++) {
+            if (lastTenWinRate[i] === "win") {
                 win++;
-            } else if (statArr[i] === "loss") {
+            } else if (lastTenWinRate[i] === "loss") {
                 loss++;
             }
         }
-        // Calculate win rate
-        winRate = win / (win + loss);
-    };
+        
+        const winRate = win / (win + loss) || 0; // Avoid division by zero
+        return { win, loss, winRate };
+    }, [lastTenWinRate]);
+    
     return (
         <>
             <button className="home-button" onClick={handleLogout}>

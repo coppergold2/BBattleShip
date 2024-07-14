@@ -30,7 +30,7 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [lastTenWinRate, setLastTenWinRate] = useState(0);
+  const [lastTenWinRate, setLastTenWinRate] = useState(null);
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -84,6 +84,7 @@ const App = () => {
         onumHits: 0,
         onumMisses: 0,
       });
+      setLastTenWinRate(0);
     }
     socket.current.on('disconnect', () => {
       console.log('Disconnected from server');
