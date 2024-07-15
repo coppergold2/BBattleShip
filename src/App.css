@@ -165,8 +165,7 @@ h1 {
 }
 
 button {
-  background-color: #4CAF50;
-  /* Green */
+  background-color: #4CAF50; /* Green */
   border: none;
   color: white;
   padding: 15px 32px;
@@ -177,12 +176,42 @@ button {
   margin: 4px 2px;
   cursor: pointer;
   border-radius: 4px;
-  transition-duration: 0.4s;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.4s, color 0.4s; /* Smooth transition */
 }
 
 button:hover {
   background-color: white;
   color: black;
+}
+
+@keyframes holdb {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@keyframes releaseb {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+button:active {
+  animation: holdb 0.2s forwards;
+}
+
+button:not(:active) {
+  animation: releaseb 0.2s forwards;
 }
 
 .ship-option.flipped {
@@ -212,6 +241,7 @@ button:hover {
   background-color: #1e90ff; /* Darker or more saturated shade of blue */
   position: relative;
   z-index: 1;
+  transition: transform 0.2s ease, box-shadow 0.2s ease; /* Smooth transition */
 }
 
 .hittable::before {
@@ -225,6 +255,7 @@ button:hover {
   border-radius: 4px;
   box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
   animation: pulse 1s infinite;
+  transition: box-shadow 0.2s ease; /* Smooth transition */
 }
 
 @keyframes pulse {
@@ -238,6 +269,38 @@ button:hover {
     box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
   }
 }
+
+@keyframes hold {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 30px rgba(255, 0, 0, 1);
+  }
+}
+
+@keyframes release {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 30px rgba(255, 0, 0, 1);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
+  }
+}
+
+.hittable:active {
+  animation: hold 0.2s forwards;
+}
+
+.hittable:not(:active) {
+  animation: release 0.2s forwards;
+}
+
+
 
 .boom {
   position: relative;
@@ -408,6 +471,7 @@ button:hover {
 
 .home-button:hover {
   background-color: #0056b3;
+  color: yellow;
 }
 
 .home-stats {

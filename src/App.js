@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo} from 'react';
 import socketIOClient from "socket.io-client";
 import './App.css'
 import Game from './Game'
@@ -30,7 +30,7 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [lastTenWinRate, setLastTenWinRate] = useState(null);
+  const [lastTenWinRate, setLastTenWinRate] = useState([]);
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -59,6 +59,7 @@ const App = () => {
 
     socket.current.on('logout', () => {
       reset();
+      setLastTenWinRate([]);
       setIsLoggedIn(false);
       document.title = "BattleShip";
     })
@@ -84,7 +85,6 @@ const App = () => {
         onumHits: 0,
         onumMisses: 0,
       });
-      setLastTenWinRate(0);
     }
     socket.current.on('disconnect', () => {
       console.log('Disconnected from server');

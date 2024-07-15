@@ -841,34 +841,43 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
         }
         if (players[hitter].numDestroyShip == 5) {
             if (players[receiver] instanceof Player) {
-                let winRate;    
-                User.findOne({_id : receiver}).then(user => {
+                User.findOne({_id: receiver}).then(user => {
                     if (user) {
-                        user.lossStep.push(players[receiver].numHits + players[receiver].numMisses)
-                        user.games.push("loss")
+                        user.lossStep.push(players[receiver].numHits + players[receiver].numMisses);
+                        user.games.push("loss");
                         if (user.games.length > 10) {
                             user.games = user.games.slice(-10);
                         }
-                        winRate = user.games
-                        return user.save();
+                        return user.save().then(savedUser => {
+                            const winRate = savedUser.games;
+                            io.to(players[receiver].socketId).emit(
+                                "owin",
+                                loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
+                                winRate
+                            );
+                        });
+                    } else {
+                        console.log('User not found:', receiver);
                     }
-                }).catch(err => console.log('Error updating lossStep for user:', err))
-                io.to(players[receiver].socketId).emit("owin", loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc), winRate)
+                }).catch(err => console.log('Error updating lossStep for user:', err));
             }
+        
             if (players[hitter] instanceof Player) {
-                let winRate;
-                User.findOne({_id: hitter }).then(user => {
+                User.findOne({_id: hitter}).then(user => {
                     if (user) {
-                        user.winStep.push(players[hitter].numHits + players[hitter].numMisses)
-                        user.games.push("win")
+                        user.winStep.push(players[hitter].numHits + players[hitter].numMisses);
+                        user.games.push("win");
                         if (user.games.length > 10) {
                             user.games = user.games.slice(-10);
                         }
-                        winRate = user.games;
-                        return user.save();
+                        return user.save().then(savedUser => {
+                            const winRate = savedUser.games;
+                            io.to(players[hitter].socketId).emit("win", "You win!", winRate);
+                        });
+                    } else {
+                        console.log('User not found:', hitter);
                     }
-                }).catch(err => console.log('Error updating winStep for user:', err));               
-                io.to(players[hitter].socketId).emit("win", "You win!", winRate);
+                }).catch(err => console.log('Error updating winStep for user:', err));
             }
         }
         else if (players[hitter] instanceof Computer) {
