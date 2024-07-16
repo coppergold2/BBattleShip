@@ -210,8 +210,8 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 function getRandomIndexWithOneValue(computer) {
-    let nextHitLocations = checkMinAllDirection(players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
-    nextHitLocations = checkMostValueableHit(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
+    let nextHitLocations = checkMostValueableHit(players[computer].possHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], players[computer].numMisses + players[computer].numHits)
+    nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);    
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
@@ -467,12 +467,12 @@ const getNextFourDirection = (cellIndex, possHitLocations, hitLocs, horiPoss, ve
     return nextHitLocations;
 }
 
-const checkMinAllDirection = (possHitLocations, minSizeShip) => {
+const checkMinAllDirection = (nextHitLocations, possHitLocations, minSizeShip) => {
     console.log("minSizeShip", minSizeShip)
     const countDirctionLocation = {0:[], 1:[], 2:[], 3:[], 4:[]}
     let temp = 1
     let count = 0
-    for(let loc of possHitLocations)    
+    for(let loc of nextHitLocations)    
     {
         while(temp <= minSizeShip) {   // check west
             if(temp == minSizeShip){
@@ -569,7 +569,7 @@ function getBiggestKeyWithElements(obj) {
     return obj[biggestKey];
 }
 
-const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) => {
+const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, totalHits) => {
     let mostEliminate = 0;
     let mostELocations = new Set();
     let tempPossHitLocations = new Set(possHitLocations);
@@ -594,7 +594,7 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) 
         tempPossHitLocations = new Set(possHitLocations)
     }
     console.log("mostEliminate", mostEliminate);
-    if((minSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2){
+    if((minSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2 || totalHits >= 30){
         return [...mostELocations]
     }
     return nextHitLocations;
