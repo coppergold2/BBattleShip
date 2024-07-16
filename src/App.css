@@ -87,7 +87,7 @@ h1 {
   background-color: rgba(0, 123, 255, 0.3); /* Light blue background with transparency */
   box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Soft shadow around the cell */
   border-radius: 5px; /* Slightly rounded corners */
-  transition: all 0.2s ease-in-out; /* Smooth transition effect */
+  /*transition: all 0.2s ease-in-out; /* Smooth transition effect */
 }
 
 .stats-container{
@@ -241,7 +241,6 @@ button:not(:active) {
   background-color: #1e90ff; /* Darker or more saturated shade of blue */
   position: relative;
   z-index: 1;
-  transition: transform 0.2s ease, box-shadow 0.2s ease; /* Smooth transition */
 }
 
 .hittable::before {
@@ -255,7 +254,7 @@ button:not(:active) {
   border-radius: 4px;
   box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
   animation: pulse 1s infinite;
-  transition: box-shadow 0.2s ease; /* Smooth transition */
+
 }
 
 @keyframes pulse {
@@ -293,11 +292,11 @@ button:not(:active) {
 }
 
 .hittable:active {
-  animation: hold 0.2s forwards;
+  animation: hold 0.1s forwards;
 }
 
 .hittable:not(:active) {
-  animation: release 0.2s forwards;
+  animation: release 0.1s forwards;
 }
 
 

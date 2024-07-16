@@ -211,8 +211,8 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 function getRandomIndexWithOneValue(computer) {
     let nextHitLocations = checkMinAllDirection(players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
-    if(players[computer].opponentShipRemain['minSizeShip'] > 2 || (players[computer].numHits + players[computer].numMisses) >= 30) {nextHitLocations = checkMostValueableHit(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])}
-    console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
+    nextHitLocations = checkMostValueableHit(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
+    console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);    
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
     return nextHitLocations[randomIndex];
@@ -594,36 +594,39 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip) 
         tempPossHitLocations = new Set(possHitLocations)
     }
     console.log("mostEliminate", mostEliminate);
-    return [...mostELocations]
+    if((minSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2){
+        return [...mostELocations]
+    }
+    return nextHitLocations;
 }
 
 function pickNumber(countDirectionLocation) {
-    
+
     let probabilities = [
       { number: 4, probability: 70 },
       { number: 3, probability: 20 },
       { number: 2, probability: 7 },
       { number: 1, probability: 2 },
       { number: 0, probability: 1 }
-    ];
-  
+      ];
+
     // Filter out numbers with empty arrays
     probabilities = probabilities.filter(item => countDirectionLocation[item.number].length > 0);
-  
+
     // Calculate the sum of the remaining probabilities
     const totalProbability = probabilities.reduce((sum, item) => sum + item.probability, 0);
-  
+
     // Normalize the probabilities to sum to 100%
     probabilities.forEach(item => {
       item.probability = (item.probability / totalProbability) * 100;
-    });
-  
+  });
+
     // Create the weighted array based on the adjusted probabilities
     const weightedArray = probabilities.flatMap(item => Array(Math.round(item.probability)).fill(item.number));
     const randomIndex = Math.floor(Math.random() * weightedArray.length);
     
     return weightedArray[randomIndex];
-  }
+}
 
 const pickDirection = (possHitDirections) => {
     const numDirRemain = possHitDirections.filter(element => element !== -1).length;
@@ -854,14 +857,14 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
                                 "owin",
                                 loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
                                 winRate
-                            );
+                                );
                         });
                     } else {
                         console.log('User not found:', receiver);
                     }
                 }).catch(err => console.log('Error updating lossStep for user:', err));
             }
-        
+
             if (players[hitter] instanceof Player) {
                 User.findOne({_id: hitter}).then(user => {
                     if (user) {
@@ -913,6 +916,20 @@ io.on('connection', (socket) => {
             socket.emit('alert', 'An error occurred while logging in');
         }
     })
+    socket.on("new", async () => {
+        try {
+            const newUser = new User();
+            newUser.isLoggedIn = true;
+            // Save the new user to the database
+            await newUser.save();
+            console.log('User added to the database');
+            curPlayer = newUser._id.toString();
+            // Emit the user's ID after successful save
+            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games);
+        } catch (err) {
+            console.log('Error adding user to the database:', err);
+        }
+    });
     socket.on("logout", async () => {
         try {
             if (curPlayer) {
@@ -943,20 +960,6 @@ io.on('connection', (socket) => {
         socket.emit('alert', 'An error occurred while logging out');
     }
 });
-    socket.on("new", async () => {
-        try {
-            const newUser = new User();
-            newUser.isLoggedIn = true;
-            // Save the new user to the database
-            await newUser.save();
-            console.log('User added to the database');
-            curPlayer = newUser._id.toString();
-            // Emit the user's ID after successful save
-            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps);
-        } catch (err) {
-            console.log('Error adding user to the database:', err);
-        }
-    });
     socket.on('heartbeat', async () => {
         if (curPlayer) {
             await User.updateOne({ _id: curPlayer }, { $set: { lastSeen: new Date() } });
@@ -1197,7 +1200,7 @@ setInterval(async () => {
         await User.updateMany(
             { lastSeen: { $lt: inactiveSince }, isLoggedIn: true },
             { $set: { isLoggedIn: false } }
-        );
+            );
     } catch (err) {
         console.error('Error logging out inactive users:', err);
     }
