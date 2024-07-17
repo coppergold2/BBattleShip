@@ -709,6 +709,7 @@ const randomBoatPlacement = (user) => {
         players[user].shipLoc[ship] = result;
         result.forEach((pos) => { players[user].board[pos] = 1 })
     }
+    console.log("players[user].shipLoc: ", players[user].shipLoc)
 }
 
 function generateRandomString(length) {
@@ -889,6 +890,22 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
     }
 
 })
+
+function isValidShipPlacement(command) {
+    if (typeof command !== 'object' || command === null) return false;
+  
+    for (const ship in ships) {
+      if (!Array.isArray(command[ship]) || command[ship].length !== ships[ship]) {
+        return false;
+      }
+  
+      if (!command[ship].every((cell) => {Number.isInteger(cell) && cell > 0 && cell < 100})) {
+        return false;
+      }
+    }
+  
+    return true;
+  }
 
 io.on('connection', (socket) => {
     let opponent;
@@ -1128,6 +1145,30 @@ io.on('connection', (socket) => {
     }
 }
 })
+    socket.on('command', (commandString) => {console.log("type of commandString", typeof(commandString));
+        try {
+            
+            const command = JSON.parse(commandString);
+            if (isValidShipPlacement(command)) {
+              console.log('Valid command:', command);
+              players[curPlayer].shipLoc = command;
+              players[curPlayer].board = Array(100).fill(0);
+              for (const ship in command) {
+                if (command.hasOwnProperty(ship)) {
+                  command[ship].forEach((position) => {
+                   players[curPlayer].board[position] = 1;
+                  });
+                }
+              }
+            } else {
+              console.log('Invalid command format');
+              socket.emit('alert', 'Invalid command format');
+            }
+          } catch (e) {
+            console.log('Invalid JSON format');
+            socket.emit('error', 'Invalid JSON format');
+          }
+    })
     socket.on('message', (message) => {
         players[curPlayer].messages.push({ 'player': "You: " + message }); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
@@ -1136,7 +1177,7 @@ io.on('connection', (socket) => {
             io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
-    socket.on('disconnect', async   () => {
+    socket.on('disconnect', async() => {
         console.log(`Client ${socket.id} disconnected`);
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {

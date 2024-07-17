@@ -1,6 +1,6 @@
 import React from "react";
 
-const Login = ({ handleInputChange, handleLoginClick, handleNewUserClick, input }) => {
+const Login = ({ handleInputChange, sendMessage, handleNewUserClick, input }) => {
     return (
         <div style={{
             display: 'flex',
@@ -16,9 +16,9 @@ const Login = ({ handleInputChange, handleLoginClick, handleNewUserClick, input 
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder="Enter your ID"
                 style={{ marginBottom: '10px', padding: '5px' }}
-                onKeyDown={(e) => e.key === 'Enter' && handleLoginClick()}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage('login')}
             />
-            <button onClick={handleLoginClick} style={{ marginBottom: '5px' }}>Login</button>
+            <button onClick={() => sendMessage('login')} style={{ marginBottom: '5px' }}>Login</button>
             <button onClick={handleNewUserClick}>New User</button>
         </div>
     )

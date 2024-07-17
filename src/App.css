@@ -16,7 +16,7 @@ h1 {
 }
 
 .game-container {
-  display: flex; /* Makes the container a flex container */
+  display: flex;
 }
 
 .boards {
@@ -26,9 +26,11 @@ h1 {
 }
 
 .boards_before {
-  display: flex;
-  justify-content: center;
-  width: 100%;
+  margin-left: 725px;
+}
+
+.command-section{
+  margin-left: 275px;
 }
 
 .board-before {

@@ -40,13 +40,13 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) 
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault(); // Prevents the addition of a new line when pressing 'Enter'
-                sendMessage();
+                sendMessage('message');
               }
             }}
             placeholder="Type here"
             className="chat-input"
           />
-          <button onClick={sendMessage} className="chat-button">Send</button>
+          <button onClick={() => sendMessage('message')} className="chat-button">Send</button>
         </div>
       )}
     </div>

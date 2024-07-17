@@ -444,18 +444,10 @@ const App = () => {
     setShipLocHover(null);
   }
 
-  const sendMessage = () => {
+  const sendMessage = (type) => {
     if (input.trim()) {
       const message = input.trim();
-      socket.current.emit('message', message);
-      setInput('');
-    }
-  }
-
-  const handleLoginClick = () => {
-    if (input.trim()) {
-      const message = input.trim();
-      socket.current.emit("login", message);
+      socket.current.emit(type, message);
       setInput('');
     }
   }
@@ -465,6 +457,7 @@ const App = () => {
   }
 
   const handleInputChange = (msg) => {
+    console.log("msg", msg)
     setInput(msg);
   }
   const handleCellHover = (index) => {
@@ -524,7 +517,7 @@ const App = () => {
       ) :
         (<Login
           handleInputChange={handleInputChange}
-          handleLoginClick={handleLoginClick}
+          sendMessage={sendMessage}
           handleNewUserClick={handleNewUserClick}
           input={input}
         />)
