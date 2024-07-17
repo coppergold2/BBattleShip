@@ -158,13 +158,13 @@ const App = () => {
     socket.current.on('start', () => {
       setObCellClass(
         Array.from({ length: 100 }, () => (
-          {
-            shipName: null,
-            hit: false,
-            miss: false,
-            destroy: false
-          }))
-      )
+        {
+          shipName: null,
+          hit: false,
+          miss: false,
+          destroy: false
+        }))
+        )
       setStart(true)
       setInfo("You started the game, it's your turn to attack")
     })
@@ -172,13 +172,13 @@ const App = () => {
       socket.current.emit("findOpponent");
       setObCellClass(
         Array.from({ length: 100 }, () => (
-          {
-            shipName: null,
-            hit: false,
-            miss: false,
-            destroy: false
-          }))
-      )
+        {
+          shipName: null,
+          hit: false,
+          miss: false,
+          destroy: false
+        }))
+        )
       setStart(true)
       setTurn(false)
     })
@@ -259,8 +259,10 @@ const App = () => {
       })
     })
     socket.current.on("win", (msg, winRate) => {
-      setInfo(msg)
-      setTurn(false)
+      if(msg != null) {
+        setInfo(msg)
+        setTurn(false)
+      }
       setLastTenWinRate(winRate);
     })
     socket.current.on('omiss', (pos, num) => {
@@ -325,85 +327,85 @@ const App = () => {
     };
   }, []);
 
-  const handleSinglePlayerClick = () => {
-    setSinglePlayer(true);
-    socket.current.emit("singleplayer")
-    setInfo("Please Place your ships")
-    setPbCellClass(
-      Array.from({ length: 100 }, () => (
-        {
-          shipName: null,
-          ohit: false,
-          omiss: false
-        })))
-  }
-  const handleMultiPlayerClick = () => {
-    setMultiPlayer(true);
-    socket.current.emit("multiplayer")
-    setInfo("Please Place your ships")
-    setPbCellClass(
-      Array.from({ length: 100 }, () => (
-        {
-          shipName: null,
-          ohit: false,
-          omiss: false
-        })))
-  }
-  const handleHomeClick = () => {
-    socket.current.emit("home")
-  }
-  const handleRandomPlacement = () => {
-    socket.current.emit("random")
-    setPlacedShips(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'])
-    setActiveShip(null);
-  }
-  const handleShipPlacement = (cell) => {
-    socket.current.emit("shipPlacement", cell)
-  }
-  const handleShipReplacement = (shipName, index) => {
-    socket.current.emit("shipReplacement", shipName, index)
-  }
+const handleSinglePlayerClick = () => {
+  setSinglePlayer(true);
+  socket.current.emit("singleplayer")
+  setInfo("Please Place your ships")
+  setPbCellClass(
+    Array.from({ length: 100 }, () => (
+    {
+      shipName: null,
+      ohit: false,
+      omiss: false
+    })))
+}
+const handleMultiPlayerClick = () => {
+  setMultiPlayer(true);
+  socket.current.emit("multiplayer")
+  setInfo("Please Place your ships")
+  setPbCellClass(
+    Array.from({ length: 100 }, () => (
+    {
+      shipName: null,
+      ohit: false,
+      omiss: false
+    })))
+}
+const handleHomeClick = () => {
+  socket.current.emit("home")
+}
+const handleRandomPlacement = () => {
+  socket.current.emit("random")
+  setPlacedShips(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'])
+  setActiveShip(null);
+}
+const handleShipPlacement = (cell) => {
+  socket.current.emit("shipPlacement", cell)
+}
+const handleShipReplacement = (shipName, index) => {
+  socket.current.emit("shipReplacement", shipName, index)
+}
 
-  const handleShipHover = (location) => {
+const handleShipHover = (location) => {
 
-    const row = Math.floor(location / 10);
-    const col = location % 10;
-    const shipSize = ships[activeShip];
-    const isValidLocation = (loc) => loc >= 0 && loc < 100;
-    const isLocationOccupied = (loc) => {
-      return pbCellClass != null && pbCellClass[loc] != null && pbCellClass[loc].shipName != null;
-    };
-    let result = new Set();
-    if (isFlipped) {
-      if (row + shipSize <= 10) {
-        for (let i = 0; i < shipSize; i++) {
-          const loc = row * 10 + col + i * 10;
-          if (!isValidLocation(loc) || isLocationOccupied(loc)) {
-            result = null;
-            break;
-          }
-          result.add(loc)
+  const row = Math.floor(location / 10);
+  const col = location % 10;
+  const shipSize = ships[activeShip];
+  const isValidLocation = (loc) => loc >= 0 && loc < 100;
+  const isLocationOccupied = (loc) => {
+    return pbCellClass != null && pbCellClass[loc] != null && pbCellClass[loc].shipName != null;
+  };
+  let result = new Set();
+  if (isFlipped) {
+    if (row + shipSize <= 10) {
+      for (let i = 0; i < shipSize; i++) {
+        const loc = row * 10 + col + i * 10;
+        if (!isValidLocation(loc) || isLocationOccupied(loc)) {
+          result = null;
+          break;
         }
+        result.add(loc)
       }
     }
-    else {
-      if (col + shipSize <= 10) {
-        for (let i = 0; i < shipSize; i++) {
-          const loc = row * 10 + col + i;
+  }
+  else {
+    if (col + shipSize <= 10) {
+      for (let i = 0; i < shipSize; i++) {
+        const loc = row * 10 + col + i;
 
-          if (!isValidLocation(loc) || isLocationOccupied(loc)) {
-            result = null;
-            break;
-          }
-          result.add(loc)
+        if (!isValidLocation(loc) || isLocationOccupied(loc)) {
+          result = null;
+          break;
         }
+        result.add(loc)
       }
     }
-    console.log("result in handleShipHover", result);
-    if (result != null && result.size != 0) {
-      setShipLocHover(result);
-    }
-    else {
+  }
+  console.log("result in handleShipHover", result);
+  if (result != null && result.size != 0) {
+    setShipLocHover(result);
+  }
+  else {
       setShipLocHover(new Set([location]));  // why did I do this -> put it as an array because to convert to a number
     }
   }
@@ -475,54 +477,54 @@ const App = () => {
   }
   return (
     <>
-      {isLoggedIn ? (
-        <>
-          <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
-          <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
-          {(!singlePlayer && !multiPlayer) ?
-            <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} lastTenWinRate = {lastTenWinRate} /> :
-            (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
-              <Game
-                socket={socket.current}
-                multiPlayer={multiPlayer}
-                start={start}
-                turn={turn}
-                pbCellClass={pbCellClass}
-                obCellClass={obCellClass}
-                placedShips={placedShips}
-                activeShip={activeShip}
-                shipLocHover={shipLocHover}
-                messages={messages}
-                input={input}
-                isFlipped={isFlipped}
-                hoveredCell={hoveredCell}
-                stats={stats}
-                handleRandomPlacement={handleRandomPlacement}
-                handleShipOptionClick={handleShipOptionClick}
-                handleCellClick={handleCellClick}
-                handleShipPlacement={handleShipPlacement}
-                handleShipReplacement={handleShipReplacement}
-                handleShipHoverOut={handleShipHoverOut}
-                handleShipHover={handleShipHover}
-                handleFlipBoat={handleFlipBoat}
-                sendMessage={sendMessage}
-                handleInputChange={handleInputChange}
-                handleCellHover={handleCellHover}
-                handleCellHoverOut={handleCellHoverOut}
-                handleHomeClick={handleHomeClick}
-              /> :
-              <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
-          }
-        </>
-      ) :
-        (<Login
-          handleInputChange={handleInputChange}
-          sendMessage={sendMessage}
-          handleNewUserClick={handleNewUserClick}
-          input={input}
-        />)
-      }
+    {isLoggedIn ? (
+      <>
+      <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
+      <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
+      {(!singlePlayer && !multiPlayer) ?
+      <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} lastTenWinRate = {lastTenWinRate} /> :
+      (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
+      <Game
+      socket={socket.current}
+      multiPlayer={multiPlayer}
+      start={start}
+      turn={turn}
+      pbCellClass={pbCellClass}
+      obCellClass={obCellClass}
+      placedShips={placedShips}
+      activeShip={activeShip}
+      shipLocHover={shipLocHover}
+      messages={messages}
+      input={input}
+      isFlipped={isFlipped}
+      hoveredCell={hoveredCell}
+      stats={stats}
+      handleRandomPlacement={handleRandomPlacement}
+      handleShipOptionClick={handleShipOptionClick}
+      handleCellClick={handleCellClick}
+      handleShipPlacement={handleShipPlacement}
+      handleShipReplacement={handleShipReplacement}
+      handleShipHoverOut={handleShipHoverOut}
+      handleShipHover={handleShipHover}
+      handleFlipBoat={handleFlipBoat}
+      sendMessage={sendMessage}
+      handleInputChange={handleInputChange}
+      handleCellHover={handleCellHover}
+      handleCellHoverOut={handleCellHoverOut}
+      handleHomeClick={handleHomeClick}
+      /> :
+      <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
+    }
     </>
+    ) :
+    (<Login
+      handleInputChange={handleInputChange}
+      sendMessage={sendMessage}
+      handleNewUserClick={handleNewUserClick}
+      input={input}
+      />)
+  }
+  </>
   );
 };
 

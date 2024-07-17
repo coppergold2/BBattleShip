@@ -26,23 +26,28 @@ const mongooseOptions = {
 };
 
 mongoose.connect(uri, mongooseOptions)
-.then(() => {
+.then(async () => {
     console.log('MongoDB connected');
+    await logoutAllPlayers();
 })
 .catch(err => {
     console.error('Error connecting to MongoDB', err);
 });
 
-process.on('SIGINT', async () => {
-    console.log('Shutting down server...');
-
+async function logoutAllPlayers() {
+    console.log('Updating isLoggedIn status for all players to log off...');
     try {
-        // Update the isLoggedIn status of all players to false
         await User.updateMany({ isLoggedIn: true }, { $set: { isLoggedIn: false } });
         console.log('All players have been logged out.');
     } catch (err) {
         console.error('Error logging out players:', err);
     }
+}
+
+process.on('SIGINT', async () => {
+    console.log('Shutting down server...');
+
+    await logoutAllPlayers();   
 
     // Gracefully close the server
     process.exit();
@@ -603,8 +608,8 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, 
 function pickNumber(countDirectionLocation) {
 
     let probabilities = [
-      { number: 4, probability: 70 },
-      { number: 3, probability: 20 },
+      { number: 4, probability: 60 },
+      { number: 3, probability: 30 },
       { number: 2, probability: 7 },
       { number: 1, probability: 2 },
       { number: 0, probability: 1 }
@@ -830,7 +835,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     }
 })
 
-const handleDestroyComm = ((hitter, receiver, pos) => {
+const handleDestroyComm = (async (hitter, receiver, pos) => {
     const result = checkShip(receiver, pos);
     if (result != "normal") {
         players[hitter].numDestroyShip++;
@@ -845,43 +850,12 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
         }
         if (players[hitter].numDestroyShip == 5) {
             if (players[receiver] instanceof Player) {
-                User.findOne({_id: receiver}).then(user => {
-                    if (user) {
-                        user.lossStep.push(players[receiver].numHits + players[receiver].numMisses);
-                        user.games.push("loss");
-                        if (user.games.length > 10) {
-                            user.games = user.games.slice(-10);
-                        }
-                        return user.save().then(savedUser => {
-                            const winRate = savedUser.games;
-                            io.to(players[receiver].socketId).emit(
-                                "owin",
-                                loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
-                                winRate
-                                );
-                        });
-                    } else {
-                        console.log('User not found:', receiver);
-                    }
-                }).catch(err => console.log('Error updating lossStep for user:', err));
+                players[receiver].start = false;
+                await handleLossDB(receiver, hitter);
             }
-
             if (players[hitter] instanceof Player) {
-                User.findOne({_id: hitter}).then(user => {
-                    if (user) {
-                        user.winStep.push(players[hitter].numHits + players[hitter].numMisses);
-                        user.games.push("win");
-                        if (user.games.length > 10) {
-                            user.games = user.games.slice(-10);
-                        }
-                        return user.save().then(savedUser => {
-                            const winRate = savedUser.games;
-                            io.to(players[hitter].socketId).emit("win", "You win!", winRate);
-                        });
-                    } else {
-                        console.log('User not found:', hitter);
-                    }
-                }).catch(err => console.log('Error updating winStep for user:', err));
+                players[hitter].start = false;
+                await handleWinDB(hitter);
             }
         }
         else if (players[hitter] instanceof Computer) {
@@ -891,21 +865,74 @@ const handleDestroyComm = ((hitter, receiver, pos) => {
 
 })
 
+const handleWinDB = async (hitter) => {
+    try {
+        const user = await User.findOne({_id: hitter});
+        if (user) {
+            user.winStep.push(players[hitter].numHits + players[hitter].numMisses);
+            user.games.push("win");
+            if (user.games.length > 10) {
+                user.games = user.games.slice(-10);
+            }
+            const savedUser = await user.save();
+            const winRate = savedUser.games;
+            if (players[hitter].start == true) {
+                io.to(players[hitter].socketId).emit("win", null, winRate);
+            }
+            else {
+                io.to(players[hitter].socketId).emit("win", "You win !", winRate);
+            }
+        } else {
+            console.log('User not found:', hitter);
+        }
+    } catch (err) {
+        console.log('Error updating winStep for user:', err);
+    }
+};
+
+const handleLossDB = async (receiver, hitter) => {
+    try {
+        const user = await User.findOne({_id: receiver});
+        if (user) {
+            user.lossStep.push(players[receiver].numHits + players[receiver].numMisses);
+            user.games.push("loss");
+            if (user.games.length > 10) {
+                user.games = user.games.slice(-10);
+            }
+            const savedUser = await user.save();
+            if (hitter != null) {
+                const winRate = savedUser.games;
+                io.to(players[receiver].socketId).emit(
+                    "owin",
+                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
+                    winRate
+                    );
+            }
+        } else {
+            console.log('User not found:', receiver);
+        }
+    } catch (err) {
+        console.log('Error updating lossStep for user:', err);
+    }
+};
+
 function isValidShipPlacement(command) {
     if (typeof command !== 'object' || command === null) return false;
-  
+
     for (const ship in ships) {
       if (!Array.isArray(command[ship]) || command[ship].length !== ships[ship]) {
+        console.log("false in 1")
         return false;
-      }
-  
-      if (!command[ship].every((cell) => {Number.isInteger(cell) && cell > 0 && cell < 100})) {
-        return false;
-      }
     }
-  
-    return true;
-  }
+
+    if (!command[ship].every((cell) => Number.isInteger(cell) && cell > 0 && cell < 100)) {
+        console.log("false in 2")
+        return false;
+    }
+}
+
+return true;
+}
 
 io.on('connection', (socket) => {
     let opponent;
@@ -914,13 +941,13 @@ io.on('connection', (socket) => {
         try{
             console.log("userId:", userId)
             const user = await User.findOne({_id : userId});
-            console.log("user", user)
             if(user) {
                 if(user.isLoggedIn == true) {
                     socket.emit('alert', "This user is already logged in");
                 }
                 else{
                     user.isLoggedIn = true;
+                    user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
                     socket.emit('login', userId, user.averageGameOverSteps, user.games);
@@ -1094,7 +1121,10 @@ io.on('connection', (socket) => {
     socket.on("start", () => {
         if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {
             players[curPlayer].numPlaceShip == 5 ?
-            (randomBoatPlacement(opponent), players[opponent].displayGrid(), players[curPlayer].start = true, socket.emit("start"), socket.emit("turn")) :
+            (randomBoatPlacement(opponent), players[opponent].displayGrid(), 
+                players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"), 
+                players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }), 
+                socket.emit("message", players[curPlayer].messages)) :
             socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
@@ -1112,9 +1142,11 @@ io.on('connection', (socket) => {
                 players[curPlayer].start = true;
                 players[opponent].start = true;
                 socket.emit("start");
+                players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }); 
+                socket.emit("message", players[curPlayer].messages);
                 io.to(players[opponent].socketId).emit("ostart");
-                socket.emit("turn");
                 io.to(players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
+                socket.emit("turn");
             }
 
         }
@@ -1123,6 +1155,8 @@ io.on('connection', (socket) => {
     socket.on("findOpponent", () => {
         opponent = checkForMPOpponent(curPlayer);
         players[curPlayer].displayGrid()
+        players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }); 
+        socket.emit("message", players[curPlayer].messages)
     })
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
@@ -1145,9 +1179,11 @@ io.on('connection', (socket) => {
     }
 }
 })
-    socket.on('command', (commandString) => {console.log("type of commandString", typeof(commandString));
+    socket.on('command', (commandString) => {
+        console.log("type of commandString", typeof(commandString));
+        console.log("commandString", commandString);
         try {
-            
+
             const command = JSON.parse(commandString);
             if (isValidShipPlacement(command)) {
               console.log('Valid command:', command);
@@ -1157,18 +1193,20 @@ io.on('connection', (socket) => {
                 if (command.hasOwnProperty(ship)) {
                   command[ship].forEach((position) => {
                    players[curPlayer].board[position] = 1;
-                  });
-                }
+               });
               }
-            } else {
-              console.log('Invalid command format');
-              socket.emit('alert', 'Invalid command format');
-            }
-          } catch (e) {
-            console.log('Invalid JSON format');
-            socket.emit('error', 'Invalid JSON format');
           }
-    })
+          players[curPlayer].numPlaceShip = 5; 
+          socket.emit("randomresult", players[curPlayer].shipLoc);
+      } else {
+          console.log('Invalid command format');
+          socket.emit('alert', 'Invalid command format');
+      }
+  } catch (e) {
+    console.log('Invalid JSON format');
+    socket.emit('error', 'Invalid JSON format');
+}
+})
     socket.on('message', (message) => {
         players[curPlayer].messages.push({ 'player': "You: " + message }); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
@@ -1200,6 +1238,7 @@ io.on('connection', (socket) => {
                 const user = await User.findOne({ _id: curPlayer });
 
                 if (user) {
+                    console.log(curPlayer, "log off at disconnect")
                     user.isLoggedIn = false;
                     await user.save();
                     console.log(`User ${curPlayer} logged out successfully.`);
@@ -1212,21 +1251,28 @@ io.on('connection', (socket) => {
         }
 
     });
-    socket.on("home", () => {
+    socket.on("home", async () => {
+        if(players[curPlayer].start == true){
+            await handleLossDB(curPlayer);
+        }
         players[curPlayer].reset();
-        if (players[opponent] != null && players[curPlayer].mode == "multiplayer") {
+        if (players[curPlayer].mode == "multiplayer") {
             connectedMPClients--;
             players[curPlayer].mode = null;
-            io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
+            if (players[opponent] != null){
+                io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
+            }
         }
         else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {
             delete players[opponent];
         }
         opponent = null;
-
         socket.emit("home");
     })
-    socket.on("oquit", () => {
+    socket.on("oquit", async () => {
+        if(players[curPlayer].start == true) {
+            await handleWinDB(curPlayer);
+        }
         players[curPlayer].reset();
         connectedMPClients--;
         opponent = null;

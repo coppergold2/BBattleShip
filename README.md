@@ -11,3 +11,5 @@ Online: MONGO_URI=mongodb+srv://username:pwd@battleship.ikcw47f.mongodb.net/batt
 
 Linux user run this to start mongoDB
 sudo service mongod start
+
+command format for placing saving ship position: {"destroyer":[7,8],"submarine":[30,40,50],"cruiser":[69,79,89],"battleship":[1,2,3,4],"carrier":[90,91,92,93,94]}
