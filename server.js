@@ -215,7 +215,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 function getRandomIndexWithOneValue(computer) {
-    let nextHitLocations = checkMostValueableHit(players[computer].possHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], players[computer].numMisses + players[computer].numHits)
+    let nextHitLocations = checkMostValueableHit(players[computer].possHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], players[computer].numMisses)
     nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);    
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
@@ -574,7 +574,7 @@ function getBiggestKeyWithElements(obj) {
     return obj[biggestKey];
 }
 
-const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, totalHits) => {
+const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, totalMisses) => {
     let mostEliminate = 0;
     let mostELocations = new Set();
     let tempPossHitLocations = new Set(possHitLocations);
@@ -599,7 +599,7 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, 
         tempPossHitLocations = new Set(possHitLocations)
     }
     console.log("mostEliminate", mostEliminate);
-    if((minSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2 || totalHits >= 30){
+    if((minSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2 || totalMisses >= 30){
         return [...mostELocations]
     }
     return nextHitLocations;
