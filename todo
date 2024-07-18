@@ -38,3 +38,16 @@ to sets to improve efficiency.
 - make the chat display window a little bigger, the one that display the message *
 - change the damn header message css.
 - fix the problem where the mouse is not tz`here waiting for next player's turn, it still hovers.
+
+- fix the problem where login does not work properly
+
+- have a log out button at home page
+
+- have a load set up button to load ship placement setup for this user
+
+- have more user related info displayed on home page
+    - show the last 10 game win rate vs bot
+
+- show a hold click and release animation for buttons and hits
+
+- have a command window on the game board page before the game starts.

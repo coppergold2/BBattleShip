@@ -1,5 +1,5 @@
 import React from 'react';
-
+import Command from './Command'
 
 const Board = ({
   className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell, stats,

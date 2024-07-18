@@ -4,6 +4,7 @@ import ShipOptions from './ShipOption';
 import './App.css'
 import Buttons from './Buttons'
 import Chat from './Chat'
+import Command from './Command'
 const Game = ({
   socket,
   multiPlayer,
@@ -53,6 +54,7 @@ const Game = ({
             stats = {stats} />
           {start && <Board className="opponent-board" handleCellClick={handleCellClick} turn={turn} obCellClass={obCellClass} hoveredCell={hoveredCell} handleCellHover={handleCellHover} handleCellHoverOut={handleCellHoverOut} stats = {stats}/>}
         </div>
+        {start == false && <Command handleInputChange = {handleInputChange} input = {input} sendMessage = {sendMessage}/>}  
         {start && <Chat messages={messages} input={input} sendMessage={sendMessage} handleInputChange={handleInputChange} multiPlayer={multiPlayer} />}
       </div>
       {start == false &&
