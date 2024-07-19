@@ -110,10 +110,11 @@ class Computer {
         this.numHits = 0;
         this.numMisses = 0;
         this.possHitLocations = new Set(Array.from({ length: 100 }, (_, i) => i)); // changing the datastructre from array to set.
+        this.maxPossHitLocations = new Set(Array.from({ length: 100 }, (_, i) => i));
         this.hitLocs = [];
         this.possHitDirections = [-1, -1, -1, -1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
-        this.opponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
+        this.opponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2, 'maxSizeShip' : 5 }
     }
     displayGrid() {
         let board = this.board;
@@ -215,8 +216,9 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 function getRandomIndexWithOneValue(computer) {
-    let nextHitLocations = checkMostValueableHit(players[computer].possHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], players[computer].numMisses)
-    nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
+    let nextHitLocations = checkMostValueableHit(players[computer].maxPossHitLocations, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'], players[computer].numMisses)
+    console.log("got pass checkMostValueableHit")
+    nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'])
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);    
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
@@ -256,7 +258,7 @@ const handleAIMiss = (computer, socket) => {
     }
     else {
         checkPossHitLocs(computer)
-        socket.emit("updatePossHitLocation", [...players[computer].possHitLocations]);
+        socket.emit("updatePossHitLocation", [...players[computer].maxPossHitLocations]);
     }
 }
 
@@ -327,23 +329,30 @@ const handleAIDestroy = (computer, destroyShip) => {
     players[computer].possHitDirections = [-1, -1, -1, -1]
     // need to update the minSizeShip
     players[computer].opponentShipRemain[destroyShip[0]] = 0;
-    let minSize = 5
+    let minSize = 5;
+    let maxSize = 2;    
     for (const shipName in ships) {
         if (players[computer].opponentShipRemain[shipName] == 1) {
             if (ships[shipName] < minSize) {
                 minSize = ships[shipName]
             }
+            if (ships[shipName] > maxSize) {
+                maxSize = ships[shipName];
+            }
         }
     }
     players[computer].opponentShipRemain['minSizeShip'] = minSize;
-    console.log('minSizeShip: ', players[computer].opponentShipRemain['minSizeShip'])
-
+    players[computer].opponentShipRemain['maxSizeShip'] = maxSize;
+    console.log('minSizeShip:', players[computer].opponentShipRemain['minSizeShip'])
+    console.log('maxSizeShip:', players[computer].opponentShipRemain['maxSizeShip'])
+    
     if (players[computer].hitLocs.length != 0) {
         players[computer].possHitDirections = checkAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true, players[computer].hitLocs);
         players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
     else {
+        players[computer].maxPossHitLocations = "reset"
         checkPossHitLocs(computer)
     }
 }
@@ -656,22 +665,35 @@ function randomIndexNonMinusOne(arr) {
 }
 const checkPossHitLocs = (computer) => {
     for (let loc of players[computer].possHitLocations) {
-        const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false, players[computer].hitLocs)
+        const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false, players[computer].hitLocs)  
         if (result == false) {
-            players[computer].possHitLocations.delete(loc)
+            players[computer].possHitLocations.delete(loc);
+        }
+    }
+    console.log("possHitLocations", players[computer].possHitLocations);
+    if(players[computer].maxPossHitLocations == "reset"){
+        players[computer].maxPossHitLocations = players[computer].possHitLocations;
+    }
+    else{
+        for (let loc of players[computer].maxPossHitLocations) {
+            const result = checkAdjacentCells(loc, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'], false, players[computer].hitLocs)
+            if (result == false) {
+                players[computer].maxPossHitLocations.delete(loc);
+            }
         }
     }
 }
 
 const computerMove = (curPlayer, socket, opponent) => {
     if (players[curPlayer] != null && players[opponent] != null) {
+        console.log("here1")
         let pos;
-        if (players[opponent].hitLocs.length == 0) {
+        if (players[opponent].hitLocs.length == 0) {    
+            
             pos = getRandomIndexWithOneValue(opponent)
         }
         else if (players[opponent].curHitDirection != null) { // what if hitLocs is not null and curHitDirection is null.   
             pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
-
         }
         players[opponent].possHitLocations.delete(pos);
 
@@ -692,6 +714,9 @@ const computerMove = (curPlayer, socket, opponent) => {
                 }, 500);
             }
         }
+    }
+    else{
+    console.log("here2")
     }
 }
 
@@ -1192,8 +1217,8 @@ io.on('connection', (socket) => {
               for (const ship in command) {
                 if (command.hasOwnProperty(ship)) {
                   command[ship].forEach((position) => {
-                   players[curPlayer].board[position] = 1;
-               });
+                     players[curPlayer].board[position] = 1;
+                 });
               }
           }
           players[curPlayer].numPlaceShip = 5; 
