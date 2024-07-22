@@ -30,7 +30,8 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [lastTenWinRate, setLastTenWinRate] = useState([]);
+  const [homeStats, setHomeStats] = useState({userName : "", lastTenWinRate : []});
+  const [register, setRegister] = useState(false);
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -50,16 +51,19 @@ const App = () => {
         socket.current.emit('heartbeat');
       }
     }, 30000);
-    socket.current.on('login', (id, averageGameOverSteps, winRate) => {
-      document.title = id;
+    socket.current.on('login', (id, averageGameOverSteps, winRate, userName) => {
       setIsLoggedIn(true);
-      setLastTenWinRate(winRate);
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        userName: userName,
+        lastTenWinRate: winRate
+      }));
       console.log(averageGameOverSteps)
     })
 
     socket.current.on('logout', () => {
       reset();
-      setLastTenWinRate([]);
+      setHomeStats({userName : "", lastTenWinRate : []});
       setIsLoggedIn(false);
       document.title = "BattleShip";
     })
@@ -263,7 +267,10 @@ const App = () => {
         setInfo(msg)
         setTurn(false)
       }
-      setLastTenWinRate(winRate);
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        lastTenWinRate: winRate
+      }));
     })
     socket.current.on('omiss', (pos, num) => {
       setPbCellClass((oldClass) => {
@@ -303,7 +310,10 @@ const App = () => {
 
     socket.current.on("owin", (unHitShip, winRate) => {
       setInfo("Your opponent has won, you loss")
-      setLastTenWinRate(winRate);
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        lastTenWinRate: winRate
+      }));
       setObCellClass((oldClass) => {
         const newCellClass = [...oldClass];
         for (const shipName in unHitShip) {
@@ -451,11 +461,19 @@ const handleShipHover = (location) => {
       const message = input.trim();
       socket.current.emit(type, message);
       setInput('');
+      if (type == "new") {
+        setRegister(false);
+      }
     }
   }
 
   const handleNewUserClick = () => {
-    socket.current.emit("new")
+    if(register == false) {
+      setRegister(true)
+    }
+    else{
+      sendMessage("new")
+    }
   }
 
   const handleInputChange = (msg) => {
@@ -477,12 +495,12 @@ const handleShipHover = (location) => {
   }
   return (
     <>
+    <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
     {isLoggedIn ? (
       <>
       <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
-      <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
       {(!singlePlayer && !multiPlayer) ?
-      <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} lastTenWinRate = {lastTenWinRate} /> :
+      <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats = {homeStats} /> :
       (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
       <Game
       socket={socket.current}
@@ -521,7 +539,9 @@ const handleShipHover = (location) => {
       handleInputChange={handleInputChange}
       sendMessage={sendMessage}
       handleNewUserClick={handleNewUserClick}
+      setRegister={setRegister}
       input={input}
+      register={register}
       />)
   }
   </>

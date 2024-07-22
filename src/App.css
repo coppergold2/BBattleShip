@@ -476,7 +476,32 @@ button:not(:active) {
 }
 
 .home-stats {
-  color: white
+  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+  border-radius: 10px; /* Rounded corners */
+  padding: 20px; /* Padding inside the container */
+  width: 300px; /* Fixed width */
+  margin: 20px auto; /* Center align and add margin */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow */
+  color: #FFFFFF; /* White text color */
+  font-family: 'Arial', sans-serif; /* Font family */
+  text-align: center; /* Centered text */
+}
+
+.home-stats h2 {
+  font-size: 24px; /* Heading font size */
+  margin-bottom: 15px; /* Margin below the heading */
+  color: #FFD700; /* Gold color for the heading */
+}
+
+.home-stats p {
+  font-size: 18px; /* Paragraph font size */
+  margin: 5px 0; /* Margin around paragraphs */
+}
+
+.home-stats .win-rate {
+  font-weight: bold; /* Bold font weight */
+  font-size: 20px; /* Larger font size */
+  color: #00FF00; /* Green color for win rate */
 }
 
   

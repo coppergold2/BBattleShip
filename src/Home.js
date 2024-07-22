@@ -1,11 +1,10 @@
 import React from "react";
 
-const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, lastTenWinRate}) => {
+const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, homeStats }) => {
     const calculateWinLoss = () => {
-        console.log("Memo ran", lastTenWinRate);
         let win = 0;
         let loss = 0;
-    
+        const lastTenWinRate = homeStats.lastTenWinRate;
         // Loop through the statArr
         for (let i = 0; i < lastTenWinRate.length; i++) {
             if (lastTenWinRate[i] === "win") {
@@ -24,12 +23,13 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, l
         <>
             <button className="home-button" onClick={handleLogout}>
                 Logout
-            </button>
+            </button>                
+            <h2 style = {{textAlign : 'center', color : 'white'}}>User: {homeStats.userName}</h2>
             <div className="home-stats">
                 <h2>Last 10 Games Stats</h2>
                 <p>Wins: {win}</p>
                 <p>Losses: {loss}</p>
-                <p>Win Rate: {(winRate * 100).toFixed(2)}%</p>
+                <p className="win-rate">Win Rate: {(winRate * 100).toFixed(2)}%</p>
             </div>
             <div style={{
                 display: 'flex',
@@ -42,8 +42,7 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, l
                 <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
             </div>
         </>
-    )
+    );
 }
 
 export default Home;
-
