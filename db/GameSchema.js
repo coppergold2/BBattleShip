@@ -6,7 +6,7 @@ const PlayerSchema = new mongoose.Schema({
         ref: 'User',
         default: null // Will be null for computer player
     },
-    isComputer: {
+    isComputer: {   
         type: Boolean,
         default: false
     },

@@ -504,4 +504,17 @@ button:not(:active) {
   color: #00FF00; /* Green color for win rate */
 }
 
+.match-history {
+  max-height: 300px; /* Set a fixed height for the scrollable area */
+  min-height: 300px;
+  overflow-y: auto; /* Enable vertical scrolling */
+  margin: 20px auto; /* Center align and add margin */
+  padding: 10px; /* Padding inside the container */
+  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+  border-radius: 10px; /* Rounded corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow */
+  color: #FFFFFF; /* White text color */
+  width: 50%; /* Adjust the width as needed */
+}
+
   

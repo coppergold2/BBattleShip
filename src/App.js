@@ -97,12 +97,24 @@ const App = () => {
       document.title = "BattleShip"
       reset();
     });
-    socket.current.on("oquit", (msg) => {
-      reset();
+    socket.current.on("oquit", (msg, winRate) => {
+      setTurn(false);
       setInfo(msg);
+      if (winRate != null){
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        lastTenWinRate: winRate
+      }));
+    }
       socket.current.emit("oquit");
     })
-    socket.current.on("home", () => {
+    socket.current.on("home", winRate => {
+      if (winRate != null){
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        lastTenWinRate: winRate
+      }));
+    }
       reset();
     })
     socket.current.on("message", (messages) => {
@@ -267,10 +279,10 @@ const App = () => {
         setInfo(msg)
         setTurn(false)
       }
-      setHomeStats((prevHomeStats) => ({
-        ...prevHomeStats,
-        lastTenWinRate: winRate
-      }));
+      // setHomeStats((prevHomeStats) => ({
+      //   ...prevHomeStats,
+      //   lastTenWinRate: winRate
+      // }));
     })
     socket.current.on('omiss', (pos, num) => {
       setPbCellClass((oldClass) => {
@@ -310,10 +322,10 @@ const App = () => {
 
     socket.current.on("owin", (unHitShip, winRate) => {
       setInfo("Your opponent has won, you loss")
-      setHomeStats((prevHomeStats) => ({
-        ...prevHomeStats,
-        lastTenWinRate: winRate
-      }));
+      // setHomeStats((prevHomeStats) => ({
+      //   ...prevHomeStats,
+      //   lastTenWinRate: winRate
+      // }));
       setObCellClass((oldClass) => {
         const newCellClass = [...oldClass];
         for (const shipName in unHitShip) {

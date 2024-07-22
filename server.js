@@ -876,15 +876,20 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
             const gameEndTime = new Date();
             const gameDuration = (gameEndTime - gameStartTime) / 1000;
             console.log(`Game ended. Duration: ${gameDuration} seconds`)
-            if (players[receiver] instanceof Player) {
-                players[receiver].start = false; // use a try catch here and then send the socket after it is sucessfully saved in the DB
-                await handleLossDB(receiver, hitter, gameDuration);
-            }
-            if (players[hitter] instanceof Player) {
-                players[hitter].start = false;
-                await handleWinDB(hitter, gameDuration);
-            }
             await handleGameEndDB(hitter, receiver, gameDuration, 'Complete')
+            if (players[hitter] instanceof Player) {
+                const winRate = await findLast10GamesForUser(hitter)
+                io.to(players[hitter].socketId).emit("win", "You win !", winRate );
+                players[hitter].start = false;
+            }
+            if (players[receiver] instanceof Player) {
+                const winRate = await findLast10GamesForUser(receiver)
+                io.to(players[receiver].socketId).emit(
+                    "owin",
+                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc, winRate)
+                );
+                players[receiver].start = false;
+            }
         }
         else if (players[hitter] instanceof Computer) {
             handleAIDestroy(hitter, result)
@@ -915,7 +920,7 @@ const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
             winner: winnerPlayer,
             loser: loserPlayer,
             duration: gameDuration,
-            isCompleted: true,
+            isCompleted: gameEndType == "Complete" ? true : false,
             createdAt: Date.now()
         });
 
@@ -954,6 +959,48 @@ const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
         throw error;
     }
 }
+async function findLast10GamesForUser(userId) {
+    try {
+        // Ensure the userId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            throw new Error('Invalid user ID');
+        }
+
+        const games = await Game.find({
+            $or: [
+                { 'winner.user': userId },
+                { 'loser.user': userId }
+            ]
+        })
+            .sort({ createdAt: -1 })  // Sort by creation date in descending order
+            .limit(10);  // Limit the number of results to 10
+        console.log(games);
+        let wins = 0;
+        let losses = 0;
+
+        games.forEach(game => {
+            if (game.winner.user && game.winner.user.toString() === userId) {
+                wins++;
+            }
+            if (game.loser.user && game.loser.user.toString() === userId) {
+                losses++;
+            }
+        });
+        return { wins, losses }
+    } catch (error) {
+        console.error('Error finding games for user:', error);
+        throw error;
+    }
+}
+
+findLast10GamesForUser('669e6890491ff3876acd1005')
+    .then(games => {
+        console.log('Last 10 games found:', games);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+
 function isValidShipPlacement(command) {
     if (typeof command !== 'object' || command === null) return false;
 
@@ -989,7 +1036,9 @@ io.on('connection', (socket) => {
                     user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    socket.emit('login', userId, user.averageGameOverSteps, user.games, user.userName);
+                    const winRate = await findLast10GamesForUser(curPlayer) 
+                    console.log("winRate in login", winRate);
+                    socket.emit('login', userId, user.averageGameOverSteps, winRate, user.userName);
                 }
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
@@ -1260,7 +1309,14 @@ io.on('connection', (socket) => {
         console.log(`Client ${socket.id} disconnected`);
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
-                io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
+                const message = "Your opponent has quit, you have won!";
+                let winRate;
+                
+                if (players[opponent].start) {
+                  winRate = await findLast10GamesForUser(opponent);
+                }
+                
+                io.to(players[opponent].socketId).emit("oquit", message, winRate);
             }
             else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
                 delete players[opponent];
@@ -1300,27 +1356,37 @@ io.on('connection', (socket) => {
                 console.log(`Game ended by quitting. Duration: ${gameDuration} seconds`)
                 await handleGameEndDB(opponent, curPlayer, gameDuration, "Quit");
             }
-            players[curPlayer].reset();
             if (players[curPlayer].mode == "multiplayer") {
                 connectedMPClients--;
                 players[curPlayer].mode = null;
                 if (players[opponent] != null) {
-                    io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
+                    const message = "Your opponent has quit, you have won!";
+                    let winRate;
+                    
+                    if (players[opponent].start) {
+                      winRate = await findLast10GamesForUser(opponent);
+                    }
+                    
+                    io.to(players[opponent].socketId).emit("oquit", message, winRate);
                 }
             }
             else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {
                 delete players[opponent];
             }
             opponent = null;
-            socket.emit("home");
+            let winRate;
+
+            if (players[curPlayer].start) {
+              winRate = await findLast10GamesForUser(curPlayer);
+            }
+            
+            socket.emit("home", winRate);
+            players[curPlayer].reset();     
         } catch (err) {
             console.error(`error handling game end DB`)
         }
     })
     socket.on("oquit", async () => {
-        if (players[curPlayer].start == true) {
-            await handleWinDB(curPlayer);
-        }
         players[curPlayer].reset();
         connectedMPClients--;
         opponent = null;
