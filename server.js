@@ -878,15 +878,16 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
             console.log(`Game ended. Duration: ${gameDuration} seconds`)
             await handleGameEndDB(hitter, receiver, gameDuration, 'Complete')
             if (players[hitter] instanceof Player) {
-                const winRate = await findLast10GamesForUser(hitter)
-                io.to(players[hitter].socketId).emit("win", "You win !", winRate );
+                const games = await findLast10GamesForUser(hitter)
+                io.to(players[hitter].socketId).emit("win", "You win !", games );
                 players[hitter].start = false;
             }
             if (players[receiver] instanceof Player) {
-                const winRate = await findLast10GamesForUser(receiver)
+                const games = await findLast10GamesForUser(receiver)
                 io.to(players[receiver].socketId).emit(
                     "owin",
-                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc, winRate)
+                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
+                    games
                 );
                 players[receiver].start = false;
             }
@@ -972,30 +973,60 @@ async function findLast10GamesForUser(userId) {
                 { 'loser.user': userId }
             ]
         })
-            .sort({ createdAt: -1 })  // Sort by creation date in descending order
-            .limit(10);  // Limit the number of results to 10
-        console.log(games);
-        let wins = 0;
-        let losses = 0;
-
-        games.forEach(game => {
-            if (game.winner.user && game.winner.user.toString() === userId) {
-                wins++;
-            }
-            if (game.loser.user && game.loser.user.toString() === userId) {
-                losses++;
-            }
+        .sort({ createdAt: -1 })  // Sort by creation date in descending order
+        .limit(10)  // Limit the number of results to 10
+        .populate({
+            path: 'winner.user',
+            select: 'userName'
+        })
+        .populate({
+            path: 'loser.user',
+            select: 'userName'
         });
-        return { wins, losses }
+        return games;
     } catch (error) {
         console.error('Error finding games for user:', error);
         throw error;
     }
 }
 
-findLast10GamesForUser('669e6890491ff3876acd1005')
+async function calculateWinRate(userId) {
+    try {
+        // Ensure the userId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            throw new Error('Invalid user ID');
+        }
+
+        // Retrieve all games where the user is either the winner or the loser
+        const games = await Game.find({
+            $or: [
+                { 'winner.user': userId },
+                { 'loser.user': userId }
+            ]
+        })
+
+        // Calculate the total number of games, wins, and losses
+        const totalGames = games.length;
+        const wins = games.filter(game => game.winner.user && game.winner.user.toString() === userId).length;
+        const losses = games.filter(game => game.loser.user && game.loser.user.toString() === userId).length;
+
+        // Calculate win rate
+        const winRate = totalGames > 0 ? (wins / totalGames) * 100 : 0;
+
+        return {
+            wins,
+            losses,
+            winRate: Math.round(winRate) // Format to 2 decimal places
+        };
+    } catch (error) {
+        console.error('Error calculating win rate:', error);
+        throw error;
+    }
+}
+
+calculateWinRate('669e6890491ff3876acd1005')
     .then(games => {
-        console.log('Last 10 games found:', games);
+        console.log("winRate", games);
     })
     .catch(error => {
         console.error('Error:', error);
@@ -1010,7 +1041,7 @@ function isValidShipPlacement(command) {
             return false;
         }
 
-        if (!command[ship].every((cell) => Number.isInteger(cell) && cell > 0 && cell < 100)) {
+        if (!command[ship].every((cell) => Number.isInteger(cell) && cell >= 0 && cell < 100)) {
             console.log("false in 2")
             return false;
         }
@@ -1036,9 +1067,8 @@ io.on('connection', (socket) => {
                     user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    const winRate = await findLast10GamesForUser(curPlayer) 
-                    console.log("winRate in login", winRate);
-                    socket.emit('login', userId, user.averageGameOverSteps, winRate, user.userName);
+                    const games = await findLast10GamesForUser(curPlayer) 
+                    socket.emit('login', userId, user.averageGameOverSteps, games, user.userName);
                 }
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
@@ -1310,13 +1340,13 @@ io.on('connection', (socket) => {
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
                 const message = "Your opponent has quit, you have won!";
-                let winRate;
+                let games;
                 
                 if (players[opponent].start) {
-                  winRate = await findLast10GamesForUser(opponent);
+                  games = await findLast10GamesForUser(opponent);
                 }
                 
-                io.to(players[opponent].socketId).emit("oquit", message, winRate);
+                io.to(players[opponent].socketId).emit("oquit", message, games);
             }
             else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
                 delete players[opponent];
@@ -1361,26 +1391,27 @@ io.on('connection', (socket) => {
                 players[curPlayer].mode = null;
                 if (players[opponent] != null) {
                     const message = "Your opponent has quit, you have won!";
-                    let winRate;
+                    let games;
                     
                     if (players[opponent].start) {
-                      winRate = await findLast10GamesForUser(opponent);
+                      games = await findLast10GamesForUser(opponent);
                     }
                     
-                    io.to(players[opponent].socketId).emit("oquit", message, winRate);
+                    io.to(players[opponent].socketId).emit("oquit", message, games);
                 }
             }
-            else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {
+
+            else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") { // what is this ?
                 delete players[opponent];
             }
             opponent = null;
-            let winRate;
+            let games;
 
             if (players[curPlayer].start) {
-              winRate = await findLast10GamesForUser(curPlayer);
+              games = await findLast10GamesForUser(curPlayer);
             }
             
-            socket.emit("home", winRate);
+            socket.emit("home", games);
             players[curPlayer].reset();     
         } catch (err) {
             console.error(`error handling game end DB`)

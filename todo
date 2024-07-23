@@ -55,3 +55,8 @@ to sets to improve efficiency.
 - make a testInterface where I can test how the different bot perform.
 
 - improve AI when it hits a ship position and trying to find the next ship position component, currently it is not acting correctly, aka hitting useless position
+
+- fix DB, make a better css for home page, display more stats on home page, fix AI, fix everything and then publish it online.
+- fix css for phone.
+
+- {"destroyer":[90,91],"submarine":[0,10,20],"cruiser":[9,19,29],"battleship":[3,4,5,6],"carrier":[59,69,79,89,99]} invalid command format? 

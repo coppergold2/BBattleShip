@@ -2,27 +2,63 @@ import React from "react";
 
 const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, homeStats }) => {
     const calculateWinLoss = () => {
-        const {wins: win, losses: loss} = homeStats.lastTenWinRate;
-        const winRate = win / (win + loss) || 0; // Avoid division by zero
-        return { win, loss, winRate };
+        const games = homeStats.lastTenGames;
+        const userId = homeStats.id;
+        let wins = 0;
+        let losses = 0;
+        games.forEach(game => {
+            if (game.winner.user && game.winner.user.id.toString() === userId) {
+                wins++;
+            }
+            if (game.loser.user && game.loser.user.id.toString() === userId) {
+                losses++;
+            }
+        });
+        const winRate = wins / (wins + losses) || 0; // Avoid division by zero
+        return { wins, losses, winRate };
     };
-    
-    const { win, loss, winRate } = calculateWinLoss();
-    
+
+    const { wins, losses, winRate } = calculateWinLoss();
+    console.log("homeStats.last10Games in homes", homeStats.lastTenGames)
     return (
         <>
             <button className="home-button" onClick={handleLogout}>
                 Logout
-            </button>                
-            <h2 style = {{textAlign : 'center', color : 'white'}}>User: {homeStats.userName}</h2>
+            </button>
+            <h2 style={{ textAlign: 'center', color: 'white' }}>User: {homeStats.userName}</h2>
             <div className="home-stats">
                 <h2>Last 10 Games Stats</h2>
-                <p>Wins: {win}</p>
-                <p>Losses: {loss}</p>
+                <p>Wins: {wins}</p>
+                <p>Losses: {losses}</p>
                 <p className="win-rate">Win Rate: {(winRate * 100).toFixed(2)}%</p>
             </div>
-            <div className = "match-history">
-
+            <h2 className="match-history-heading">Match History</h2>
+            <div className="match-history">
+                {homeStats.lastTenGames.map((match, index) => {
+                    const isCurrentPlayerWinner = match.winner.user && match.winner.user.id.toString() === homeStats.id;
+                    const opponent = isCurrentPlayerWinner ? match.loser.user : match.winner.user;
+                    const result = isCurrentPlayerWinner ? 'Won' : 'Lost';
+                    return (
+                        <div key={index} className={`match-history-item ${result.toLowerCase()}`}>
+                            <p><strong>Game Date:</strong> {new Date(match.createdAt).toLocaleString()}</p>
+                            <p><strong>Opponent:</strong> {opponent ? opponent.userName : "Computer"}</p>
+                            <p><strong>Result:</strong> {result}</p>
+                            <p><strong>Duration:</strong> {match.duration.toFixed(2)} seconds</p>
+                            <div className="match-history-stats-container">
+                                <div className="player-stats">
+                                    <p><strong>Player Hits:</strong> {isCurrentPlayerWinner ? match.winner.numHits : match.loser.numHits}</p>
+                                    <p><strong>Player Misses:</strong> {isCurrentPlayerWinner ? match.winner.numMisses : match.loser.numMisses}</p>
+                                </div>
+                                <div className="opponent-stats">
+                                    <p><strong>Opponent Hits:</strong> {isCurrentPlayerWinner ? match.loser.numHits : match.winner.numHits}</p>
+                                    <p><strong>Opponent Misses:</strong> {isCurrentPlayerWinner ? match.loser.numMisses : match.winner.numMisses}</p>
+                                </div>
+                            </div>
+                            <p><strong>Game Type:</strong> {match.loser.isComputer ? 'Player vs Computer' : 'Player vs Player'}</p>
+                            <p><strong>Status:</strong> {match.isCompleted ? 'Completed' : 'Incomplete'}</p>
+                        </div>
+                    );
+                })}
             </div>
             <div style={{
                 display: 'flex',
