@@ -475,13 +475,19 @@ button:not(:active) {
   color: yellow;
 }
 
-.home-stats {
+.home-stats-container {
+  display: flex; /* Use flexbox layout */
+  justify-content: center; /* Center the two sections horizontally */
+  align-items: flex-start; /* Align items to the top */
+  gap: 20px; /* Add space between the two sections */
+  margin: auto; /* Center the container horizontally */
   background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+  width: fit-content; /* Make the width of the container fit its children */
+  padding: 20px; /* Optional: Add padding to the container */
   border-radius: 10px; /* Rounded corners */
+}
+.home-stats {
   padding: 20px; /* Padding inside the container */
-  width: 300px; /* Fixed width */
-  margin: 20px auto; /* Center align and add margin */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow */
   color: #FFFFFF; /* White text color */
   font-family: 'Arial', sans-serif; /* Font family */
   text-align: center; /* Centered text */

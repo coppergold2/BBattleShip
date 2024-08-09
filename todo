@@ -59,4 +59,5 @@ to sets to improve efficiency.
 - fix DB, make a better css for home page, display more stats on home page, fix AI, fix everything and then publish it online.
 - fix css for phone.
 
-- {"destroyer":[90,91],"submarine":[0,10,20],"cruiser":[9,19,29],"battleship":[3,4,5,6],"carrier":[59,69,79,89,99]} invalid command format? 
+
+- want the load more function on match history and display the total winrate.

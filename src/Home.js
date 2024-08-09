@@ -19,18 +19,26 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, h
     };
 
     const { wins, losses, winRate } = calculateWinLoss();
-    console.log("homeStats.last10Games in homes", homeStats.lastTenGames)
+    console.log("homeStats.last10Games in homes", homeStats.allGameStats.losses)
     return (
         <>
             <button className="home-button" onClick={handleLogout}>
                 Logout
             </button>
             <h2 style={{ textAlign: 'center', color: 'white' }}>User: {homeStats.userName}</h2>
-            <div className="home-stats">
-                <h2>Last 10 Games Stats</h2>
-                <p>Wins: {wins}</p>
-                <p>Losses: {losses}</p>
-                <p className="win-rate">Win Rate: {(winRate * 100).toFixed(2)}%</p>
+            <div className="home-stats-container">
+                <div className="home-stats">
+                    <h2>Last 10 Games Stats</h2>
+                    <p>Wins: {wins}</p>
+                    <p>Losses: {losses}</p>
+                    <p className="win-rate">Win Rate: {(winRate * 100).toFixed(2)}%</p>
+                </div>
+                <div className="home-stats">
+                    <h2>Total Game Stats</h2>
+                    <p>Wins: {homeStats.allGameStats.wins}</p>
+                    <p>Losses: {homeStats.allGameStats.losses}</p>
+                    <p className="win-rate">Win Rate: {homeStats.allGameStats.winRate}%</p>
+                </div>
             </div>
             <h2 className="match-history-heading">Match History</h2>
             <div className="match-history">

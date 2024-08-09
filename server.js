@@ -16,6 +16,9 @@ const width = 10;
 let AIFirstTimeHitNewShip = false;
 let gameStartTime;
 
+const cors = require("cors");
+const axios = require('axios');
+
 // MongoDB connection URI
 const uri = process.env.MONGO_URI;
 
@@ -878,16 +881,19 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
             console.log(`Game ended. Duration: ${gameDuration} seconds`)
             await handleGameEndDB(hitter, receiver, gameDuration, 'Complete')
             if (players[hitter] instanceof Player) {
-                const games = await findLast10GamesForUser(hitter)
-                io.to(players[hitter].socketId).emit("win", "You win !", games );
+                const games = await findLast10GamesForUser(hitter);
+                const allGameStats = await calculateWinRate(hitter)
+                io.to(players[hitter].socketId).emit("win", "You win !", games, allGameStats);
                 players[hitter].start = false;
             }
             if (players[receiver] instanceof Player) {
                 const games = await findLast10GamesForUser(receiver)
+                const allGameStats = await calculateWinRate(receiver)
                 io.to(players[receiver].socketId).emit(
                     "owin",
                     loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
-                    games
+                    games,
+                    allGameStats
                 );
                 players[receiver].start = false;
             }
@@ -1016,7 +1022,7 @@ async function calculateWinRate(userId) {
         return {
             wins,
             losses,
-            winRate: Math.round(winRate) // Format to 2 decimal places
+            winRate: Math.round(winRate)
         };
     } catch (error) {
         console.error('Error calculating win rate:', error);
@@ -1067,8 +1073,9 @@ io.on('connection', (socket) => {
                     user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    const games = await findLast10GamesForUser(curPlayer) 
-                    socket.emit('login', userId, user.averageGameOverSteps, games, user.userName);
+                    const games = await findLast10GamesForUser(curPlayer)
+                    const allGameStats = await calculateWinRate(curPlayer) 
+                    socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
                 }
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
@@ -1088,7 +1095,7 @@ io.on('connection', (socket) => {
             console.log('User added to the database');
             curPlayer = newUser._id.toString();
             // Emit the user's ID after successful save
-            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName);
+            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, {wins: 0, losses: 0, winRate: 0});
         } catch (err) {
             console.log('Error adding user to the database:', err);
         }
@@ -1392,12 +1399,13 @@ io.on('connection', (socket) => {
                 if (players[opponent] != null) {
                     const message = "Your opponent has quit, you have won!";
                     let games;
-                    
+                    let allGameStats;
                     if (players[opponent].start) {
                       games = await findLast10GamesForUser(opponent);
+                      allGameStats = await calculateWinRate(opponent);
                     }
                     
-                    io.to(players[opponent].socketId).emit("oquit", message, games);
+                    io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);
                 }
             }
 
@@ -1406,12 +1414,13 @@ io.on('connection', (socket) => {
             }
             opponent = null;
             let games;
-
+            let allGameStats;
             if (players[curPlayer].start) {
               games = await findLast10GamesForUser(curPlayer);
+              allGameStats = await calculateWinRate(curPlayer);
             }
             
-            socket.emit("home", games);
+            socket.emit("home", games, allGameStats);
             players[curPlayer].reset();     
         } catch (err) {
             console.error(`error handling game end DB`)

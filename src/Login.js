@@ -1,6 +1,6 @@
 import React from "react";
 
-const Login = ({ handleInputChange, sendMessage, handleNewUserClick, input, register, setRegister }) => {
+const Login = ({ handleFormChange, sendMessage, handleNewUserClick, form, register, setRegister }) => {
     const handleBackClick = () => {
         setRegister(false);
     };
@@ -14,14 +14,44 @@ const Login = ({ handleInputChange, sendMessage, handleNewUserClick, input, regi
             height: '100vh',
             textAlign: 'center'
         }}>
-            <input
-                type="text"
-                value={input}
-                onChange={(e) => handleInputChange(e.target.value)}
-                placeholder={register ? "Enter your username" : "Enter your ID"}
-                style={{ marginBottom: '10px', padding: '5px' }}
-                onKeyDown={(e) => e.key === 'Enter' && sendMessage(register ? 'new' : 'login')}
-            />
+            {register && (
+                <div style={{ marginBottom: '10px' }}>
+                    <label htmlFor="username">Username:</label>
+                    <input
+                        type="text"
+                        name="username"
+                        id="username"
+                        value={form.username}
+                        onChange={handleFormChange}
+                        placeholder="Enter your username"
+                        style={{ marginBottom: '5px', padding: '5px' }}
+                    />
+                </div>
+            )}
+            <div style={{ marginBottom: '10px' }}>
+                <label htmlFor="email">Email:</label>
+                <input
+                    type="text"
+                    name="email"
+                    id="email"
+                    value={form.email}
+                    onChange={handleFormChange}
+                    placeholder="Enter your email"
+                    style={{ marginBottom: '5px', padding: '5px' }}
+                />
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+                <label htmlFor="password">Password:</label>
+                <input
+                    type="password"
+                    name="password"
+                    id="password"
+                    value={form.password}
+                    onChange={handleFormChange}
+                    placeholder="Enter your password"
+                    style={{ marginBottom: '5px', padding: '5px' }}
+                />
+            </div>
             {!register && (
                 <button onClick={() => sendMessage('login')} style={{ marginBottom: '5px' }}>Login</button>
             )}

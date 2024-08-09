@@ -4,6 +4,7 @@ import './App.css'
 import Game from './Game'
 import Home from './Home'
 import Login from './Login'
+import axios from 'axios'
 
 const App = () => {
   const socket = useRef();
@@ -30,8 +31,13 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [homeStats, setHomeStats] = useState({id : "", userName : "", lastTenGames : []});
+  const [homeStats, setHomeStats] = useState({id : "", userName : "", lastTenGames : [], allGameStats : {}});
   const [register, setRegister] = useState(false);
+  const [form, setForm] = useState({
+    username : "",
+    email : "",
+    password: ""
+  })
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -51,20 +57,21 @@ const App = () => {
         socket.current.emit('heartbeat');
       }
     }, 30000);
-    socket.current.on('login', (id, averageGameOverSteps, games, userName) => {
+    socket.current.on('login', (id, averageGameOverSteps, games, userName, allGameStats) => {
       setIsLoggedIn(true);
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
         id : id,
         userName: userName,
-        lastTenGames: games
+        lastTenGames: games,
+        allGameStats : allGameStats
       }));
     })
 
     socket.current.on('logout', () => {
       reset();
       setIsLoggedIn(false);
-      setHomeStats({id : "", userName : "", lastTenGames : []})
+      setHomeStats({id : "", userName : "", lastTenGames : [], allGameStats : {}})
       document.title = "BattleShip";
     })
     const reset = () => {
@@ -96,23 +103,26 @@ const App = () => {
       setIsLoggedIn(false);
       document.title = "BattleShip"
       reset();
+      setHomeStats({id : "", userName : "", lastTenGames : [], allGameStats : {}})
     });
-    socket.current.on("oquit", (msg, games) => {
+    socket.current.on("oquit", (msg, games, allGameStats) => {
       setTurn(false);
       setInfo(msg);
       if (games != null){
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
-        lastTenGames: games
+        lastTenGames: games,
+        allGameStats: allGameStats
       }));
     }
       socket.current.emit("oquit");
     })
-    socket.current.on("home", games => {
+    socket.current.on("home", (games, allGameStats) => {
       if (games != null){
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
-        lastTenGames: games
+        lastTenGames: games,
+        allGameStats : allGameStats
       }));
     }
       reset();
@@ -274,14 +284,15 @@ const App = () => {
         return newCellClass
       })
     })
-    socket.current.on("win", (msg, games) => {
+    socket.current.on("win", (msg, games, allGameStats) => {
       if(msg != null) {
         setInfo(msg)
         setTurn(false)
       }
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
-        lastTenGames: games
+        lastTenGames: games,
+        allGameStats : allGameStats
       }));
     })
     socket.current.on('omiss', (pos, num) => {
@@ -320,11 +331,12 @@ const App = () => {
 
     })
 
-    socket.current.on("owin", (unHitShip, games) => {
+    socket.current.on("owin", (unHitShip, games, allGameStats) => {
       setInfo("Your opponent has won, you loss")
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
-        lastTenGames: games
+        lastTenGames: games,
+        allGameStats: allGameStats
       }));
       setObCellClass((oldClass) => {
         const newCellClass = [...oldClass];
@@ -468,15 +480,36 @@ const handleShipHover = (location) => {
     setShipLocHover(null);
   }
 
+  // const sendMessage = (type) => {
+  //   if (input.trim()) {
+  //     const message = input.trim();
+  //     socket.current.emit(type, message);
+  //     setInput('');
+  //     if (type == "new") {
+  //       setRegister(false);
+  //     }
+  //     if (type == "login") {
+        
+  //     }
+  //   }
+  // }
+
   const sendMessage = (type) => {
     if (input.trim()) {
       const message = input.trim();
       socket.current.emit(type, message);
       setInput('');
-      if (type == "new") {
-        setRegister(false);
-      }
     }
+  }
+
+  const sendForm = (type) => {
+    if (type == "login") {
+      if (form.email.trim() && form.password.trim()){
+      socket.current("login", form)
+      }
+    
+    }
+
   }
 
   const handleNewUserClick = () => {
@@ -491,6 +524,13 @@ const handleShipHover = (location) => {
   const handleInputChange = (msg) => {
     console.log("msg", msg)
     setInput(msg);
+  }
+
+  const handleFormChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    })
   }
   const handleCellHover = (index) => {
     setHoveredCell(index);
@@ -548,11 +588,11 @@ const handleShipHover = (location) => {
     </>
     ) :
     (<Login
-      handleInputChange={handleInputChange}
+      handleFormChange={handleFormChange}
       sendMessage={sendMessage}
       handleNewUserClick={handleNewUserClick}
       setRegister={setRegister}
-      input={input}
+      form={form}
       register={register}
       />)
   }

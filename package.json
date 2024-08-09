@@ -6,6 +6,8 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.7.2",
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv-expand": "^11.0.6",
     "express": "^4.19.2",
@@ -21,7 +23,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "concurrently \"cross-env BROWSER=none react-scripts start\" \"node server.js\"",    "build": "react-scripts build",
+    "start": "concurrently \"cross-env BROWSER=none react-scripts start\" \"node server.js\"",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
