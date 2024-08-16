@@ -982,7 +982,7 @@ const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
         throw error;
     }
 }
-async function findLast10GamesForUser(userId) {
+async function findLast10GamesForUser(user) {
     try {
         // Ensure the userId is a valid ObjectId
         if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -1101,6 +1101,7 @@ io.on('connection', (socket) => {
           // Update user's isLoggedIn status and lastSeen
           user.isLoggedIn = true;
           user.lastSeen = new Date();
+          curPlayer = user._id.toString();
           await user.save();
       
           // Send the token to the client
@@ -1167,7 +1168,7 @@ io.on('connection', (socket) => {
                     user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    const games = await findLast10GamesForUser(curPlayer)
+                    const games = await findLast10GamesForUser(user)
                     const allGameStats = await calculateWinRate(curPlayer)
                     socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
                 }
@@ -1204,7 +1205,7 @@ io.on('connection', (socket) => {
                     // Set the user's isLoggedIn status to false
                     user.isLoggedIn = false;
                     await user.save();
-                }
+                }       
 
                 // Clean up the players object if the player exists
                 if (players[curPlayer] != null) {
