@@ -6,6 +6,7 @@ import Home from './Home'
 import Login from './Login'
 import axios from 'axios'
 
+axios.defaults.baseURL = 'http://localhost:3001';
 const App = () => {
   const socket = useRef();
   const [singlePlayer, setSinglePlayer] = useState(false);
@@ -38,6 +39,7 @@ const App = () => {
     email : "",
     password: ""
   })
+  const [user, setUser] = useState(null);
   const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -502,15 +504,15 @@ const handleShipHover = (location) => {
     }
   }
 
-  const sendForm = (type) => {
-    if (type == "login") {
-      if (form.email.trim() && form.password.trim()){
-      socket.current("login", form)
-      }
+  // const sendForm = (type) => {
+  //   if (type == "login") {
+  //     if (form.email.trim() && form.password.trim()){
+  //     socket.current("login", form)
+  //     }
     
-    }
+  //   }
 
-  }
+  // }
 
   const handleNewUserClick = () => {
     if(register == false) {
@@ -542,6 +544,37 @@ const handleShipHover = (location) => {
     socket.current.emit("logout")
   }
 
+  const handleLogin = (email, password) => {
+    axios.post('/login', { email, password })
+      .then(response => {
+        console.log('Login successful:', response.data);
+        localStorage.setItem('token', response.data.token);
+        setUser({ id: response.data.userId, email: email });
+        // Redirect or update UI as needed
+        setIsLoggedIn(true);
+      })
+      .catch(error => {
+        console.error('Login error:', error.response ? error.response.data : error.message);
+        // Handle error (e.g., show error message)
+      });
+  };
+
+
+  const handleRegister = (username, email, password) => {
+    axios.post('/register', { userName: username, email, password })
+      .then(response => {
+        console.log('Registration successful:', response.data);
+        localStorage.setItem('token', response.data.token);
+        setUser({ id: response.data.userId, name: username, email: email });
+        // Redirect or update UI as needed
+        setIsLoggedIn(true);
+      })
+      .catch(error => {
+        console.error('Registration error:', error.response ? error.response.data : error.message);
+        // Handle error (e.g., show error message)
+      });
+  };
+
   if (serverDown) {
     return <h1>The server is down</h1>;
   }
@@ -550,7 +583,7 @@ const handleShipHover = (location) => {
     <h1>{"BattleShip " + (singlePlayer ? "Single Player vs Computer" : multiPlayer ? "Two Player Mode" : "")}</h1>
     {isLoggedIn ? (
       <>
-      <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
+      <h2 style={{color: '#F5FFFA' }}>Info: {info}</h2>
       {(!singlePlayer && !multiPlayer) ?
       <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats = {homeStats} /> :
       (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
@@ -589,7 +622,9 @@ const handleShipHover = (location) => {
     ) :
     (<Login
       handleFormChange={handleFormChange}
-      sendMessage={sendMessage}
+      // sendMessage={sendMessage}
+      handleLogin={handleLogin}
+      handleRegister={handleRegister}
       handleNewUserClick={handleNewUserClick}
       setRegister={setRegister}
       form={form}

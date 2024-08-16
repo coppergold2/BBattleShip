@@ -61,3 +61,8 @@ to sets to improve efficiency.
 
 
 - want the load more function on match history and display the total winrate.
+
+- change some of the non essential loading time function to use axios
+    - home ? 
+    - login/logout
+    

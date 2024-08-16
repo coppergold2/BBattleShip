@@ -4,20 +4,36 @@ const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const User = require('./db/UserSchema');  // Import the User model
-const Game = require('./db/GameSchema')
+const Game = require('./db/GameSchema');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');        
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
-const crypto = require('crypto');
+
+// Use cors middleware for Express
+const cors = require("cors");
+app.use(cors());  // Allow all origins by default
+// Optionally, you can configure specific origins
+// app.use(cors({ origin: 'http://your-frontend-domain.com' }));
+
+const io = socketIo(server, {
+    cors: {
+        origin: '*',  // Allow all origins (replace '*' with specific domain for more control)
+        methods: ["GET", "POST"],  // Specify allowed methods
+        credentials: true  // Allow credentials such as cookies
+    }
+});
+
+// Server setup
 let connectedMPClients = 0;
 const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
 let gameStartTime;
 
-const cors = require("cors");
-const axios = require('axios');
+app.use(express.json());
 
 // MongoDB connection URI
 const uri = process.env.MONGO_URI;
@@ -979,16 +995,16 @@ async function findLast10GamesForUser(userId) {
                 { 'loser.user': userId }
             ]
         })
-        .sort({ createdAt: -1 })  // Sort by creation date in descending order
-        .limit(10)  // Limit the number of results to 10
-        .populate({
-            path: 'winner.user',
-            select: 'userName'
-        })
-        .populate({
-            path: 'loser.user',
-            select: 'userName'
-        });
+            .sort({ createdAt: -1 })  // Sort by creation date in descending order
+            .limit(10)  // Limit the number of results to 10
+            .populate({
+                path: 'winner.user',
+                select: 'userName'
+            })
+            .populate({
+                path: 'loser.user',
+                select: 'userName'
+            });
         return games;
     } catch (error) {
         console.error('Error finding games for user:', error);
@@ -1059,7 +1075,85 @@ function isValidShipPlacement(command) {
 io.on('connection', (socket) => {
     let opponent;
     let curPlayer;
-
+    app.post('/login', async (req, res) => {
+        try {
+          const { email, password } = req.body;
+      
+          // Find user by email
+          const user = await User.findOne({ email });
+          if (!user) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+          }
+      
+          // Check password
+          const isMatch = await bcrypt.compare(password, user.password);
+          if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+          }
+      
+          // Create and sign a JWT
+          const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET, // Make sure to set this in your environment variables
+            { expiresIn: '1h' } // Token expires in 1 hour
+          );
+      
+          // Update user's isLoggedIn status and lastSeen
+          user.isLoggedIn = true;
+          user.lastSeen = new Date();
+          await user.save();
+      
+          // Send the token to the client
+          res.json({ message: 'Login successful', token, userId: user._id });
+        } catch (error) {
+          console.error('Login error:', error);
+          res.status(500).json({ message: 'Server error during login' });
+        }
+      });
+      app.post('/register', async (req, res) => {
+        try {
+          const { userName, email, password } = req.body;
+      
+          // Check if user already exists
+          const existingUser = await User.findOne({ email });
+          if (existingUser) {
+            return res.status(400).json({ message: 'User already exists' });
+          }
+      
+          // Hash the password
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(password, salt);
+      
+          // Create new user
+          const newUser = new User({
+            userName,
+            email,
+            password: hashedPassword,
+            isLoggedIn: true,
+            lastSeen: new Date()
+          });
+      
+          // Save user to database
+          await newUser.save();
+      
+          // Create and sign a JWT
+          const token = jwt.sign(
+            { userId: newUser._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+          );
+      
+          // Respond with success message, token, and user ID
+          res.status(201).json({
+            message: 'User registered successfully',
+            userId: newUser._id,
+            token
+          });
+        } catch (error) {
+          console.error('Registration error:', error);
+          res.status(500).json({ message: 'Server error during registration' });
+        }
+      });
     socket.on("login", async (userId) => {
         try {
             console.log("userId:", userId)
@@ -1074,7 +1168,7 @@ io.on('connection', (socket) => {
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
                     const games = await findLast10GamesForUser(curPlayer)
-                    const allGameStats = await calculateWinRate(curPlayer) 
+                    const allGameStats = await calculateWinRate(curPlayer)
                     socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
                 }
             } else {
@@ -1095,7 +1189,7 @@ io.on('connection', (socket) => {
             console.log('User added to the database');
             curPlayer = newUser._id.toString();
             // Emit the user's ID after successful save
-            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, {wins: 0, losses: 0, winRate: 0});
+            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, { wins: 0, losses: 0, winRate: 0 });
         } catch (err) {
             console.log('Error adding user to the database:', err);
         }
@@ -1348,11 +1442,11 @@ io.on('connection', (socket) => {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
                 const message = "Your opponent has quit, you have won!";
                 let games;
-                
+
                 if (players[opponent].start) {
-                  games = await findLast10GamesForUser(opponent);
+                    games = await findLast10GamesForUser(opponent);
                 }
-                
+
                 io.to(players[opponent].socketId).emit("oquit", message, games);
             }
             else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
@@ -1401,10 +1495,10 @@ io.on('connection', (socket) => {
                     let games;
                     let allGameStats;
                     if (players[opponent].start) {
-                      games = await findLast10GamesForUser(opponent);
-                      allGameStats = await calculateWinRate(opponent);
+                        games = await findLast10GamesForUser(opponent);
+                        allGameStats = await calculateWinRate(opponent);
                     }
-                    
+
                     io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);
                 }
             }
@@ -1416,12 +1510,12 @@ io.on('connection', (socket) => {
             let games;
             let allGameStats;
             if (players[curPlayer].start) {
-              games = await findLast10GamesForUser(curPlayer);
-              allGameStats = await calculateWinRate(curPlayer);
+                games = await findLast10GamesForUser(curPlayer);
+                allGameStats = await calculateWinRate(curPlayer);
             }
-            
+
             socket.emit("home", games, allGameStats);
-            players[curPlayer].reset();     
+            players[curPlayer].reset();
         } catch (err) {
             console.error(`error handling game end DB`)
         }
