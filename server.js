@@ -790,9 +790,11 @@ const checkShip = (opponent, pos) => {
     }
 }
 
-const checkForMPOpponent = ((curPlayer) => {
+const checkForMPOpponent = ((curPlayer) => { // there can only be two online player
     for (let id in players) {
         if (players[id].mode == "multiplayer" && id != curPlayer) {
+            console.log("id:", id);
+            console.log("curPlayer:", curPlayer)
             return id;
         }
     }
@@ -937,7 +939,7 @@ const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
             numHits: players[receiver].numHits,
             numMisses: players[receiver].numMisses
         };
-
+        console.log("loserPlayer", loserPlayer)
         // Create and save the new Game document
         const newGame = new Game({
             winner: winnerPlayer,
@@ -982,21 +984,16 @@ const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
         throw error;
     }
 }
-async function findLast10GamesForUser(user) {
+async function findLast10GamesForUser(userId) {
     try {
         // Ensure the userId is a valid ObjectId
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             throw new Error('Invalid user ID');
         }
+        const user = await User.findById(userId)
+        const last10Games = user.games.slice(-10);
 
-        const games = await Game.find({
-            $or: [
-                { 'winner.user': userId },
-                { 'loser.user': userId }
-            ]
-        })
-            .sort({ createdAt: -1 })  // Sort by creation date in descending order
-            .limit(10)  // Limit the number of results to 10
+        const games = await Game.find({ _id: { $in: last10Games } }).sort({ createdAt: -1 }) 
             .populate({
                 path: 'winner.user',
                 select: 'userName'
@@ -1019,13 +1016,8 @@ async function calculateWinRate(userId) {
             throw new Error('Invalid user ID');
         }
 
-        // Retrieve all games where the user is either the winner or the loser
-        const games = await Game.find({
-            $or: [
-                { 'winner.user': userId },
-                { 'loser.user': userId }
-            ]
-        })
+        const user = await User.findById(userId)
+        const games = await Game.find({ _id: { $in: user.games } })
 
         // Calculate the total number of games, wins, and losses
         const totalGames = games.length;
@@ -1072,89 +1064,117 @@ function isValidShipPlacement(command) {
     return true;
 }
 
+app.post('/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+  
+      // Find user by email
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+  
+      // Check password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+  
+      // Create and sign a JWT
+      const token = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_SECRET, // Make sure to set this in your environment variables
+        { expiresIn: '1h' } // Token expires in 1 hour
+      );
+  
+      // Update user's isLoggedIn status and lastSeen
+      user.isLoggedIn = true;
+      user.lastSeen = new Date();
+      await user.save();
+      const games = await findLast10GamesForUser(user._id)
+      const allGameStats = await calculateWinRate(user._id)
+      // Send the token to the client
+      res.json({ message: 'Login successful', token, id: user._id, userName : user.userName, games: games, allGameStats: allGameStats });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Server error during login' });
+    }
+  });
+  app.post('/register', async (req, res) => {
+    try {
+      const { userName, email, password } = req.body;
+  
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+  
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+  
+      // Create new user
+      const newUser = new User({
+        userName,
+        email,
+        password: hashedPassword,
+        isLoggedIn: true,
+        lastSeen: new Date()
+      });
+  
+      // Save user to database
+      await newUser.save();
+  
+      // Create and sign a JWT
+      const token = jwt.sign(
+        { userId: newUser._id },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+  
+      // Respond with success message, token, and user ID
+      res.status(201).json({
+        message: 'User registered successfully',
+        token,
+        id: newUser._id, userName : newUser.userName
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Server error during registration' });
+    }
+  });
+  app.post('/logout', async (req, res) => {
+    try {
+      const curPlayer = req.body.id;
+      // Find the user by the curPlayer ID
+      const user = await User.findById(curPlayer);
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Update user's isLoggedIn status and lastSeen
+      user.isLoggedIn = false;
+      user.lastSeen = new Date();
+      await user.save();
+  
+      // Clear the curPlayer variable
+      if (players[curPlayer] != null) {
+        delete players[curPlayer];
+        }
+  
+      // Respond with success message
+      res.json({ message: 'Logout successful' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Server error during logout' });
+    }
+  });
+
 io.on('connection', (socket) => {
     let opponent;
     let curPlayer;
-    app.post('/login', async (req, res) => {
-        try {
-          const { email, password } = req.body;
-      
-          // Find user by email
-          const user = await User.findOne({ email });
-          if (!user) {
-            return res.status(401).json({ message: 'Invalid email or password' });
-          }
-      
-          // Check password
-          const isMatch = await bcrypt.compare(password, user.password);
-          if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid email or password' });
-          }
-      
-          // Create and sign a JWT
-          const token = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET, // Make sure to set this in your environment variables
-            { expiresIn: '1h' } // Token expires in 1 hour
-          );
-      
-          // Update user's isLoggedIn status and lastSeen
-          user.isLoggedIn = true;
-          user.lastSeen = new Date();
-          curPlayer = user._id.toString();
-          await user.save();
-      
-          // Send the token to the client
-          res.json({ message: 'Login successful', token, userId: user._id });
-        } catch (error) {
-          console.error('Login error:', error);
-          res.status(500).json({ message: 'Server error during login' });
-        }
-      });
-      app.post('/register', async (req, res) => {
-        try {
-          const { userName, email, password } = req.body;
-      
-          // Check if user already exists
-          const existingUser = await User.findOne({ email });
-          if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
-          }
-      
-          // Hash the password
-          const salt = await bcrypt.genSalt(10);
-          const hashedPassword = await bcrypt.hash(password, salt);
-      
-          // Create new user
-          const newUser = new User({
-            userName,
-            email,
-            password: hashedPassword,
-            isLoggedIn: true,
-            lastSeen: new Date()
-          });
-      
-          // Save user to database
-          await newUser.save();
-      
-          // Create and sign a JWT
-          const token = jwt.sign(
-            { userId: newUser._id },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-          );
-      
-          // Respond with success message, token, and user ID
-          res.status(201).json({
-            message: 'User registered successfully',
-            userId: newUser._id,
-            token
-          });
-        } catch (error) {
-          console.error('Registration error:', error);
-          res.status(500).json({ message: 'Server error during registration' });
-        }
-      });
     socket.on("login", async (userId) => {
         try {
             console.log("userId:", userId)
@@ -1168,7 +1188,7 @@ io.on('connection', (socket) => {
                     user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    const games = await findLast10GamesForUser(user)
+                    const games = await findLast10GamesForUser(userId)
                     const allGameStats = await calculateWinRate(curPlayer)
                     socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
                 }
@@ -1230,7 +1250,8 @@ io.on('connection', (socket) => {
             await User.updateOne({ _id: curPlayer }, { $set: { lastSeen: new Date() } });
         }
     });
-    socket.on("singleplayer", () => {
+    socket.on("singleplayer", (id) => {
+        curPlayer = id;
         if (players[curPlayer] == null) {
             players[curPlayer] = new Player(curPlayer);
             players[curPlayer].socketId = socket.id;
@@ -1239,7 +1260,8 @@ io.on('connection', (socket) => {
         opponent = generateRandomString(10);
         players[opponent] = new Computer(opponent);
     })
-    socket.on("multiplayer", () => {
+    socket.on("multiplayer", (id) => {
+        curPlayer = id;
         if (connectedMPClients >= maxConnections) {
             socket.emit("full", "sorry, the game room is currently full. Please try again later.")
         } else {
@@ -1349,6 +1371,7 @@ io.on('connection', (socket) => {
                 socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
+            console.log("curPlayer:", curPlayer)
             opponent = checkForMPOpponent(curPlayer);
             if (players[curPlayer].numPlaceShip != 5) {
                 socket.emit("not enough ship", "Please place all your ship before starting")
@@ -1360,6 +1383,7 @@ io.on('connection', (socket) => {
                 socket.emit("info", "Your opponent is not ready yet, please wait");
             }
             else if (opponent != null && players[opponent].numPlaceShip == 5) {
+                console.log("players array", players)
                 players[curPlayer].start = true;
                 players[opponent].start = true;
                 socket.emit("start");
@@ -1496,8 +1520,10 @@ io.on('connection', (socket) => {
                     let games;
                     let allGameStats;
                     if (players[opponent].start) {
+                        console.log("error here1")
                         games = await findLast10GamesForUser(opponent);
                         allGameStats = await calculateWinRate(opponent);
+                        
                     }
 
                     io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);
@@ -1511,6 +1537,7 @@ io.on('connection', (socket) => {
             let games;
             let allGameStats;
             if (players[curPlayer].start) {
+                console.log("error here2")
                 games = await findLast10GamesForUser(curPlayer);
                 allGameStats = await calculateWinRate(curPlayer);
             }

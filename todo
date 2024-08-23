@@ -65,4 +65,6 @@ to sets to improve efficiency.
 - change some of the non essential loading time function to use axios
     - home ? 
     - login/logout
+
+- fix findLast10GamesForUser and etc 
     

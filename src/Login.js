@@ -1,10 +1,8 @@
 // Login.js
 import React from "react";
 
-const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserClick, form, register, setRegister }) => {
-  const handleBackClick = () => {
-    setRegister(false);
-  };
+const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserClick, form, register, handleBackClick }) => {
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
