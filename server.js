@@ -3,36 +3,57 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
-const User = require('./schema');  // Import the User model
+const User = require('./db/UserSchema');  // Import the User model
+const Game = require('./db/GameSchema');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');        
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
-const crypto = require('crypto');
+
+// Use cors middleware for Express
+const cors = require("cors");
+app.use(cors());  // Allow all origins by default
+// Optionally, you can configure specific origins
+// app.use(cors({ origin: 'http://your-frontend-domain.com' }));
+
+const io = socketIo(server, {
+    cors: {
+        origin: '*',  // Allow all origins (replace '*' with specific domain for more control)
+        methods: ["GET", "POST"],  // Specify allowed methods
+        credentials: true  // Allow credentials such as cookies
+    }
+});
+
+// Server setup
 let connectedMPClients = 0;
 const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
+let gameStartTime;
+
+app.use(express.json());
 
 // MongoDB connection URI
 const uri = process.env.MONGO_URI;
 
 // Mongoose connection options
 const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
-  socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+    socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
 };
 
 mongoose.connect(uri, mongooseOptions)
-.then(async () => {
-    console.log('MongoDB connected');
-    await logoutAllPlayers();
-})
-.catch(err => {
-    console.error('Error connecting to MongoDB', err);
-});
+    .then(async () => {
+        console.log('MongoDB connected');
+        await logoutAllPlayers();
+    })
+    .catch(err => {
+        console.error('Error connecting to MongoDB', err);
+    });
 
 async function logoutAllPlayers() {
     console.log('Updating isLoggedIn status for all players to log off...');
@@ -47,7 +68,7 @@ async function logoutAllPlayers() {
 process.on('SIGINT', async () => {
     console.log('Shutting down server...');
 
-    await logoutAllPlayers();   
+    await logoutAllPlayers();
 
     // Gracefully close the server
     process.exit();
@@ -110,10 +131,11 @@ class Computer {
         this.numHits = 0;
         this.numMisses = 0;
         this.possHitLocations = new Set(Array.from({ length: 100 }, (_, i) => i)); // changing the datastructre from array to set.
+        this.maxPossHitLocations = new Set(Array.from({ length: 100 }, (_, i) => i));
         this.hitLocs = [];
         this.possHitDirections = [-1, -1, -1, -1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
-        this.opponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2 }
+        this.opponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2, 'maxSizeShip': 5 }
     }
     displayGrid() {
         let board = this.board;
@@ -138,7 +160,6 @@ class Computer {
         const board = this.possHitLocations;
         console.log(this.id);
         const grid = [];
-
         for (let i = 0; i < 100; i += 10) {
             const row = [];
             for (let j = i; j < i + 10; j++) {
@@ -187,8 +208,8 @@ const omissMessage = (col, row) => {
 }
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
-    (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
-    (startIndex <= width * width - width * shipLength ? startIndex : startIndex - shipLength * width + width)
+        (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
+        (startIndex <= width * width - width * shipLength ? startIndex : startIndex - shipLength * width + width)
 
     let shipBlocks = []
     for (let i = 0; i < shipLength; i++) {
@@ -206,7 +227,7 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     } else {
         shipBlocks.every((_shipBlock, index) =>
             valid = shipBlocks[0] < 90 + (width * index + 1)
-            )
+        )
     }
 
     const notTaken = shipBlocks.every(shipBlock => allBoardBlocks[shipBlock] != 1)
@@ -215,9 +236,9 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 }
 
 function getRandomIndexWithOneValue(computer) {
-    let nextHitLocations = checkMostValueableHit(players[computer].possHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], players[computer].numMisses + players[computer].numHits)
-    nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'])
-    console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);    
+    let nextHitLocations = checkMostValueableHit(players[computer].maxPossHitLocations, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'], players[computer].numMisses, players[computer].opponentShipRemain['minSizeShip'])
+    nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'])
+    console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
     return nextHitLocations[randomIndex];
@@ -228,26 +249,26 @@ const handleAIMiss = (computer, socket) => {
         players[computer].possHitDirections[players[computer].curHitDirection] = -1;
         if (AIFirstTimeHitNewShip == false) {
             switch (players[computer].curHitDirection) {
-            case 0:
-                if (players[computer].possHitDirections[2] != -1) {
-                    players[computer].curHitDirection = 2;
-                }
-                break;
-            case 1:
-                if (players[computer].possHitDirections[3] != -1) {
-                    players[computer].curHitDirection = 3;
-                }
-                break;
-            case 2:
-                if (players[computer].possHitDirections[0] != -1) {
-                    players[computer].curHitDirection = 0;
-                }
-                break;
-            case 3:
-                if (players[computer].possHitDirections[1] != -1) {
-                    players[computer].curHitDirection = 1;
-                }
-                break;
+                case 0:
+                    if (players[computer].possHitDirections[2] != -1) {
+                        players[computer].curHitDirection = 2;
+                    }
+                    break;
+                case 1:
+                    if (players[computer].possHitDirections[3] != -1) {
+                        players[computer].curHitDirection = 3;
+                    }
+                    break;
+                case 2:
+                    if (players[computer].possHitDirections[0] != -1) {
+                        players[computer].curHitDirection = 0;
+                    }
+                    break;
+                case 3:
+                    if (players[computer].possHitDirections[1] != -1) {
+                        players[computer].curHitDirection = 1;
+                    }
+                    break;
             }
         }
         if (players[computer].possHitDirections[players[computer].curHitDirection] == -1 || AIFirstTimeHitNewShip == true) {
@@ -256,7 +277,7 @@ const handleAIMiss = (computer, socket) => {
     }
     else {
         checkPossHitLocs(computer)
-        socket.emit("updatePossHitLocation", [...players[computer].possHitLocations]);
+        socket.emit("updatePossHitLocation", [...players[computer].maxPossHitLocations]);
     }
 }
 
@@ -270,50 +291,50 @@ const handleAIHit = (computer, loc) => {
         AIFirstTimeHitNewShip = false
         const cols = 10;
         switch (players[computer].curHitDirection) {
-        case 0:
-            if (loc - cols >= 0 && players[computer].possHitLocations.has(loc - cols)) {
-                players[computer].possHitDirections[0] = loc - cols
-            }
-            else {
-                players[computer].possHitDirections[0] = -1;
-                if (players[computer].possHitDirections[2] != -1) {
-                    players[computer].curHitDirection = 2;
+            case 0:
+                if (loc - cols >= 0 && players[computer].possHitLocations.has(loc - cols)) {
+                    players[computer].possHitDirections[0] = loc - cols
                 }
-            }
-            break;
-        case 1:
-            if (loc % cols !== 0 && players[computer].possHitLocations.has(loc - 1)) {
-                players[computer].possHitDirections[1] = loc - 1
-            }
-            else {
-                players[computer].possHitDirections[1] = -1;
-                if (players[computer].possHitDirections[3] != -1) {
-                    players[computer].curHitDirection = 3
+                else {
+                    players[computer].possHitDirections[0] = -1;
+                    if (players[computer].possHitDirections[2] != -1) {
+                        players[computer].curHitDirection = 2;
+                    }
                 }
-            }
-            break;
-        case 2:
-            if (loc + cols < 100 && players[computer].possHitLocations.has(loc + cols)) {
-                players[computer].possHitDirections[2] = loc + cols
-            }
-            else {
-                players[computer].possHitDirections[2] = -1;
-                if (players[computer].possHitDirections[0] != -1) {
-                    players[computer].curHitDirection = 0;
+                break;
+            case 1:
+                if (loc % cols !== 0 && players[computer].possHitLocations.has(loc - 1)) {
+                    players[computer].possHitDirections[1] = loc - 1
                 }
-            }
-            break;
-        case 3:
-            if ((loc + 1) % cols !== 0 && players[computer].possHitLocations.has(loc + 1)) {
-                players[computer].possHitDirections[3] = loc + 1
-            }
-            else {
-                players[computer].possHitDirections[3] = -1;
-                if (players[computer].possHitDirections[1] != -1) {
-                    players[computer].curHitDirection = 1;
+                else {
+                    players[computer].possHitDirections[1] = -1;
+                    if (players[computer].possHitDirections[3] != -1) {
+                        players[computer].curHitDirection = 3
+                    }
                 }
-            }
-            break;
+                break;
+            case 2:
+                if (loc + cols < 100 && players[computer].possHitLocations.has(loc + cols)) {
+                    players[computer].possHitDirections[2] = loc + cols
+                }
+                else {
+                    players[computer].possHitDirections[2] = -1;
+                    if (players[computer].possHitDirections[0] != -1) {
+                        players[computer].curHitDirection = 0;
+                    }
+                }
+                break;
+            case 3:
+                if ((loc + 1) % cols !== 0 && players[computer].possHitLocations.has(loc + 1)) {
+                    players[computer].possHitDirections[3] = loc + 1
+                }
+                else {
+                    players[computer].possHitDirections[3] = -1;
+                    if (players[computer].possHitDirections[1] != -1) {
+                        players[computer].curHitDirection = 1;
+                    }
+                }
+                break;
         }
         if (players[computer].possHitDirections[players[computer].curHitDirection] == -1) {
             players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
@@ -327,16 +348,22 @@ const handleAIDestroy = (computer, destroyShip) => {
     players[computer].possHitDirections = [-1, -1, -1, -1]
     // need to update the minSizeShip
     players[computer].opponentShipRemain[destroyShip[0]] = 0;
-    let minSize = 5
+    let minSize = 5;
+    let maxSize = 2;
     for (const shipName in ships) {
         if (players[computer].opponentShipRemain[shipName] == 1) {
             if (ships[shipName] < minSize) {
                 minSize = ships[shipName]
             }
+            if (ships[shipName] > maxSize) {
+                maxSize = ships[shipName];
+            }
         }
     }
     players[computer].opponentShipRemain['minSizeShip'] = minSize;
-    console.log('minSizeShip: ', players[computer].opponentShipRemain['minSizeShip'])
+    players[computer].opponentShipRemain['maxSizeShip'] = maxSize;
+    console.log('minSizeShip:', players[computer].opponentShipRemain['minSizeShip'])
+    console.log('maxSizeShip:', players[computer].opponentShipRemain['maxSizeShip'])
 
     if (players[computer].hitLocs.length != 0) {
         players[computer].possHitDirections = checkAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true, players[computer].hitLocs);
@@ -344,12 +371,13 @@ const handleAIDestroy = (computer, destroyShip) => {
         AIFirstTimeHitNewShip = true;
     }
     else {
+        players[computer].maxPossHitLocations = "reset"
         checkPossHitLocs(computer)
     }
 }
 function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit, hitLocs) {      // check each of the cell within the minSizeShip
     const cols = 10;
-    let horiPoss = 1;   
+    let horiPoss = 1;
     let vertPoss = 1;
     let temp = cellIndex;
     while (horiPoss < minSizeShip) {  // check west    
@@ -392,48 +420,48 @@ function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit, 
             break;
         }
     }
-    if(horiPoss == minSizeShip || vertPoss == minSizeShip) {
+    if (horiPoss == minSizeShip || vertPoss == minSizeShip) {
         if (checkHit == false) {
             return true
         }
-        else if(checkHit == true) {
+        else if (checkHit == true) {
             return getNextFourDirection(cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip)
         }
     }
     else if (checkHit == false) {
         return false;
-    }         
+    }
 }
 
 const getNextFourDirection = (cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip) => {
-    const nextHitLocations = [-1,-1,-1,-1]
+    const nextHitLocations = [-1, -1, -1, -1]
     const cols = 10;
     let temp = cellIndex;
     if (horiPoss == minSizeShip) {
-        if(temp % cols !== 0 && possHitLocations.has(temp - 1)) {  // check left
+        if (temp % cols !== 0 && possHitLocations.has(temp - 1)) {  // check left
             temp = temp - 1;
             nextHitLocations[1] = temp;
         }
-        else if(temp % cols !== 0 && hitLocs.includes(temp - 1)) {
+        else if (temp % cols !== 0 && hitLocs.includes(temp - 1)) {
             temp = temp - 1;
-            while(temp % cols !== 0 && hitLocs.includes(temp - 1)) {
+            while (temp % cols !== 0 && hitLocs.includes(temp - 1)) {
                 temp = temp - 1;
             }
-            if(possHitLocations.has(temp)) {
+            if (possHitLocations.has(temp)) {
                 nextHitLocations[1] = temp
             }
         }
         temp = cellIndex;
-        if((temp + 1) % cols !== 0 && possHitLocations.has(temp + 1)) { // check right
+        if ((temp + 1) % cols !== 0 && possHitLocations.has(temp + 1)) { // check right
             temp = temp + 1;
             nextHitLocations[3] = temp;
-        } 
-        else if((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
+        }
+        else if ((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
             temp = temp + 1;
-            while((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
+            while ((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
                 temp = temp + 1;
             }
-            if(possHitLocations.has(temp)) {
+            if (possHitLocations.has(temp)) {
                 nextHitLocations[3] = temp;
             }
         }
@@ -441,104 +469,103 @@ const getNextFourDirection = (cellIndex, possHitLocations, hitLocs, horiPoss, ve
     }
 
     if (vertPoss == minSizeShip) {
-        if((temp - cols) >=0 && (possHitLocations.has(temp - cols))) { // check above
+        if ((temp - cols) >= 0 && (possHitLocations.has(temp - cols))) { // check above
             temp = temp - cols;
             nextHitLocations[0] = temp
-        } 
-        else if((temp - cols) >= 0 && hitLocs.includes(temp - cols)) {
+        }
+        else if ((temp - cols) >= 0 && hitLocs.includes(temp - cols)) {
             temp = temp - cols;
-            while((temp - cols) >=0 && hitLocs.includes(temp - cols)){
+            while ((temp - cols) >= 0 && hitLocs.includes(temp - cols)) {
                 temp = temp - cols;
             }
-            if(possHitLocations.has(temp)) {
+            if (possHitLocations.has(temp)) {
                 nextHitLocations[0] = temp;
             }
         }
         temp = cellIndex;
-        if((temp + cols) < 100 && (possHitLocations.has(temp + cols))) { //check below
+        if ((temp + cols) < 100 && (possHitLocations.has(temp + cols))) { //check below
             temp = temp + cols;
             nextHitLocations[2] = temp;
         }
-        else if((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
+        else if ((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
             temp = temp + cols;
-            while((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
+            while ((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
                 temp = temp + cols;
             }
-            if(possHitLocations.has(temp)) {
+            if (possHitLocations.has(temp)) {
                 nextHitLocations[2] = temp;
             }
-        }    
+        }
     }
     return nextHitLocations;
 }
 
 const checkMinAllDirection = (nextHitLocations, possHitLocations, minSizeShip) => {
     console.log("minSizeShip", minSizeShip)
-    const countDirctionLocation = {0:[], 1:[], 2:[], 3:[], 4:[]}
+    const countDirctionLocation = { 0: [], 1: [], 2: [], 3: [], 4: [] }
     let temp = 1
     let count = 0
-    for(let loc of nextHitLocations)    
-    {
-        while(temp <= minSizeShip) {   // check west
-            if(temp == minSizeShip){
-                count ++;
+    for (let loc of nextHitLocations) {
+        while (temp <= minSizeShip) {   // check west
+            if (temp == minSizeShip) {
+                count++;
                 temp = 1;
                 break;
             }
-            else{
-                if((loc - temp + 1) % 10 !== 0 && possHitLocations.has(loc - temp)) {
-                    temp +=1;
+            else {
+                if ((loc - temp + 1) % 10 !== 0 && possHitLocations.has(loc - temp)) {
+                    temp += 1;
                 }
-                else{
+                else {
                     temp = 1
                     break;
                 }
             }
         }
-        while(temp <= minSizeShip) { // check east
-            if(temp == minSizeShip){
-                count ++;
+        while (temp <= minSizeShip) { // check east
+            if (temp == minSizeShip) {
+                count++;
                 temp = 1;
                 break;
             }
-            else{
+            else {
                 if ((loc + temp) % 10 !== 0 && possHitLocations.has(loc + temp)) {
                     temp += 1;
                 }
-                else{
+                else {
                     temp = 1;
                     break;
                 }
             }
         }
-        while(temp <= minSizeShip) { // check north
-            if(temp == minSizeShip){
-                count ++;
+        while (temp <= minSizeShip) { // check north
+            if (temp == minSizeShip) {
+                count++;
                 temp = 1;
                 break;
             }
-            else{
-                if(((loc - (temp*10)) >= 0 && possHitLocations.has(loc - (temp *10)))) {
+            else {
+                if (((loc - (temp * 10)) >= 0 && possHitLocations.has(loc - (temp * 10)))) {
                     temp += 1;
                 }
-                else{
+                else {
                     temp = 1;
                     break;
                 }
             }
         }
 
-        while(temp <= minSizeShip) { // check south
-            if(temp == minSizeShip) {
-                count ++;
+        while (temp <= minSizeShip) { // check south
+            if (temp == minSizeShip) {
+                count++;
                 temp = 1;
                 break;
             }
-            else{
-                if(((loc + (temp*10)) < 100) && possHitLocations.has(loc + (temp * 10))) {
+            else {
+                if (((loc + (temp * 10)) < 100) && possHitLocations.has(loc + (temp * 10))) {
                     temp += 1;
                 }
-                else{
+                else {
                     temp = 1;
                     break
                 }
@@ -548,9 +575,9 @@ const checkMinAllDirection = (nextHitLocations, possHitLocations, minSizeShip) =
         temp = 1;
         count = 0;
     }
-    
+
     let pickNum = pickNumber(countDirctionLocation);
-    console.log("checkMinAllDirection Result", pickNum);   
+    console.log("checkMinAllDirection Result", pickNum);
     return countDirctionLocation[pickNum];
 }
 
@@ -574,24 +601,24 @@ function getBiggestKeyWithElements(obj) {
     return obj[biggestKey];
 }
 
-const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, totalHits) => {
+const checkMostValueableHit = (nextHitLocations, possHitLocations, maxSizeShip, totalMisses, minSizeShip) => {
     let mostEliminate = 0;
     let mostELocations = new Set();
     let tempPossHitLocations = new Set(possHitLocations);
-    for(let pos of nextHitLocations) {
+    for (let pos of nextHitLocations) {
         tempPossHitLocations.delete(pos);
-        for (let loc of tempPossHitLocations) { 
-            const result = checkAdjacentCells(loc, tempPossHitLocations, minSizeShip, false, []);
+        for (let loc of tempPossHitLocations) {
+            const result = checkAdjacentCells(loc, tempPossHitLocations, maxSizeShip, false, []);
             if (result == false) {
                 tempPossHitLocations.delete(loc);
             }
         }
         let diffSize = possHitLocations.size - tempPossHitLocations.size;
-        if(diffSize >= mostEliminate) {
-            if(diffSize == mostEliminate){
+        if (diffSize >= mostEliminate) {
+            if (diffSize == mostEliminate) {
                 mostELocations.add(pos)
             }
-            else{
+            else {
                 mostEliminate = diffSize;
                 mostELocations = new Set([pos])
             }
@@ -599,7 +626,7 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, 
         tempPossHitLocations = new Set(possHitLocations)
     }
     console.log("mostEliminate", mostEliminate);
-    if((minSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2 || totalHits >= 30){
+    if ((maxSizeShip == 2 && mostEliminate > 2) || minSizeShip > 2 || totalMisses >= 30) {
         return [...mostELocations]
     }
     return nextHitLocations;
@@ -608,12 +635,12 @@ const checkMostValueableHit = (nextHitLocations, possHitLocations, minSizeShip, 
 function pickNumber(countDirectionLocation) {
 
     let probabilities = [
-      { number: 4, probability: 60 },
-      { number: 3, probability: 30 },
-      { number: 2, probability: 7 },
-      { number: 1, probability: 2 },
-      { number: 0, probability: 1 }
-      ];
+        { number: 4, probability: 60 },
+        { number: 3, probability: 30 },
+        { number: 2, probability: 7 },
+        { number: 1, probability: 2 },
+        { number: 0, probability: 1 }
+    ];
 
     // Filter out numbers with empty arrays
     probabilities = probabilities.filter(item => countDirectionLocation[item.number].length > 0);
@@ -623,13 +650,13 @@ function pickNumber(countDirectionLocation) {
 
     // Normalize the probabilities to sum to 100%
     probabilities.forEach(item => {
-      item.probability = (item.probability / totalProbability) * 100;
-  });
+        item.probability = (item.probability / totalProbability) * 100;
+    });
 
     // Create the weighted array based on the adjusted probabilities
     const weightedArray = probabilities.flatMap(item => Array(Math.round(item.probability)).fill(item.number));
     const randomIndex = Math.floor(Math.random() * weightedArray.length);
-    
+
     return weightedArray[randomIndex];
 }
 
@@ -655,10 +682,22 @@ function randomIndexNonMinusOne(arr) {
     return arr.indexOf(nonMinusOneElements[randomIndex]);
 }
 const checkPossHitLocs = (computer) => {
+    console.log("got to here before bugging")
     for (let loc of players[computer].possHitLocations) {
         const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false, players[computer].hitLocs)
         if (result == false) {
-            players[computer].possHitLocations.delete(loc)
+            players[computer].possHitLocations.delete(loc);
+        }
+    }
+    if (players[computer].maxPossHitLocations == "reset") {
+        players[computer].maxPossHitLocations = new Set(players[computer].possHitLocations);
+    }
+    else {
+        for (let loc of players[computer].maxPossHitLocations) {
+            const result = checkAdjacentCells(loc, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'], false, players[computer].hitLocs)
+            if (result == false) {
+                players[computer].maxPossHitLocations.delete(loc);
+            }
         }
     }
 }
@@ -667,17 +706,18 @@ const computerMove = (curPlayer, socket, opponent) => {
     if (players[curPlayer] != null && players[opponent] != null) {
         let pos;
         if (players[opponent].hitLocs.length == 0) {
+
             pos = getRandomIndexWithOneValue(opponent)
         }
         else if (players[opponent].curHitDirection != null) { // what if hitLocs is not null and curHitDirection is null.   
             pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
-
         }
         players[opponent].possHitLocations.delete(pos);
+        players[opponent].maxPossHitLocations.delete(pos);
 
         console.log("computer move", pos)
         if (players[curPlayer].board[pos] === 0) {  // miss
-            handleMissComm(opponent, curPlayer, pos);   
+            handleMissComm(opponent, curPlayer, pos);
             handleAIMiss(opponent, socket)
             socket.emit("turn")
         }
@@ -692,6 +732,9 @@ const computerMove = (curPlayer, socket, opponent) => {
                 }, 500);
             }
         }
+    }
+    else {
+        console.log("here2")
     }
 }
 
@@ -747,9 +790,11 @@ const checkShip = (opponent, pos) => {
     }
 }
 
-const checkForMPOpponent = ((curPlayer) => {
+const checkForMPOpponent = ((curPlayer) => { // there can only be two online player
     for (let id in players) {
         if (players[id].mode == "multiplayer" && id != curPlayer) {
+            console.log("id:", id);
+            console.log("curPlayer:", curPlayer)
             return id;
         }
     }
@@ -835,7 +880,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     }
 })
 
-const handleDestroyComm = (async (hitter, receiver, pos) => {
+const handleDestroyComm = async (hitter, receiver, pos) => {
     const result = checkShip(receiver, pos);
     if (result != "normal") {
         players[hitter].numDestroyShip++;
@@ -849,13 +894,26 @@ const handleDestroyComm = (async (hitter, receiver, pos) => {
             io.to(players[hitter].socketId).emit("message", players[hitter].messages);
         }
         if (players[hitter].numDestroyShip == 5) {
-            if (players[receiver] instanceof Player) {
-                players[receiver].start = false;
-                await handleLossDB(receiver, hitter);
-            }
+            const gameEndTime = new Date();
+            const gameDuration = (gameEndTime - gameStartTime) / 1000;
+            console.log(`Game ended. Duration: ${gameDuration} seconds`)
+            await handleGameEndDB(hitter, receiver, gameDuration, 'Complete')
             if (players[hitter] instanceof Player) {
+                const games = await findLast10GamesForUser(hitter);
+                const allGameStats = await calculateWinRate(hitter)
+                io.to(players[hitter].socketId).emit("win", "You win !", games, allGameStats);
                 players[hitter].start = false;
-                await handleWinDB(hitter);
+            }
+            if (players[receiver] instanceof Player) {
+                const games = await findLast10GamesForUser(receiver)
+                const allGameStats = await calculateWinRate(receiver)
+                io.to(players[receiver].socketId).emit(
+                    "owin",
+                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
+                    games,
+                    allGameStats
+                );
+                players[receiver].start = false;
             }
         }
         else if (players[hitter] instanceof Computer) {
@@ -863,94 +921,276 @@ const handleDestroyComm = (async (hitter, receiver, pos) => {
         }
     }
 
-})
+}
 
-const handleWinDB = async (hitter) => {
+const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
     try {
-        const user = await User.findOne({_id: hitter});
-        if (user) {
-            user.winStep.push(players[hitter].numHits + players[hitter].numMisses);
-            user.games.push("win");
-            if (user.games.length > 10) {
-                user.games = user.games.slice(-10);
-            }
-            const savedUser = await user.save();
-            const winRate = savedUser.games;
-            if (players[hitter].start == true) {
-                io.to(players[hitter].socketId).emit("win", null, winRate);
-            }
-            else {
-                io.to(players[hitter].socketId).emit("win", "You win !", winRate);
-            }
-        } else {
-            console.log('User not found:', hitter);
-        }
-    } catch (err) {
-        console.log('Error updating winStep for user:', err);
-    }
-};
+        // Create player objects for winner (hitter) and loser (receiver)
+        const winnerPlayer = {
+            user: players[hitter] instanceof Player ? hitter : null,
+            isComputer: players[hitter] instanceof Computer,
+            numHits: players[hitter].numHits,
+            numMisses: players[hitter].numMisses
+        };
 
-const handleLossDB = async (receiver, hitter) => {
-    try {
-        const user = await User.findOne({_id: receiver});
-        if (user) {
-            user.lossStep.push(players[receiver].numHits + players[receiver].numMisses);
-            user.games.push("loss");
-            if (user.games.length > 10) {
-                user.games = user.games.slice(-10);
-            }
-            const savedUser = await user.save();
-            if (hitter != null) {
-                const winRate = savedUser.games;
-                io.to(players[receiver].socketId).emit(
-                    "owin",
-                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
-                    winRate
-                    );
-            }
-        } else {
-            console.log('User not found:', receiver);
+        const loserPlayer = {
+            user: players[receiver] instanceof Player ? receiver : null,
+            isComputer: players[receiver] instanceof Computer,
+            numHits: players[receiver].numHits,
+            numMisses: players[receiver].numMisses
+        };
+        console.log("loserPlayer", loserPlayer)
+        // Create and save the new Game document
+        const newGame = new Game({
+            winner: winnerPlayer,
+            loser: loserPlayer,
+            duration: gameDuration,
+            isCompleted: gameEndType == "Complete" ? true : false,
+            createdAt: Date.now()
+        });
+
+        const savedGame = await newGame.save();
+
+        // Update User documents for human players
+        const updatePromises = [];
+
+        if (players[hitter] instanceof Player) {
+            updatePromises.push(
+                User.findByIdAndUpdate(
+                    hitter,
+                    { $push: { games: savedGame._id } },
+                    { new: true }
+                )
+            );
         }
-    } catch (err) {
-        console.log('Error updating lossStep for user:', err);
+
+        if (players[receiver] instanceof Player) {
+            updatePromises.push(
+                User.findByIdAndUpdate(
+                    receiver,
+                    { $push: { games: savedGame._id } },
+                    { new: true }
+                )
+            );
+        }
+
+        // Wait for all updates to complete
+        await Promise.all(updatePromises);
+
+        console.log('Game ended and saved successfully');
+        return savedGame;
+    } catch (error) {
+        console.error('Error ending game:', error);
+        throw error;
     }
-};
+}
+async function findLast10GamesForUser(userId) {
+    try {
+        // Ensure the userId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            throw new Error('Invalid user ID');
+        }
+        const user = await User.findById(userId)
+        const last10Games = user.games.slice(-10);
+
+        const games = await Game.find({ _id: { $in: last10Games } }).sort({ createdAt: -1 }) 
+            .populate({
+                path: 'winner.user',
+                select: 'userName'
+            })
+            .populate({
+                path: 'loser.user',
+                select: 'userName'
+            });
+        return games;
+    } catch (error) {
+        console.error('Error finding games for user:', error);
+        throw error;
+    }
+}
+
+async function calculateWinRate(userId) {
+    try {
+        // Ensure the userId is a valid ObjectId
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            throw new Error('Invalid user ID');
+        }
+
+        const user = await User.findById(userId)
+        const games = await Game.find({ _id: { $in: user.games } })
+
+        // Calculate the total number of games, wins, and losses
+        const totalGames = games.length;
+        const wins = games.filter(game => game.winner.user && game.winner.user.toString() === userId).length;
+        const losses = games.filter(game => game.loser.user && game.loser.user.toString() === userId).length;
+
+        // Calculate win rate
+        const winRate = totalGames > 0 ? (wins / totalGames) * 100 : 0;
+
+        return {
+            wins,
+            losses,
+            winRate: Math.round(winRate)
+        };
+    } catch (error) {
+        console.error('Error calculating win rate:', error);
+        throw error;
+    }
+}
+
+calculateWinRate('669e6890491ff3876acd1005')
+    .then(games => {
+        console.log("winRate", games);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
 
 function isValidShipPlacement(command) {
     if (typeof command !== 'object' || command === null) return false;
 
     for (const ship in ships) {
-      if (!Array.isArray(command[ship]) || command[ship].length !== ships[ship]) {
-        console.log("false in 1")
-        return false;
+        if (!Array.isArray(command[ship]) || command[ship].length !== ships[ship]) {
+            console.log("false in 1")
+            return false;
+        }
+
+        if (!command[ship].every((cell) => Number.isInteger(cell) && cell >= 0 && cell < 100)) {
+            console.log("false in 2")
+            return false;
+        }
     }
 
-    if (!command[ship].every((cell) => Number.isInteger(cell) && cell > 0 && cell < 100)) {
-        console.log("false in 2")
-        return false;
-    }
+    return true;
 }
 
-return true;
-}
+app.post('/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+  
+      // Find user by email
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+  
+      // Check password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+  
+      // Create and sign a JWT
+      const token = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_SECRET, // Make sure to set this in your environment variables
+        { expiresIn: '1h' } // Token expires in 1 hour
+      );
+  
+      // Update user's isLoggedIn status and lastSeen
+      user.isLoggedIn = true;
+      user.lastSeen = new Date();
+      await user.save();
+      const games = await findLast10GamesForUser(user._id)
+      const allGameStats = await calculateWinRate(user._id)
+      // Send the token to the client
+      res.json({ message: 'Login successful', token, id: user._id, userName : user.userName, games: games, allGameStats: allGameStats });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Server error during login' });
+    }
+  });
+  app.post('/register', async (req, res) => {
+    try {
+      const { userName, email, password } = req.body;
+  
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'User already exists' });
+      }
+  
+      // Hash the password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+  
+      // Create new user
+      const newUser = new User({
+        userName,
+        email,
+        password: hashedPassword,
+        isLoggedIn: true,
+        lastSeen: new Date()
+      });
+  
+      // Save user to database
+      await newUser.save();
+  
+      // Create and sign a JWT
+      const token = jwt.sign(
+        { userId: newUser._id },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+  
+      // Respond with success message, token, and user ID
+      res.status(201).json({
+        message: 'User registered successfully',
+        token,
+        id: newUser._id, userName : newUser.userName
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Server error during registration' });
+    }
+  });
+  app.post('/logout', async (req, res) => {
+    try {
+      const curPlayer = req.body.id;
+      // Find the user by the curPlayer ID
+      const user = await User.findById(curPlayer);
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Update user's isLoggedIn status and lastSeen
+      user.isLoggedIn = false;
+      user.lastSeen = new Date();
+      await user.save();
+  
+      // Clear the curPlayer variable
+      if (players[curPlayer] != null) {
+        delete players[curPlayer];
+        }
+  
+      // Respond with success message
+      res.json({ message: 'Logout successful' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Server error during logout' });
+    }
+  });
 
 io.on('connection', (socket) => {
     let opponent;
     let curPlayer;
     socket.on("login", async (userId) => {
-        try{
+        try {
             console.log("userId:", userId)
-            const user = await User.findOne({_id : userId});
-            if(user) {
-                if(user.isLoggedIn == true) {
+            const user = await User.findOne({ _id: userId });
+            if (user) {
+                if (user.isLoggedIn == true) {
                     socket.emit('alert', "This user is already logged in");
                 }
-                else{
+                else {
                     user.isLoggedIn = true;
                     user.lastSeen = new Date();
                     await user.save(); // Save the updated user to the database
                     curPlayer = user._id.toString()
-                    socket.emit('login', userId, user.averageGameOverSteps, user.games);
+                    const games = await findLast10GamesForUser(userId)
+                    const allGameStats = await calculateWinRate(curPlayer)
+                    socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
                 }
             } else {
                 socket.emit('alert', "invalid ID, please retry or be a new user ")
@@ -960,16 +1200,17 @@ io.on('connection', (socket) => {
             socket.emit('alert', 'An error occurred while logging in');
         }
     })
-    socket.on("new", async () => {
+    socket.on("new", async (userName) => {
         try {
             const newUser = new User();
             newUser.isLoggedIn = true;
+            newUser.userName = userName;
             // Save the new user to the database
             await newUser.save();
             console.log('User added to the database');
             curPlayer = newUser._id.toString();
             // Emit the user's ID after successful save
-            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games);
+            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, { wins: 0, losses: 0, winRate: 0 });
         } catch (err) {
             console.log('Error adding user to the database:', err);
         }
@@ -977,39 +1218,40 @@ io.on('connection', (socket) => {
     socket.on("logout", async () => {
         try {
             if (curPlayer) {
-            // Find the user by curPlayer (which contains the userId)
+                // Find the user by curPlayer (which contains the userId)
                 const user = await User.findOne({ _id: curPlayer });
 
                 if (user) {
-                // Set the user's isLoggedIn status to false
+                    // Set the user's isLoggedIn status to false
                     user.isLoggedIn = false;
                     await user.save();
-                }
+                }       
 
-            // Clean up the players object if the player exists
+                // Clean up the players object if the player exists
                 if (players[curPlayer] != null) {
                     delete players[curPlayer];
                 }
 
-            // Reset curPlayer
+                // Reset curPlayer
                 curPlayer = null;
 
-            // Emit the logout event
+                // Emit the logout event
                 socket.emit("logout");
             } else {
                 socket.emit("alert", "No user is currently logged in");
             }
         } catch (err) {
-        console.error(err); // Log the error for debugging
-        socket.emit('alert', 'An error occurred while logging out');
-    }
-});
+            console.error(err); // Log the error for debugging
+            socket.emit('alert', 'An error occurred while logging out');
+        }
+    });
     socket.on('heartbeat', async () => {
         if (curPlayer) {
             await User.updateOne({ _id: curPlayer }, { $set: { lastSeen: new Date() } });
         }
     });
-    socket.on("singleplayer", () => {
+    socket.on("singleplayer", (id) => {
+        curPlayer = id;
         if (players[curPlayer] == null) {
             players[curPlayer] = new Player(curPlayer);
             players[curPlayer].socketId = socket.id;
@@ -1018,7 +1260,8 @@ io.on('connection', (socket) => {
         opponent = generateRandomString(10);
         players[opponent] = new Computer(opponent);
     })
-    socket.on("multiplayer", () => {
+    socket.on("multiplayer", (id) => {
+        curPlayer = id;
         if (connectedMPClients >= maxConnections) {
             socket.emit("full", "sorry, the game room is currently full. Please try again later.")
         } else {
@@ -1121,13 +1364,14 @@ io.on('connection', (socket) => {
     socket.on("start", () => {
         if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {
             players[curPlayer].numPlaceShip == 5 ?
-            (randomBoatPlacement(opponent), players[opponent].displayGrid(), 
-                players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"), 
-                players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }), 
-                socket.emit("message", players[curPlayer].messages)) :
-            socket.emit("not enough ship", "Please place all your ship before starting")
+                (randomBoatPlacement(opponent), players[opponent].displayGrid(),
+                    players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"),
+                    players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }),
+                    socket.emit("message", players[curPlayer].messages)) :
+                socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
+            console.log("curPlayer:", curPlayer)
             opponent = checkForMPOpponent(curPlayer);
             if (players[curPlayer].numPlaceShip != 5) {
                 socket.emit("not enough ship", "Please place all your ship before starting")
@@ -1139,10 +1383,11 @@ io.on('connection', (socket) => {
                 socket.emit("info", "Your opponent is not ready yet, please wait");
             }
             else if (opponent != null && players[opponent].numPlaceShip == 5) {
+                console.log("players array", players)
                 players[curPlayer].start = true;
                 players[opponent].start = true;
                 socket.emit("start");
-                players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }); 
+                players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) });
                 socket.emit("message", players[curPlayer].messages);
                 io.to(players[opponent].socketId).emit("ostart");
                 io.to(players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
@@ -1151,62 +1396,63 @@ io.on('connection', (socket) => {
 
         }
         players[curPlayer].displayGrid()
+        gameStartTime = new Date();
     })
     socket.on("findOpponent", () => {
         opponent = checkForMPOpponent(curPlayer);
         players[curPlayer].displayGrid()
-        players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }); 
+        players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) });
         socket.emit("message", players[curPlayer].messages)
     })
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
-        case 1: {
-            handleHitComm(curPlayer, opponent, pos);
-            handleDestroyComm(curPlayer, opponent, pos);
-            break;
+            case 1: {
+                handleHitComm(curPlayer, opponent, pos);
+                handleDestroyComm(curPlayer, opponent, pos);
+                break;
+            }
+            case 2:
+            case 3:
+                socket.emit('alert', "This location is not available to attack")
+                break;
+            case 0: {
+                handleMissComm(curPlayer, opponent, pos)
+                if (players[curPlayer].mode == "singleplayer") {
+                    socket.emit("info", "The AI is thinking ...")
+                    setTimeout(() => { computerMove(curPlayer, socket, opponent) }, 500)
+                }
+                break;
+            }
         }
-    case 2:
-    case 3:
-        socket.emit('alert', "This location is not available to attack")
-        break;
-    case 0: {
-        handleMissComm(curPlayer, opponent, pos)
-        if (players[curPlayer].mode == "singleplayer") {
-            socket.emit("info", "The AI is thinking ...")
-            setTimeout(() => { computerMove(curPlayer, socket, opponent) }, 500)
-        }
-        break;
-    }
-}
-})
+    })
     socket.on('command', (commandString) => {
-        console.log("type of commandString", typeof(commandString));
+        console.log("type of commandString", typeof (commandString));
         console.log("commandString", commandString);
         try {
 
             const command = JSON.parse(commandString);
             if (isValidShipPlacement(command)) {
-              console.log('Valid command:', command);
-              players[curPlayer].shipLoc = command;
-              players[curPlayer].board = Array(100).fill(0);
-              for (const ship in command) {
-                if (command.hasOwnProperty(ship)) {
-                  command[ship].forEach((position) => {
-                   players[curPlayer].board[position] = 1;
-               });
-              }
-          }
-          players[curPlayer].numPlaceShip = 5; 
-          socket.emit("randomresult", players[curPlayer].shipLoc);
-      } else {
-          console.log('Invalid command format');
-          socket.emit('alert', 'Invalid command format');
-      }
-  } catch (e) {
-    console.log('Invalid JSON format');
-    socket.emit('error', 'Invalid JSON format');
-}
-})
+                console.log('Valid command:', command);
+                players[curPlayer].shipLoc = command;
+                players[curPlayer].board = Array(100).fill(0);
+                for (const ship in command) {
+                    if (command.hasOwnProperty(ship)) {
+                        command[ship].forEach((position) => {
+                            players[curPlayer].board[position] = 1;
+                        });
+                    }
+                }
+                players[curPlayer].numPlaceShip = 5;
+                socket.emit("randomresult", players[curPlayer].shipLoc);
+            } else {
+                console.log('Invalid command format');
+                socket.emit('alert', 'Invalid command format');
+            }
+        } catch (e) {
+            console.log('Invalid JSON format');
+            socket.emit('error', 'Invalid JSON format');
+        }
+    })
     socket.on('message', (message) => {
         players[curPlayer].messages.push({ 'player': "You: " + message }); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
@@ -1215,11 +1461,18 @@ io.on('connection', (socket) => {
             io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
-    socket.on('disconnect', async() => {
+    socket.on('disconnect', async () => {
         console.log(`Client ${socket.id} disconnected`);
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
-                io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
+                const message = "Your opponent has quit, you have won!";
+                let games;
+
+                if (players[opponent].start) {
+                    games = await findLast10GamesForUser(opponent);
+                }
+
+                io.to(players[opponent].socketId).emit("oquit", message, games);
             }
             else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
                 delete players[opponent];
@@ -1234,7 +1487,7 @@ io.on('connection', (socket) => {
 
         if (curPlayer != null) {
             try {
-            // Find the user in the db and set isLoggedIn to false
+                // Find the user in the db and set isLoggedIn to false
                 const user = await User.findOne({ _id: curPlayer });
 
                 if (user) {
@@ -1252,27 +1505,50 @@ io.on('connection', (socket) => {
 
     });
     socket.on("home", async () => {
-        if(players[curPlayer].start == true){
-            await handleLossDB(curPlayer);
-        }
-        players[curPlayer].reset();
-        if (players[curPlayer].mode == "multiplayer") {
-            connectedMPClients--;
-            players[curPlayer].mode = null;
-            if (players[opponent] != null){
-                io.to(players[opponent].socketId).emit("oquit", "Your opponent has quit, please restart")
+        try {
+            if (players[curPlayer].start == true) {
+                const gameEndTime = new Date();
+                const gameDuration = (gameEndTime - gameStartTime) / 1000;
+                console.log(`Game ended by quitting. Duration: ${gameDuration} seconds`)
+                await handleGameEndDB(opponent, curPlayer, gameDuration, "Quit");
             }
+            if (players[curPlayer].mode == "multiplayer") {
+                connectedMPClients--;
+                players[curPlayer].mode = null;
+                if (players[opponent] != null) {
+                    const message = "Your opponent has quit, you have won!";
+                    let games;
+                    let allGameStats;
+                    if (players[opponent].start) {
+                        console.log("error here1")
+                        games = await findLast10GamesForUser(opponent);
+                        allGameStats = await calculateWinRate(opponent);
+                        
+                    }
+
+                    io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);
+                }
+            }
+
+            else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") { // what is this ?
+                delete players[opponent];
+            }
+            opponent = null;
+            let games;
+            let allGameStats;
+            if (players[curPlayer].start) {
+                console.log("error here2")
+                games = await findLast10GamesForUser(curPlayer);
+                allGameStats = await calculateWinRate(curPlayer);
+            }
+
+            socket.emit("home", games, allGameStats);
+            players[curPlayer].reset();
+        } catch (err) {
+            console.error(`error handling game end DB`)
         }
-        else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") {
-            delete players[opponent];
-        }
-        opponent = null;
-        socket.emit("home");
     })
     socket.on("oquit", async () => {
-        if(players[curPlayer].start == true) {
-            await handleWinDB(curPlayer);
-        }
         players[curPlayer].reset();
         connectedMPClients--;
         opponent = null;
@@ -1287,7 +1563,7 @@ setInterval(async () => {
         await User.updateMany(
             { lastSeen: { $lt: inactiveSince }, isLoggedIn: true },
             { $set: { isLoggedIn: false } }
-            );
+        );
     } catch (err) {
         console.error('Error logging out inactive users:', err);
     }

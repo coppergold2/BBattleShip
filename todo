@@ -51,3 +51,20 @@ to sets to improve efficiency.
 - show a hold click and release animation for buttons and hits
 
 - have a command window on the game board page before the game starts.
+
+- make a testInterface where I can test how the different bot perform.
+
+- improve AI when it hits a ship position and trying to find the next ship position component, currently it is not acting correctly, aka hitting useless position
+
+- fix DB, make a better css for home page, display more stats on home page, fix AI, fix everything and then publish it online.
+- fix css for phone.
+
+
+- want the load more function on match history and display the total winrate.
+
+- change some of the non essential loading time function to use axios
+    - home ? 
+    - login/logout
+
+- fix findLast10GamesForUser and etc 
+    

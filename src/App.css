@@ -453,8 +453,17 @@ button:not(:active) {
   box-shadow: 0 0 5px rgba(255, 0, 255, 0.5), inset 0 0 2px rgba(128, 0, 128, 0.2); /* Inner pink glow, outer purple glow */
 }
 
+@keyframes breathe {
+  0%, 100% {
+    box-shadow: 0 0 10px 2px rgba(255, 40, 40, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 15px 4px rgba(255, 40, 40, 0.7);
+  }
+}
+
 .possHit {
-  background-color: #e5d7b1; /* Light gray as a base shade */
+  animation: breathe 1s ease-in-out infinite;
 }
 
 .home-button {
@@ -475,8 +484,115 @@ button:not(:active) {
   color: yellow;
 }
 
+.home-stats-container {
+  display: flex; /* Use flexbox layout */
+  justify-content: center; /* Center the two sections horizontally */
+  align-items: flex-start; /* Align items to the top */
+  gap: 20px; /* Add space between the two sections */
+  margin: auto; /* Center the container horizontally */
+  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+  width: fit-content; /* Make the width of the container fit its children */
+  padding: 20px; /* Optional: Add padding to the container */
+  border-radius: 10px; /* Rounded corners */
+}
 .home-stats {
-  color: white
+  padding: 20px; /* Padding inside the container */
+  color: #FFFFFF; /* White text color */
+  font-family: 'Arial', sans-serif; /* Font family */
+  text-align: center; /* Centered text */
 }
 
+.home-stats h2 {
+  font-size: 24px; /* Heading font size */
+  margin-bottom: 15px; /* Margin below the heading */
+  color: #FFD700; /* Gold color for the heading */
+}
+
+.home-stats p {
+  font-size: 18px; /* Paragraph font size */
+  margin: 5px 0; /* Margin around paragraphs */
+}
+
+.home-stats .win-rate {
+  font-weight: bold; /* Bold font weight */
+  font-size: 20px; /* Larger font size */
+  color: #00FF00; /* Green color for win rate */
+}
+
+.match-history-heading {
+  text-align: center;
+  color: #FFFFFF;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  font-family: Arial, sans-serif;
+}
+
+.match-history {
+  max-height: 300px;
+  min-height: 300px;
+  overflow-y: auto;
+  margin: 20px auto;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  color: #FFFFFF;
+  width: 50%;
+  font-family: Arial, sans-serif;
+}
+
+.match-history-item {
+  border-bottom: 1px solid #ddd;
+  padding: 10px 0;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.match-history-item:last-child {
+  border-bottom: none;
+}
+
+.match-history-item p {
+  margin: 5px 0;
+  flex: 1 1 100%;
+}
+
+.match-history-item strong {
+  color: #FFD700;
+}
+
+.match-history-item.won {
+  border-left: 5px solid #00FF00; /* Green border for wins */
+}
+
+.match-history-item.lost {
+  border-left: 5px solid #FF4500; /* Red border for losses */
+}
+
+.match-history-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.match-history-stats-container {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.player-stats {
+  background-color: rgba(0, 128, 0, 0.3); /* Darker green background */
+  padding: 10px;
+  border-radius: 5px;
+  margin-right: 10px;
+  flex: 1;
+}
+
+.opponent-stats {
+  background-color: rgba(128, 0, 0, 0.3); /* Darker red background */
+  padding: 10px;
+  border-radius: 5px;
+  flex: 1;
+}
   
