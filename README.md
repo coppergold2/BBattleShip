@@ -1,4 +1,5 @@
-Built with React and Node JS
+Built with React and Node JS, Express and Mongo DB
+Pre. need to install mongoDB
 1. 'npm install' to install required packages
 2. 'node server.js' to run the backend server
 3. 'npm start' to run the frontend game
