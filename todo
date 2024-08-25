@@ -67,4 +67,7 @@ to sets to improve efficiency.
     - login/logout
 
 - fix findLast10GamesForUser and etc 
-    
+
+twoplayer mode when one player click home in Game not finish ->
+	       when one player click home in Game finish ->
+	       when the other player click home in Game finish -> 

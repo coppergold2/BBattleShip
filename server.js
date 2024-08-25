@@ -1501,11 +1501,12 @@ io.on('connection', (socket) => {
             } catch (err) {
                 console.error(`Error logging out user ${curPlayer}:`, err);
             }
-        }
+        } 
 
     });
     socket.on("home", async () => {
         try {
+            const gameEnd = players[curPlayer].start == true ? true : false;
             if (players[curPlayer].start == true) {
                 const gameEndTime = new Date();
                 const gameDuration = (gameEndTime - gameStartTime) / 1000;
@@ -1516,7 +1517,7 @@ io.on('connection', (socket) => {
                 connectedMPClients--;
                 players[curPlayer].mode = null;
                 if (players[opponent] != null) {
-                    const message = "Your opponent has quit, you have won!";
+                    
                     let games;
                     let allGameStats;
                     if (players[opponent].start) {
@@ -1525,8 +1526,10 @@ io.on('connection', (socket) => {
                         allGameStats = await calculateWinRate(opponent);
                         
                     }
-
+                    if (players[curPlayer].start == true){ 
+                    const message = "Your opponent has quit, you have won!";
                     io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);
+                    }
                 }
             }
 
