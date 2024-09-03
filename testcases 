@@ -1,0 +1,21 @@
+-   if the player closes the browser after the game is over and 
+    home button is not clicked by the player who closes browser
+
+-   if the player clicks multiplayer and didnt click start, 
+    clicked home instead
+
+-   if the player clicks multiplayer and clicks start, finds the opponent, 
+    but game didn't start due to incomplete ship placement,
+    the player decided to click home
+
+-   if the player clicks multiplayer and the game starts, and
+    the player decided to click home
+
+-   there is two player in a multiplayer game, the game ended, and player 1 clicked home, 
+    then player 2 clicked home, what happens when player 2 clicked home ? 
+    -   
+
+
+
+
+

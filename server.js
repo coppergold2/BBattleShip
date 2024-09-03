@@ -894,15 +894,13 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
             io.to(players[hitter].socketId).emit("message", players[hitter].messages);
         }
         if (players[hitter].numDestroyShip == 5) {
-            const gameEndTime = new Date();
-            const gameDuration = (gameEndTime - gameStartTime) / 1000;
-            console.log(`Game ended. Duration: ${gameDuration} seconds`)
-            await handleGameEndDB(hitter, receiver, gameDuration, 'Complete')
+            await handleGameEndDB(hitter, receiver, 'Complete')
             if (players[hitter] instanceof Player) {
                 const games = await findLast10GamesForUser(hitter);
                 const allGameStats = await calculateWinRate(hitter)
                 io.to(players[hitter].socketId).emit("win", "You win !", games, allGameStats);
                 players[hitter].start = false;
+                players[hitter].mode = "";
             }
             if (players[receiver] instanceof Player) {
                 const games = await findLast10GamesForUser(receiver)
@@ -914,6 +912,11 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
                     allGameStats
                 );
                 players[receiver].start = false;
+                players[hitter].mode = "";
+            }
+            if (players[hitter] instanceof Player && players[receiver] instanceof Player) {
+                connectedMPClients -= 2; // did this so that other players can play multiplayer since only two at a time
+                // need to reset hitter and receiver or should I do it when they press home ? 
             }
         }
         else if (players[hitter] instanceof Computer) {
@@ -923,8 +926,11 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
 
 }
 
-const handleGameEndDB = async (hitter, receiver, gameDuration, gameEndType) => {
+const handleGameEndDB = async (hitter, receiver, gameEndType) => {
     try {
+        const gameEndTime = new Date();
+        const gameDuration = (gameEndTime - gameStartTime) / 1000;
+        console.log(`Game ended by quitting. Duration: ${gameDuration} seconds`)
         // Create player objects for winner (hitter) and loser (receiver)
         const winnerPlayer = {
             user: players[hitter] instanceof Player ? hitter : null,
@@ -1038,13 +1044,13 @@ async function calculateWinRate(userId) {
     }
 }
 
-calculateWinRate('669e6890491ff3876acd1005')
-    .then(games => {
-        console.log("winRate", games);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });
+// calculateWinRate('669e6890491ff3876acd1005')
+//     .then(games => {
+//         console.log("winRate", games);
+//     })
+//     .catch(error => {
+//         console.error('Error:', error);
+//     });
 
 function isValidShipPlacement(command) {
     if (typeof command !== 'object' || command === null) return false;
@@ -1461,35 +1467,40 @@ io.on('connection', (socket) => {
             io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
-    socket.on('disconnect', async () => {
-        console.log(`Client ${socket.id} disconnected`);
-        if (curPlayer != null && players[curPlayer] != null) {
-            if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer" && players[opponent] != null) {
-                const message = "Your opponent has quit, you have won!";
-                let games;
-
-                if (players[opponent].start) {
-                    games = await findLast10GamesForUser(opponent);
+    socket.on('disconnect', async () => {  // now it is using oquit of the opponent on the server side to subtract connected clients
+        if (curPlayer != null && players[curPlayer] != null) {  
+            if (players[curPlayer].mode != null
+                && players[curPlayer].mode == "multiplayer"
+                && opponent != null 
+                && players[opponent] != null) {
+                if (players[opponent].start && players[curPlayer].start) {
+                    const message = "Your opponent has quit, you have won!";
+                    await handleGameEndDB(opponent, curPlayer, 'Quit');
+                    io.to(players[opponent].socketId).emit
+                        ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
                 }
-
-                io.to(players[opponent].socketId).emit("oquit", message, games);
-            }
-            else if (players[curPlayer].mode != null && players[curPlayer].mode == "singleplayer" && players[opponent] != null) {
-                delete players[opponent];
-            }
-            if (players[curPlayer] != null) {
-                if (connectedMPClients > 0 && players[curPlayer].mode == "multiplayer") {
-                    connectedMPClients--;
+                else if (players[opponent].start == false && players[curPlayer].start == false) {
+                    io.to(players[opponent].socketId).emit("oquit")
                 }
-                delete players[curPlayer];
             }
+            else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
+                players[curPlayer].mode == "singlePlayer" &&
+                players[curPlayer].start
+            ) {
+                await handleGameEndDB(opponent, curPlayer, 'Quit');
+            }
+            else if(players[opponent] != null && players[curPlayer] instanceof Player && players[opponent] instanceof Player 
+                && players[curPlayer].start == false && players[opponent].start == false) {
+                    io.to(players[opponent].socketId).emit("info", "Your opponent left");
+            }   
+
+            delete players[curPlayer];
         }
-
         if (curPlayer != null) {
             try {
                 // Find the user in the db and set isLoggedIn to false
                 const user = await User.findOne({ _id: curPlayer });
-
+    
                 if (user) {
                     console.log(curPlayer, "log off at disconnect")
                     user.isLoggedIn = false;
@@ -1502,39 +1513,28 @@ io.on('connection', (socket) => {
                 console.error(`Error logging out user ${curPlayer}:`, err);
             }
         } 
+    })
 
-    });
     socket.on("home", async () => {
         try {
-            const gameEnd = players[curPlayer].start == true ? true : false;
-            if (players[curPlayer].start == true) {
-                const gameEndTime = new Date();
-                const gameDuration = (gameEndTime - gameStartTime) / 1000;
-                console.log(`Game ended by quitting. Duration: ${gameDuration} seconds`)
-                await handleGameEndDB(opponent, curPlayer, gameDuration, "Quit");
+            // const gameEnd = players[curPlayer].start == true ? true : false;
+            if (players[curPlayer].start == true && players[opponent].start == true) {  // to check if the game has ended for this player that clicked home
+                await handleGameEndDB(opponent, curPlayer, "Quit");
             }
-            if (players[curPlayer].mode == "multiplayer") {
-                connectedMPClients--;
-                players[curPlayer].mode = null;
-                if (players[opponent] != null) {
-                    
-                    let games;
-                    let allGameStats;
-                    if (players[opponent].start) {
-                        console.log("error here1")
-                        games = await findLast10GamesForUser(opponent);
-                        allGameStats = await calculateWinRate(opponent);
-                        
-                    }
-                    if (players[curPlayer].start == true){ 
+            if (players[curPlayer].mode == "multiplayer") { //   
+                if (players[opponent] != null && players[opponent].start == true && players[curPlayer].start == true) { 
+                    let games = await findLast10GamesForUser(opponent);
+                    let allGameStats = await calculateWinRate(opponent);
                     const message = "Your opponent has quit, you have won!";
-                    io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);
-                    }
+                    io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);      
+                }
+                else if (players[opponent] != null && players[opponent].start == false && players[curPlayer].start == false) {
+                    io.to(players[opponent].socketId).emit("message", "Your opponent left")
                 }
             }
 
-            else if (players[opponent] != null && players[curPlayer].mode == "singleplayer") { // what is this ?
-                delete players[opponent];
+            else if (players[opponent] != null && players[opponent] instanceof Computer) { 
+                delete players[opponent]; // delete the AI
             }
             opponent = null;
             let games;
@@ -1551,8 +1551,10 @@ io.on('connection', (socket) => {
             console.error(`error handling game end DB`)
         }
     })
+
     socket.on("oquit", async () => {
-        players[curPlayer].reset();
+        // players[curPlayer].reset();
+        players[curPlayer].start = false;
         connectedMPClients--;
         opponent = null;
     })

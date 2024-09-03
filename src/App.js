@@ -107,7 +107,7 @@ const App = () => {
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {} })
       document.title = "BattleShip";
     })
-    socket.current.on('disconnect', () => {
+    socket.current.on('disconnect', () => { // might need to prepare for reconnection
       console.log('Disconnected from server');
       setServerDown(true);
       setIsLoggedIn(false);
@@ -117,7 +117,9 @@ const App = () => {
     });
     socket.current.on("oquit", (msg, games, allGameStats) => {
       setTurn(false);
-      setInfo(msg);
+      if (msg != null) {
+        setInfo(msg);
+      }
       if (games != null) {
         setHomeStats((prevHomeStats) => ({
           ...prevHomeStats,
@@ -625,14 +627,14 @@ const App = () => {
     <>
       <h1>
         {`BattleShip ${singlePlayer
-            ? "Single Player vs Computer"
-            : multiPlayer
-              ? "Two Player Mode"
-              : isLoggedIn
-                ? ""
-                : register
-                  ? "Register"
-                  : "Login"
+          ? "Single Player vs Computer"
+          : multiPlayer
+            ? "Two Player Mode"
+            : isLoggedIn
+              ? ""
+              : register
+                ? "Register"
+                : "Login"
           }`}
       </h1>    {isLoggedIn ? (
         <>

@@ -68,6 +68,26 @@ to sets to improve efficiency.
 
 - fix findLast10GamesForUser and etc 
 
-twoplayer mode when one player click home in Game not finish ->
-	       when one player click home in Game finish ->
-	       when the other player click home in Game finish -> 
+twoplayer mode when one player click home in Game not finish -> 
+    check if game is over ->  
+    if it is -> reset player in the players array on server, and send signal to front-end to reset  
+    if it isnt -> 
+
+twoplayer mode when one player click home in Game finish ->
+
+twoplayer mode when the other player click home in Game finish -> 
+
+
+reset the player in the players array in the server side, only when the player
+press the home button. 
+
+-   I was thinking that home button should be done through axios and express rather than socket.io,
+    but then the definition of the curPlayer and opponent inside socket.io is preventing this.
+    The reason I want to have curPlayer and opponent inside the server and socket.io is, I am thinking
+    if someone sends a another user's id through some method and pretend to be that user then that's 
+    not good.
+
+-   I should set opponent.start to false for multiplayer in home socket, if game has ended and the 
+    first player clicked home
+    -   I need to check why oquit doesn't set player.start to false and how disconnect socket 
+        doesn't set player.start to false;
