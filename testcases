@@ -1,8 +1,10 @@
 -   if the player closes the browser after the game is over and 
     home button is not clicked by the player who closes browser
 
--   if the player clicks multiplayer and didnt click start, 
+-   if the player clicks multiplayer and didn't click start, 
     clicked home instead
+    -   if the player clicks singleplayer and didn't click start,
+        clicked home instead
 
 -   if the player clicks multiplayer and clicks start, finds the opponent, 
     but game didn't start due to incomplete ship placement,
