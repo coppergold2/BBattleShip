@@ -91,3 +91,5 @@ press the home button.
     first player clicked home
     -   I need to check why oquit doesn't set player.start to false and how disconnect socket 
         doesn't set player.start to false;
+
+-   When you register as a new user the first time home screen Total Game Stats doesn't show any number 
