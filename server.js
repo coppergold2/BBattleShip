@@ -1530,7 +1530,7 @@ io.on('connection', (socket) => {
                 await findLast10GamesForUser(opponent), 
                 await calculateWinRate(opponent));
             } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) {
-              io.to(players[opponent].socketId).emit("message", "Your opponent left");
+              io.to(players[opponent].socketId).emit("info", "Your opponent left");
             }
 
             while(connectedMPClients != 0 && connectedMPClients > 0) {
