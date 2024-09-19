@@ -1518,7 +1518,7 @@ io.on('connection', (socket) => {
     socket.on("home", async () => {
         try {      
           // Check if the game has ended for the current player
-          if (players[curPlayer].start && players[opponent].start) {
+          if (players[curPlayer].start && (players[opponent].start || players[opponent] instanceof Computer)) {
             await handleGameEndDB(opponent, curPlayer, "Quit");
           }
       

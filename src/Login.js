@@ -7,9 +7,13 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
   const handleSubmit = (e) => {
     e.preventDefault();
     if (register) {
-      handleRegister(form.username, form.email, form.password);
+      if(form.username.trim() && form.email.trim()){
+      handleRegister(form.username.trim(), form.email.trim(), form.password);
+      }
     } else {
-      handleLogin(form.email, form.password);
+      if(form.email.trim()){
+      handleLogin(form.email.trim(), form.password);
+      }
     }
   };
 
