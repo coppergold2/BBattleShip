@@ -91,3 +91,10 @@ press the home button.
     first player clicked home
     -   I need to check why oquit doesn't set player.start to false and how disconnect socket 
         doesn't set player.start to false;
+
+-   When you register as a new user the first time home screen Total Game Stats doesn't show any number 
+
+-   fix the issue where the click to register and back to login doesn't reset the fields
+
+-   two new player join the game playing, player 1 won the game, and player 2 click home first,
+    it shows on player 2's home screen "Your opponent left"  - this should be fix try this !

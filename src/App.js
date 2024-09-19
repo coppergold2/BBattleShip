@@ -32,7 +32,7 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: {} });
+  const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} });
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({
     username: "",
@@ -104,7 +104,7 @@ const App = () => {
     socket.current.on('logout', () => {
       reset();
       setIsLoggedIn(false);
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {} })
+      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
       document.title = "BattleShip";
     })
     socket.current.on('disconnect', () => { // might need to prepare for reconnection
@@ -113,7 +113,7 @@ const App = () => {
       setIsLoggedIn(false);
       document.title = "BattleShip"
       reset();
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {} })
+      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
     });
     socket.current.on("oquit", (msg, games, allGameStats) => {
       setTurn(false);
@@ -527,9 +527,7 @@ const App = () => {
   const handleNewUserClick = () => {
     if (register == false) {
       setRegister(true)
-    }
-    else {
-      sendMessage("new")
+      resetForm()
     }
   }
 
@@ -618,6 +616,7 @@ const App = () => {
   };
   const handleBackClick = () => {
     setRegister(false);
+    resetForm()
   };
 
   if (serverDown) {

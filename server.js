@@ -1516,46 +1516,49 @@ io.on('connection', (socket) => {
     })
 
     socket.on("home", async () => {
-        try {
-            // const gameEnd = players[curPlayer].start == true ? true : false;
-            if (players[curPlayer].start == true && players[opponent].start == true) {  // to check if the game has ended for this player that clicked home
-                await handleGameEndDB(opponent, curPlayer, "Quit");
-            }
-            if (players[curPlayer].mode == "multiplayer") { //   
-                if (players[opponent] != null && players[opponent].start == true && players[curPlayer].start == true) { 
-                    let games = await findLast10GamesForUser(opponent);
-                    let allGameStats = await calculateWinRate(opponent);
-                    const message = "Your opponent has quit, you have won!";
-                    io.to(players[opponent].socketId).emit("oquit", message, games, allGameStats);      
-                }
-                else if (players[opponent] != null && players[opponent].start == false && players[curPlayer].start == false) {
-                    io.to(players[opponent].socketId).emit("message", "Your opponent left")
-                }
-            }
-
-            else if (players[opponent] != null && players[opponent] instanceof Computer) { 
-                delete players[opponent]; // delete the AI
-            }
-            opponent = null;
-            let games;
-            let allGameStats;
-            if (players[curPlayer].start) {
-                console.log("error here2")
-                games = await findLast10GamesForUser(curPlayer);
-                allGameStats = await calculateWinRate(curPlayer);
+        try {      
+          // Check if the game has ended for the current player
+          if (players[curPlayer].start && (players[opponent].start || players[opponent] instanceof Computer)) {
+            await handleGameEndDB(opponent, curPlayer, "Quit");
+          }
+      
+          // Handle multiplayer mode
+          if (players[curPlayer].mode === "multiplayer") {  
+            if (players[opponent] && players[opponent].start && players[curPlayer].start) {
+              io.to(players[opponent].socketId).emit("oquit", 
+                "Your opponent has quit, you have won!", 
+                await findLast10GamesForUser(opponent), 
+                await calculateWinRate(opponent));
+            } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) {
+              io.to(players[opponent].socketId).emit("info", "Your opponent left");
             }
 
-            socket.emit("home", games, allGameStats);
-            players[curPlayer].reset();
+            while(connectedMPClients != 0 && connectedMPClients > 0) {
+                connectedMPClients --;
+            }
+          } 
+          // Handle single player mode
+          else if (players[opponent] && players[opponent] instanceof Computer) {
+            delete players[opponent];
+          }
+      
+          opponent = null;
+          let games, allGameStats;
+          if (players[curPlayer].start) {
+            games = await findLast10GamesForUser(curPlayer);
+            allGameStats = await calculateWinRate(curPlayer);
+          }
+          socket.emit("home", games, allGameStats);
+          players[curPlayer].reset();
         } catch (err) {
-            console.error(`error handling game end DB`)
+          console.error(`error handling game end DB: ${err}`);
         }
-    })
+      });
 
     socket.on("oquit", async () => {
         // players[curPlayer].reset();
         players[curPlayer].start = false;
-        connectedMPClients--;
+        // connectedMPClients--;
         opponent = null;
     })
 });
