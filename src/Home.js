@@ -63,7 +63,7 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, h
                                     <p><strong>Opponent Misses:</strong> {isCurrentPlayerWinner ? match.loser.numMisses : match.winner.numMisses}</p>
                                 </div>
                             </div>
-                            <p><strong>Game Type:</strong> {match.loser.isComputer ? 'Player vs Computer' : 'Player vs Player'}</p>
+                            <p><strong>Game Type:</strong> {match.loser.isComputer || match.winner.isComputer ? 'Player vs Computer' : 'Player vs Player'}</p>
                             <p><strong>Status:</strong> {match.isCompleted ? 'Completed' : 'Incomplete'}</p>
                         </div>
                     );
