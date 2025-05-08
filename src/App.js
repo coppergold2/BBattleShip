@@ -33,6 +33,7 @@ const App = () => {
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} });
+  const [numMultiPlayer, setNumMultiplayer] = useState(0);
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({
     username: "",
@@ -76,6 +77,7 @@ const App = () => {
       onumHits: 0,
       onumMisses: 0,
     });
+    setNumMultiplayer(0);
   }
 
   useEffect(() => {
@@ -90,23 +92,23 @@ const App = () => {
         socket.current.emit('heartbeat');
       }
     }, 30000);
-    socket.current.on('login', (id, averageGameOverSteps, games, userName, allGameStats) => {
-      setIsLoggedIn(true);
-      setHomeStats((prevHomeStats) => ({
-        ...prevHomeStats,
-        id: id,
-        userName: userName,
-        lastTenGames: games,
-        allGameStats: allGameStats
-      }));
-    })
+    // socket.current.on('login', (id, averageGameOverSteps, games, userName, allGameStats) => {
+    //   setIsLoggedIn(true);
+    //   setHomeStats((prevHomeStats) => ({
+    //     ...prevHomeStats,
+    //     id: id,
+    //     userName: userName,
+    //     lastTenGames: games,
+    //     allGameStats: allGameStats
+    //   }));
+    // })
 
-    socket.current.on('logout', () => {
-      reset();
-      setIsLoggedIn(false);
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
-      document.title = "BattleShip";
-    })
+    // socket.current.on('logout', () => {
+    //   reset();
+    //   setIsLoggedIn(false);
+    //   setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
+    //   document.title = "BattleShip";
+    // })
     socket.current.on('disconnect', () => { // might need to prepare for reconnection
       console.log('Disconnected from server');
       setServerDown(true);
@@ -114,6 +116,7 @@ const App = () => {
       document.title = "BattleShip"
       reset();
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
+      console.log("disconnect triggered");
     });
     socket.current.on("oquit", (msg, games, allGameStats) => {
       setTurn(false);
@@ -138,6 +141,10 @@ const App = () => {
         }));
       }
       reset();
+    })
+    socket.current.on("updateMultiplayerCount", (connectedMPClients) => {
+      console.log(connectedMPClients);
+      setNumMultiplayer(connectedMPClients)
     })
     socket.current.on("message", (messages) => {
       setMessages(messages);
@@ -481,6 +488,24 @@ const App = () => {
       document.removeEventListener('contextmenu', handleRightClick);
     };
   })
+
+  
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    console.log("runned")
+    if (token) {
+        axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
+            .then(res => {
+              //setUser(res.data.user);
+              
+              setIsLoggedIn(true);
+            })
+            .catch(() => {
+                localStorage.removeItem('token');
+            });
+    }
+}, []);
+
   const handleCellClick = (id) => {
     socket.current.emit("attack", id);
   }
@@ -572,6 +597,7 @@ const App = () => {
           lastTenGames: response.data.games,
           allGameStats: response.data.allGameStats
         }));
+        setNumMultiplayer(response.data.connectedMPClients);
         resetForm(); // Reset the form
       })
       .catch(error => {
@@ -639,7 +665,7 @@ const App = () => {
         <>
           <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
           {(!singlePlayer && !multiPlayer) ?
-            <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} /> :
+            <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} numMultiPlayer={numMultiPlayer} /> :
             (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
               <Game
                 socket={socket.current}

@@ -1,6 +1,6 @@
 import React from "react";
 
-const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, homeStats }) => {
+const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, homeStats, numMultiPlayer }) => {
     const calculateWinLoss = () => {
         const games = homeStats.lastTenGames;
         console.log("homeStats.id:", homeStats.id)
@@ -77,6 +77,7 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, h
             }}>
                 <button onClick={handleSinglePlayerClick}>Single Player vs Computer</button>
                 <button onClick={handleMultiPlayerClick}>Two Player Mode</button>
+                <p style={{marginLeft: '5px', color: 'white' }}>{numMultiPlayer}/2</p>
             </div>
         </>
     );

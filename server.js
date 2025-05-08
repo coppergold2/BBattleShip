@@ -900,7 +900,7 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
                 const allGameStats = await calculateWinRate(hitter)
                 io.to(players[hitter].socketId).emit("win", "You win !", games, allGameStats);
                 players[hitter].start = false;
-                players[hitter].mode = "";
+                //players[hitter].mode = "";
             }
             if (players[receiver] instanceof Player) {
                 const games = await findLast10GamesForUser(receiver)
@@ -912,12 +912,12 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
                     allGameStats
                 );
                 players[receiver].start = false;
-                players[hitter].mode = "";
+                //players[hitter].mode = "";
             }
-            if (players[hitter] instanceof Player && players[receiver] instanceof Player) {
-                connectedMPClients -= 2; // did this so that other players can play multiplayer since only two at a time
-                // need to reset hitter and receiver or should I do it when they press home ? 
-            }
+            // if (players[hitter] instanceof Player && players[receiver] instanceof Player) {
+            //     connectedMPClients -= 2; // did this so that other players can play multiplayer since only two at a time
+            //     // need to reset hitter and receiver or should I do it when they press home ? 
+            // }
         }
         else if (players[hitter] instanceof Computer) {
             handleAIDestroy(hitter, result)
@@ -1027,9 +1027,8 @@ async function calculateWinRate(userId) {
 
         // Calculate the total number of games, wins, and losses
         const totalGames = games.length;
-        const wins = games.filter(game => game.winner.user && game.winner.user.toString() === userId).length;
-        const losses = games.filter(game => game.loser.user && game.loser.user.toString() === userId).length;
-
+        const wins = games.filter(game => game.winner.user && game.winner.user.toString() === userId.toString()).length;
+        const losses = games.filter(game => game.loser.user && game.loser.user.toString() === userId.toString()).length;
         // Calculate win rate
         const winRate = totalGames > 0 ? (wins / totalGames) * 100 : 0;
 
@@ -1080,6 +1079,11 @@ app.post('/login', async (req, res) => {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
   
+      // Check if already logged in
+      if (user.isLoggedIn) {
+        return res.status(403).json({ message: 'User is already logged in elsewhere' });
+      }
+  
       // Check password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
@@ -1089,23 +1093,44 @@ app.post('/login', async (req, res) => {
       // Create and sign a JWT
       const token = jwt.sign(
         { userId: user._id },
-        process.env.JWT_SECRET, // Make sure to set this in your environment variables
-        { expiresIn: '1h' } // Token expires in 1 hour
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
       );
   
       // Update user's isLoggedIn status and lastSeen
       user.isLoggedIn = true;
       user.lastSeen = new Date();
       await user.save();
-      const games = await findLast10GamesForUser(user._id)
-      const allGameStats = await calculateWinRate(user._id)
-      // Send the token to the client
-      res.json({ message: 'Login successful', token, id: user._id, userName : user.userName, games: games, allGameStats: allGameStats });
+  
+      const games = await findLast10GamesForUser(user._id);
+      const allGameStats = await calculateWinRate(user._id);
+      console.log("allGameStats", allGameStats)
+      res.json({
+        message: 'Login successful',
+        token,
+        id: user._id,
+        userName: user.userName,
+        games: games,
+        allGameStats: allGameStats,
+        connectedMPClients : connectedMPClients
+      });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ message: 'Server error during login' });
     }
   });
+  
+  app.get('/api/verifyToken', (req, res) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) return res.sendStatus(401);
+    jwt.verify(token, 'secret', (err, user) => {
+        if (err) return res.sendStatus(403);
+        res.json({ user });
+    });
+});
+
   app.post('/register', async (req, res) => {
     try {
       const { userName, email, password } = req.body;
@@ -1181,76 +1206,76 @@ app.post('/login', async (req, res) => {
 io.on('connection', (socket) => {
     let opponent;
     let curPlayer;
-    socket.on("login", async (userId) => {
-        try {
-            console.log("userId:", userId)
-            const user = await User.findOne({ _id: userId });
-            if (user) {
-                if (user.isLoggedIn == true) {
-                    socket.emit('alert', "This user is already logged in");
-                }
-                else {
-                    user.isLoggedIn = true;
-                    user.lastSeen = new Date();
-                    await user.save(); // Save the updated user to the database
-                    curPlayer = user._id.toString()
-                    const games = await findLast10GamesForUser(userId)
-                    const allGameStats = await calculateWinRate(curPlayer)
-                    socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
-                }
-            } else {
-                socket.emit('alert', "invalid ID, please retry or be a new user ")
-            }
-        }
-        catch (err) {
-            socket.emit('alert', 'An error occurred while logging in');
-        }
-    })
-    socket.on("new", async (userName) => {
-        try {
-            const newUser = new User();
-            newUser.isLoggedIn = true;
-            newUser.userName = userName;
-            // Save the new user to the database
-            await newUser.save();
-            console.log('User added to the database');
-            curPlayer = newUser._id.toString();
-            // Emit the user's ID after successful save
-            socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, { wins: 0, losses: 0, winRate: 0 });
-        } catch (err) {
-            console.log('Error adding user to the database:', err);
-        }
-    });
-    socket.on("logout", async () => {
-        try {
-            if (curPlayer) {
-                // Find the user by curPlayer (which contains the userId)
-                const user = await User.findOne({ _id: curPlayer });
+    // socket.on("login", async (userId) => {
+    //     try {
+    //         console.log("userId:", userId)
+    //         const user = await User.findOne({ _id: userId });
+    //         if (user) {
+    //             if (user.isLoggedIn == true) {
+    //                 socket.emit('alert', "This user is already logged in");
+    //             }
+    //             else {
+    //                 user.isLoggedIn = true;
+    //                 user.lastSeen = new Date();
+    //                 await user.save(); // Save the updated user to the database
+    //                 curPlayer = user._id.toString()
+    //                 const games = await findLast10GamesForUser(userId)
+    //                 const allGameStats = await calculateWinRate(curPlayer)
+    //                 socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
+    //             }
+    //         } else {
+    //             socket.emit('alert', "invalid ID, please retry or be a new user ")
+    //         }
+    //     }
+    //     catch (err) {
+    //         socket.emit('alert', 'An error occurred while logging in');
+    //     }
+    // })
+    // socket.on("new", async (userName) => {
+    //     try {
+    //         const newUser = new User();
+    //         newUser.isLoggedIn = true;
+    //         newUser.userName = userName;
+    //         // Save the new user to the database
+    //         await newUser.save();
+    //         console.log('User added to the database');
+    //         curPlayer = newUser._id.toString();
+    //         // Emit the user's ID after successful save
+    //         socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, { wins: 0, losses: 0, winRate: 0 });
+    //     } catch (err) {
+    //         console.log('Error adding user to the database:', err);
+    //     }
+    // });
+    // socket.on("logout", async () => {
+    //     try {
+    //         if (curPlayer) {
+    //             // Find the user by curPlayer (which contains the userId)
+    //             const user = await User.findOne({ _id: curPlayer });
 
-                if (user) {
-                    // Set the user's isLoggedIn status to false
-                    user.isLoggedIn = false;
-                    await user.save();
-                }       
+    //             if (user) {
+    //                 // Set the user's isLoggedIn status to false
+    //                 user.isLoggedIn = false;
+    //                 await user.save();
+    //             }       
 
-                // Clean up the players object if the player exists
-                if (players[curPlayer] != null) {
-                    delete players[curPlayer];
-                }
+    //             // Clean up the players object if the player exists
+    //             if (players[curPlayer] != null) {
+    //                 delete players[curPlayer];
+    //             }
 
-                // Reset curPlayer
-                curPlayer = null;
+    //             // Reset curPlayer
+    //             curPlayer = null;
 
-                // Emit the logout event
-                socket.emit("logout");
-            } else {
-                socket.emit("alert", "No user is currently logged in");
-            }
-        } catch (err) {
-            console.error(err); // Log the error for debugging
-            socket.emit('alert', 'An error occurred while logging out');
-        }
-    });
+    //             // Emit the logout event
+    //             socket.emit("logout");
+    //         } else {
+    //             socket.emit("alert", "No user is currently logged in");
+    //         }
+    //     } catch (err) {
+    //         console.error(err); // Log the error for debugging
+    //         socket.emit('alert', 'An error occurred while logging out');
+    //     }
+    // });
     socket.on('heartbeat', async () => {
         if (curPlayer) {
             await User.updateOne({ _id: curPlayer }, { $set: { lastSeen: new Date() } });
@@ -1277,6 +1302,7 @@ io.on('connection', (socket) => {
             }
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
+            io.emit('updateMultiplayerCount',connectedMPClients);
         }
         console.log("connectedMPClients", connectedMPClients)
     })
@@ -1533,9 +1559,10 @@ io.on('connection', (socket) => {
               io.to(players[opponent].socketId).emit("info", "Your opponent left");
             }
 
-            while(connectedMPClients != 0 && connectedMPClients > 0) {
+            if(connectedMPClients > 0) {
                 connectedMPClients --;
             }
+            io.emit('updateMultiplayerCount',connectedMPClients)
           } 
           // Handle single player mode
           else if (players[opponent] && players[opponent] instanceof Computer) {
