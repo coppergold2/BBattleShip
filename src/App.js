@@ -579,6 +579,7 @@ const App = () => {
       setIsLoggedIn(false);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {} })
       document.title = "BattleShip";
+      localStorage.removeItem('token');
     }).catch(error => {
       alert('logout error:', error.response ? error.response.data : error.message)
     })
