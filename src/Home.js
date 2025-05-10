@@ -3,7 +3,6 @@ import React from "react";
 const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, homeStats, numMultiPlayer }) => {
     const calculateWinLoss = () => {
         const games = homeStats.lastTenGames;
-        console.log("homeStats.id:", homeStats.id)
         const userId = homeStats.id;
         let wins = 0;
         let losses = 0;
@@ -20,7 +19,7 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, h
     };
 
     const { wins, losses, winRate } = calculateWinLoss();
-    console.log("homeStats.last10Games in homes", homeStats.allGameStats.losses)
+
     return (
         <>
             <button className="home-button" onClick={handleLogout}>

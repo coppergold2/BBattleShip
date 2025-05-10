@@ -1120,14 +1120,19 @@ app.post('/login', async (req, res) => {
     }
   });
   
-  app.get('/api/verifyToken', (req, res) => {
+  app.get('/api/verifyToken', async (req, res) => {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, async(err, user) => {
         if (err) return res.sendStatus(403);
-        res.json({ user });
+        // console.log("user", user)
+        const curUser = await User.findById(user.userId)
+        // console.log("curUser", curUser)
+        const games = await findLast10GamesForUser(user.userId);
+        const allGameStats = await calculateWinRate(user.userId);
+        res.json({ id: user.userId, userName: curUser.userName, games: games, allGameStats: allGameStats, connectedMPClients: connectedMPClients });
     });
 });
 
@@ -1294,7 +1299,7 @@ io.on('connection', (socket) => {
     socket.on("multiplayer", (id) => {
         curPlayer = id;
         if (connectedMPClients >= maxConnections) {
-            socket.emit("full", "sorry, the game room is currently full. Please try again later.")
+            socket.emit("alert", "sorry, the game room is currently full. Please try again later.")
         } else {
             if (players[curPlayer] == null) {
                 players[curPlayer] = new Player(curPlayer);
@@ -1303,6 +1308,7 @@ io.on('connection', (socket) => {
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
             io.emit('updateMultiplayerCount',connectedMPClients);
+            socket.emit("multiplayer")
         }
         console.log("connectedMPClients", connectedMPClients)
     })
@@ -1403,7 +1409,7 @@ io.on('connection', (socket) => {
                 socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
-            console.log("curPlayer:", curPlayer)
+            // console.log("curPlayer:", curPlayer)
             opponent = checkForMPOpponent(curPlayer);
             if (players[curPlayer].numPlaceShip != 5) {
                 socket.emit("not enough ship", "Please place all your ship before starting")
@@ -1415,7 +1421,7 @@ io.on('connection', (socket) => {
                 socket.emit("info", "Your opponent is not ready yet, please wait");
             }
             else if (opponent != null && players[opponent].numPlaceShip == 5) {
-                console.log("players array", players)
+                // console.log("players array", players)
                 players[curPlayer].start = true;
                 players[opponent].start = true;
                 socket.emit("start");

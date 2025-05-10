@@ -77,7 +77,6 @@ const App = () => {
       onumHits: 0,
       onumMisses: 0,
     });
-    setNumMultiplayer(0);
   }
 
   useEffect(() => {
@@ -115,6 +114,7 @@ const App = () => {
       setIsLoggedIn(false);
       document.title = "BattleShip"
       reset();
+      setNumMultiplayer(0);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
       console.log("disconnect triggered");
     });
@@ -143,8 +143,9 @@ const App = () => {
       reset();
     })
     socket.current.on("updateMultiplayerCount", (connectedMPClients) => {
-      console.log(connectedMPClients);
+      console.log("updateMultiplayerCount: ", connectedMPClients);
       setNumMultiplayer(connectedMPClients)
+      console.log(numMultiPlayer)
     })
     socket.current.on("message", (messages) => {
       setMessages(messages);
@@ -231,6 +232,17 @@ const App = () => {
     socket.current.on("full", (msg) => {
       setGameFull(true)
       setInfo(msg)
+    })
+    socket.current.on("multiplayer", () => {
+      setMultiPlayer(true);
+      setInfo("Please Place your ships")
+      setPbCellClass(
+        Array.from({ length: 100 }, () => (
+          {
+            shipName: null,
+            ohit: false,
+            omiss: false
+          })))
     })
     socket.current.on("not enough ship", (msg) => {
       setInfo(msg)
@@ -394,16 +406,7 @@ const App = () => {
         })))
   }
   const handleMultiPlayerClick = () => {
-    setMultiPlayer(true);
     socket.current.emit("multiplayer", homeStats.id)
-    setInfo("Please Place your ships")
-    setPbCellClass(
-      Array.from({ length: 100 }, () => (
-        {
-          shipName: null,
-          ohit: false,
-          omiss: false
-        })))
   }
   const handleHomeClick = () => {
     socket.current.emit("home")
@@ -489,16 +492,27 @@ const App = () => {
     };
   })
 
-  
+  useEffect(() => {
+    document.title = isLoggedIn
+      ? `BattleShip - ${homeStats.userName}`
+      : "BattleShip";
+  }, [isLoggedIn]); 
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     console.log("runned")
     if (token) {
         axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
             .then(res => {
-              //setUser(res.data.user);
-              
               setIsLoggedIn(true);
+              setHomeStats((prevHomeStats) => ({
+                ...prevHomeStats,
+                id: res.data.id,
+                userName: res.data.userName,
+                lastTenGames: res.data.games,
+                allGameStats: res.data.allGameStats
+              }));
+              setNumMultiplayer(res.data.connectedMPClients);
             })
             .catch(() => {
                 localStorage.removeItem('token');
@@ -577,6 +591,7 @@ const App = () => {
     axios.post('/logout', { id: homeStats.id }).then(response => {
       reset()
       setIsLoggedIn(false);
+      setNumMultiplayer(0);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {} })
       document.title = "BattleShip";
       localStorage.removeItem('token');
