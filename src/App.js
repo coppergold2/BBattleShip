@@ -16,7 +16,8 @@ const App = () => {
   const [start, setStart] = useState(false);
   const [obCellClass, setObCellClass] = useState(null);
   const [pbCellClass, setPbCellClass] = useState(null);
-  const [multiPlayerGameFull, setGameFull] = useState(false);
+  //const [multiPlayerGameFull, setGameFull] = useState(false);
+  const [chatEnable, setChatEnable] = useState(true);
   const [serverDown, setServerDown] = useState(true);
   const [placedShips, setPlacedShips] = useState([]);
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
@@ -63,7 +64,7 @@ const App = () => {
     setStart(false);
     setObCellClass(null);
     setPbCellClass(null);
-    setGameFull(false);
+    //setGameFull(false);
     setPlacedShips([]);
     setActiveShip(null);
     setIsFlipped(false);
@@ -77,6 +78,7 @@ const App = () => {
       onumHits: 0,
       onumMisses: 0,
     });
+    setChatEnable(true);
   }
 
   useEffect(() => {
@@ -116,19 +118,22 @@ const App = () => {
       reset();
       setNumMultiplayer(0);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
+      localStorage.removeItem('token');
       console.log("disconnect triggered");
     });
     socket.current.on("oquit", (msg, games, allGameStats) => {
-      setTurn(false);
+      
       if (msg != null) {
         setInfo(msg);
       }
       if (games != null) {
+        setTurn(false);
         setHomeStats((prevHomeStats) => ({
           ...prevHomeStats,
           lastTenGames: games,
           allGameStats: allGameStats
         }));
+        setChatEnable(false);
       }
       socket.current.emit("oquit");
     })
@@ -216,7 +221,7 @@ const App = () => {
       setInfo("You started the game, it's your turn to attack")
     })
     socket.current.on('ostart', () => {
-      socket.current.emit("findOpponent");
+      //socket.current.emit("findOpponent");
       setObCellClass(
         Array.from({ length: 100 }, () => (
           {
@@ -229,9 +234,15 @@ const App = () => {
       setStart(true)
       setTurn(false)
     })
-    socket.current.on("full", (msg) => {
-      setGameFull(true)
-      setInfo(msg)
+    // socket.current.on("full", (msg) => {
+    //   setGameFull(true)
+    //   setInfo(msg)
+    // })
+    socket.current.on("findOpponent", () => {
+      socket.current.emit("findOpponent");
+    })
+    socket.current.on("removeOpponent", () => {
+      socket.current.emit("removeOpponent");
     })
     socket.current.on("multiplayer", () => {
       setMultiPlayer(true);
@@ -389,6 +400,9 @@ const App = () => {
     // Cleanup function to disconnect when the component unmounts
     return () => {
       clearInterval(heartbeatInterval);
+      if(homeStats.id != "") {
+        socket.current.emit("userId", homeStats.id)
+      }
       socket.current.disconnect();
     };
   }, []);
@@ -547,10 +561,12 @@ const App = () => {
 
   const sendMessage = (type) => {
     if (input.trim()) {
+      if (!(type == 'message' && chatEnable == false)){
       const message = input.trim();
       socket.current.emit(type, message);
       setInput('');
     }
+  }
   }
 
   // const sendForm = (type) => {
@@ -682,7 +698,7 @@ const App = () => {
           <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
           {(!singlePlayer && !multiPlayer) ?
             <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} numMultiPlayer={numMultiPlayer} /> :
-            (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer && !multiPlayerGameFull) ?
+            (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer) ?
               <Game
                 socket={socket.current}
                 multiPlayer={multiPlayer}

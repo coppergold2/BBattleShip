@@ -87,6 +87,7 @@ class Player {
         this.messages = [];
         this.allHitLocations = [];
         this.activeShip = null;
+        this.mode = "";
     }
     displayGrid() {
         let board = this.board;
@@ -1101,7 +1102,7 @@ app.post('/login', async (req, res) => {
       user.isLoggedIn = true;
       user.lastSeen = new Date();
       await user.save();
-  
+      console.log("user.isLoggedIn", user.isLoggedIn);
       const games = await findLast10GamesForUser(user._id);
       const allGameStats = await calculateWinRate(user._id);
       console.log("allGameStats", allGameStats)
@@ -1129,6 +1130,9 @@ app.post('/login', async (req, res) => {
         if (err) return res.sendStatus(403);
         // console.log("user", user)
         const curUser = await User.findById(user.userId)
+        curUser.lastSeen = new Date();
+        curUser.isLoggedIn = true;
+        await curUser.save();    
         // console.log("curUser", curUser)
         const games = await findLast10GamesForUser(user.userId);
         const allGameStats = await calculateWinRate(user.userId);
@@ -1307,7 +1311,13 @@ io.on('connection', (socket) => {
             }
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
+            if (connectedMPClients == 2){
+            opponent = checkForMPOpponent();
+            io.to(players[opponent].socketId).emit("findOpponent")
+            io.to(players[opponent].socketId).emit("info", "A player has joined")
+            }
             io.emit('updateMultiplayerCount',connectedMPClients);
+            
             socket.emit("multiplayer")
         }
         console.log("connectedMPClients", connectedMPClients)
@@ -1400,6 +1410,7 @@ io.on('connection', (socket) => {
         }
     })
     socket.on("start", () => {
+        console.log("opponent in start:", opponent ? players[opponent] : null)
         if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {
             players[curPlayer].numPlaceShip == 5 ?
                 (randomBoatPlacement(opponent), players[opponent].displayGrid(),
@@ -1410,7 +1421,7 @@ io.on('connection', (socket) => {
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
             // console.log("curPlayer:", curPlayer)
-            opponent = checkForMPOpponent(curPlayer);
+            // opponent = checkForMPOpponent(curPlayer);
             if (players[curPlayer].numPlaceShip != 5) {
                 socket.emit("not enough ship", "Please place all your ship before starting")
             }
@@ -1418,6 +1429,7 @@ io.on('connection', (socket) => {
                 socket.emit("info", "Waiting for a player to join");
             }
             else if (opponent != null && players[opponent].numPlaceShip != 5) {
+                console.log("opponent should be null right? ", opponent)
                 socket.emit("info", "Your opponent is not ready yet, please wait");
             }
             else if (opponent != null && players[opponent].numPlaceShip == 5) {
@@ -1433,7 +1445,7 @@ io.on('connection', (socket) => {
             }
 
         }
-        players[curPlayer].displayGrid()
+        // players[curPlayer].displayGrid()
         gameStartTime = new Date();
     })
     socket.on("findOpponent", () => {
@@ -1441,6 +1453,10 @@ io.on('connection', (socket) => {
         players[curPlayer].displayGrid()
         players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) });
         socket.emit("message", players[curPlayer].messages)
+    })
+    socket.on("removeOpponent", () => {
+        console.log("set opponent to null", opponent)
+        opponent = null;
     })
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
@@ -1499,8 +1515,18 @@ io.on('connection', (socket) => {
             io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
+
+    socket.on("userId", (userId) => {
+        if (curPlayer == null) {
+            curPlayer = userId;
+        }
+    })
     socket.on('disconnect', async () => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         if (curPlayer != null && players[curPlayer] != null) {  
+            if (players[curPlayer].mode != null && players[curPlayer].mode == "multiplayer") {
+                connectedMPClients --;
+                io.emit('updateMultiplayerCount',connectedMPClients);
+            }
             if (players[curPlayer].mode != null
                 && players[curPlayer].mode == "multiplayer"
                 && opponent != null 
@@ -1556,26 +1582,32 @@ io.on('connection', (socket) => {
       
           // Handle multiplayer mode
           if (players[curPlayer].mode === "multiplayer") {  
-            if (players[opponent] && players[opponent].start && players[curPlayer].start) {
-              io.to(players[opponent].socketId).emit("oquit", 
+            if (players[opponent] && players[opponent].start && players[curPlayer].start) { // both player started game and game have not finished
+              io.to(players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
                 "Your opponent has quit, you have won!", 
                 await findLast10GamesForUser(opponent), 
                 await calculateWinRate(opponent));
-            } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) {
+                connectedMPClients -=2;
+            } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) { // this means that if both player finish their game or they haven't started playing yet
               io.to(players[opponent].socketId).emit("info", "Your opponent left");
-            }
-
-            if(connectedMPClients > 0) {
-                connectedMPClients --;
+              
+              if(players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5){
+                connectedMPClients -=2;
+              }
+              else{
+              connectedMPClients --;
+              io.to(players[opponent].socketId).emit("removeOpponent");
+              }
             }
             io.emit('updateMultiplayerCount',connectedMPClients)
           } 
-          // Handle single player mode
+          // Handle single player mode, deleting computer player in players array
           else if (players[opponent] && players[opponent] instanceof Computer) {
             delete players[opponent];
           }
       
           opponent = null;
+          console.log("opponent is set to null in home in server")
           let games, allGameStats;
           if (players[curPlayer].start) {
             games = await findLast10GamesForUser(curPlayer);
@@ -1583,21 +1615,23 @@ io.on('connection', (socket) => {
           }
           socket.emit("home", games, allGameStats);
           players[curPlayer].reset();
+          players[curPlayer].mode = ""
         } catch (err) {
           console.error(`error handling game end DB: ${err}`);
         }
       });
 
-    socket.on("oquit", async () => {
-        // players[curPlayer].reset();
+    socket.on("oquit", () => {
+        players[curPlayer].reset();
         players[curPlayer].start = false;
-        // connectedMPClients--;
+        //connectedMPClients--;
+        console.log("opponent has set to null in oquit")
         opponent = null;
     })
 });
 
 setInterval(async () => {
-    const timeout = 60 * 1000; // 60 seconds timeout for example
+    const timeout = 600 * 1000; // 60 seconds timeout for example
     const inactiveSince = new Date(Date.now() - timeout);
 
     try {
