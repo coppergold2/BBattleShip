@@ -133,7 +133,6 @@ const App = () => {
           lastTenGames: games,
           allGameStats: allGameStats
         }));
-        setChatEnable(false);
       }
       socket.current.emit("oquit");
     })
@@ -221,7 +220,7 @@ const App = () => {
       setInfo("You started the game, it's your turn to attack")
     })
     socket.current.on('ostart', () => {
-      //socket.current.emit("findOpponent");
+      socket.current.emit("ostart");
       setObCellClass(
         Array.from({ length: 100 }, () => (
           {
