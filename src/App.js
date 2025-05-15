@@ -6,7 +6,7 @@ import Home from './Home'
 import Login from './Login'
 import axios from 'axios'
 
-axios.defaults.baseURL = 'http://localhost:3001';
+axios.defaults.baseURL = process.env.REACT_APP_API_URL;
 const App = () => {
   const socket = useRef();
   const [singlePlayer, setSinglePlayer] = useState(false);
@@ -83,7 +83,7 @@ const App = () => {
 
   useEffect(() => {
     // Creates a websocket connection to the server
-    socket.current = socketIOClient('http://localhost:3001', { transports: ['websocket'] });
+    socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, { transports: ['websocket'] });
     socket.current.on('connect', () => {
       console.log('Connected to server');
       setServerDown(false);
