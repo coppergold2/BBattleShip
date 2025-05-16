@@ -17,6 +17,8 @@ h1 {
 
 .game-container {
   display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .boards {
