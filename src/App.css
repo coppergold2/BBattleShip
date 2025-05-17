@@ -28,11 +28,16 @@ h1 {
 }
 
 .boards_before {
-  margin-left: 725px;
+  flex: 0 1 55%;
+  justify-content: end;
+  display: flex;
 }
 
 .command-section{
-  margin-left: 275px;
+  display: flex;
+  flex: 0 1 30%;
+  justify-content: end;
+  align-items: flex-start;
 }
 
 .board-before {
@@ -40,7 +45,6 @@ h1 {
   grid-template-columns: 30px repeat(10, 39px);
   grid-template-rows: 30px repeat(10, 39px);
   gap: 2px;
-  
 }
 
 .board-after {
