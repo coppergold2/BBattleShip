@@ -25,6 +25,7 @@ h1 {
   display: flex;
   /* flex-direction: column; Optional: Align boards vertically */
   width: 80%; /* Adjust as necessary */
+  flex-wrap: wrap-reverse;
 }
 
 .boards_before {
@@ -379,7 +380,7 @@ button:not(:active) {
 .chat-messages {
   border: 1px solid #FFFFFF;
   height: 350px;
-  overflow-y: scroll;
+  overflow-y: auto;
   padding: 10px;
   border-radius: 5px;
   background: #001F1F; /* Dark background for messages container */

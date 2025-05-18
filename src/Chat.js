@@ -1,21 +1,23 @@
 import React, { useEffect, useRef } from 'react';
 
 const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) => {
-  const messagesEndRef = useRef(null);
+  const chatMessagesRef = useRef(null);
 
-  // Function to scroll to the bottom
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = chatMessagesRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(); // Always scroll on new message
   }, [messages]);
 
   return (
     <div className="chat-container">
       <div className="chat-header">Chat</div>
-      <div className="chat-messages">
+      <div className="chat-messages" ref={chatMessagesRef}>
         {messages.map((msg, index) => {
           let owner = '';
           if (msg['player'] != null) {
@@ -29,17 +31,15 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) 
             </div>
           );
         })}
-        <div ref={messagesEndRef} />
       </div>
       {multiPlayer && (
         <div className="chat-input-container">
           <textarea
-            type="text"
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                e.preventDefault(); // Prevents the addition of a new line when pressing 'Enter'
+                e.preventDefault();
                 sendMessage('message');
               }
             }}
