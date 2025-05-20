@@ -24,8 +24,9 @@ h1 {
 .boards {
   display: flex;
   /* flex-direction: column; Optional: Align boards vertically */
-  width: 80%; /* Adjust as necessary */
+  /* width: 80%; Adjust as necessary */
   flex-wrap: wrap-reverse;
+  justify-content: center;
 }
 
 .boards_before {
@@ -602,4 +603,188 @@ button:not(:active) {
   border-radius: 5px;
   flex: 1;
 }
+
+@media (max-width: 1755px) {
+  .board-after {
+    grid-template-columns: 30px repeat(10, 55px);
+    grid-template-rows: 30px repeat(10, 55px);
+  }
+  .boom::before {
+    width: 25px;
+    height: 25px;
+  }
+  .boom::after{
+    width: 25px;
+    height: 25px;
+  }
+}
+
+@media (max-width: 1675px) {
+  .board-after {
+    grid-template-columns: 25px repeat(10, 50px);
+    grid-template-rows: 25px repeat(10, 50px);
+  }
+  .boom::before {
+    width: 23px;
+    height: 23px;
+  }
+  .boom::after{
+    width: 23px;
+    height: 23px;
+  }
+}
+
+@media (max-width: 1550px) {
+  .boards {
+    width: 55%
+  }
+  .board-after {
+    grid-template-columns: 30px repeat(10, 55px);
+    grid-template-rows: 30px repeat(10, 55px);
+  }
+  .boom::before {
+    width: 25px;
+    height: 25px;
+  }
+  .boom::after{
+    width: 25px;
+    height: 25px;
+  }
+  
+}
+
+@media (max-width: 1250px) {
+  .chat-container {
+    max-width: 300px;
+  }
+
+  /* .board-after {
+    grid-template-columns: 25px repeat(10, 45px);
+    grid-template-rows: 25px repeat(10, 45px);
+  }
+  .boom::before {
+    width: 20px;
+    height: 20px;
+  } */
+  /* .boom::after{
+    width: 20px;
+    height: 20px;
+  } */
+  
+}
+
+@media (max-width: 1100px) {
+  .chat-container {
+    max-width: 250px;
+  }
+
+  .board-after {
+    grid-template-columns: 25px repeat(10, 45px);
+    grid-template-rows: 25px repeat(10, 45px);
+  }
+  .boom::before {
+    width: 20px;
+    height: 20px;
+  } 
+   .boom::after{
+    width: 20px;
+    height: 20px;
+  }
+  
+}
+
+@media (max-width: 920px) {
+  .boards {
+    width: 100%;
+  }
+}
+
+@media (max-width: 730px) {
+  .home-button {
+    font-size: 12px;
+  }
+  h1{
+    font-size: 1.5rem;
+  }
+  h2{
+    font-size: 1.2rem ;
+  }
+
+}
+
+@media (max-width: 575px) {
+  .home-button {
+    font-size: 10pxpx;
+  }
+  h1{
+    font-size: 1.3rem;
+  }
+  h2{
+    font-size: 1.0rem ;
+  }
+}
+
+@media (max-width: 520px) {
+  .home-button {
+    font-size: 9px;
+  }
+  h1{
+    font-size: 1.0rem;
+  }
+  h2{
+    font-size: 0.8rem ;
+  }
+  .stats-container{
+    margin-top: 10px;
+    font-size: 12px;
+  }
+
+  .board-after {
+    grid-template-columns: 18px repeat(10, 33px);
+    grid-template-rows: 18px repeat(10, 33px);
+  }
+  .boom::before {
+    width: 18px;
+    height: 18px;
+  }
+  .boom::after{
+    width: 18px;
+    height: 18px;
+  }
+  
+}
+
+@media (max-width: 425px) {
+  .home-button {
+    font-size: 7px;
+    padding: 5px 10px;
+  }
+  h1{
+    font-size: 0.7rem;
+  }
+  h2{
+    font-size: 0.5rem ;
+  }
+  .stats-container{
+    margin-top: 10px;
+    font-size: 12px;
+  }
+
+  .board-after {
+    grid-template-columns: 16px repeat(10, 30px);
+    grid-template-rows: 16px repeat(10, 30px);
+  }
+  .boom::before {
+    width: 15px;
+    height: 15px;
+  }
+  .boom::after{
+    width: 15px;
+    height: 15px;
+  }
+
+
+  
+}
+
   
