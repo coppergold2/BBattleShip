@@ -604,6 +604,20 @@ button:not(:active) {
   flex: 1;
 }
 
+.user-count {
+  font-size: 1rem;
+  font-weight: 500;
+  background-color: #f0f4f8;
+  padding: 6px 12px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+
 @media (max-width: 1755px) {
   .board-after {
     grid-template-columns: 30px repeat(10, 55px);
@@ -658,19 +672,6 @@ button:not(:active) {
     max-width: 300px;
   }
 
-  /* .board-after {
-    grid-template-columns: 25px repeat(10, 45px);
-    grid-template-rows: 25px repeat(10, 45px);
-  }
-  .boom::before {
-    width: 20px;
-    height: 20px;
-  } */
-  /* .boom::after{
-    width: 20px;
-    height: 20px;
-  } */
-  
 }
 
 @media (max-width: 1100px) {
@@ -732,7 +733,7 @@ button:not(:active) {
     font-size: 1.0rem;
   }
   h2{
-    font-size: 0.8rem ;
+    font-size: 0.7rem ;
   }
   .stats-container{
     margin-top: 10px;
@@ -786,5 +787,7 @@ button:not(:active) {
 
   
 }
+
+
 
   

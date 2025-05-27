@@ -11,6 +11,7 @@ const App = () => {
   const socket = useRef();
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
+  const [numOnline, setNumOnline] = useState(0);
   const [info, setInfo] = useState("Select Your Mode");
   const [turn, setTurn] = useState(null);
   const [start, setStart] = useState(false);
@@ -18,7 +19,7 @@ const App = () => {
   const [pbCellClass, setPbCellClass] = useState(null);
   //const [multiPlayerGameFull, setGameFull] = useState(false);
   const [chatEnable, setChatEnable] = useState(true);
-  const [serverDown, setServerDown] = useState(true);
+  const [serverDown, setServerDown] = useState(false);
   const [placedShips, setPlacedShips] = useState([]);
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
   const [isFlipped, setIsFlipped] = useState(false);
@@ -33,7 +34,7 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} });
+  const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
   const [numMultiPlayer, setNumMultiplayer] = useState(0);
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({
@@ -41,6 +42,7 @@ const App = () => {
     email: "",
     password: ""
   })
+  let heartbeatInterval;
   const resetForm = () => {
     setForm({
       username: "",
@@ -81,48 +83,43 @@ const App = () => {
     setChatEnable(true);
   }
 
-  useEffect(() => {
-    // Creates a websocket connection to the server
-    socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, { transports: ['websocket'] });
-    socket.current.on('connect', () => {
-      console.log('Connected to server');
-      setServerDown(false);
+  // Call this after login:
+  const connectSocket = (token) => {
+    if (socket.current) { socket.current.off(); socket.current.disconnect(); socket.current = null; console.log("disconnected previous socket in connect socket"); }
+    socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
+      auth: { token }
     });
-    const heartbeatInterval = setInterval(() => {
-      if (socket.current) {
-        socket.current.emit('heartbeat');
-      }
-    }, 30000);
-    // socket.current.on('login', (id, averageGameOverSteps, games, userName, allGameStats) => {
-    //   setIsLoggedIn(true);
-    //   setHomeStats((prevHomeStats) => ({
-    //     ...prevHomeStats,
-    //     id: id,
-    //     userName: userName,
-    //     lastTenGames: games,
-    //     allGameStats: allGameStats
-    //   }));
-    // })
 
-    // socket.current.on('logout', () => {
-    //   reset();
-    //   setIsLoggedIn(false);
-    //   setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
-    //   document.title = "BattleShip";
-    // })
+    socket.current.on("connect", () => {
+      console.log("Socket connected!");
+      heartbeatInterval = setInterval(() => {
+        if (socket.current) {
+          socket.current.emit('heartbeat');
+        }
+      }, 30000);
+    });
+
+    socket.current.on("connect_error", (err) => {
+      console.error("Socket connect error:", err.message);
+    });
+
     socket.current.on('disconnect', () => { // might need to prepare for reconnection
       console.log('Disconnected from server');
-      setServerDown(true);
+      //setServerDown(true);
       setIsLoggedIn(false);
+      console.log("log in false here 1")
       document.title = "BattleShip"
       reset();
       setNumMultiplayer(0);
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {wins: 0, losses: 0, winRate: 0} })
-      localStorage.removeItem('token');
-      console.log("disconnect triggered");
+      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+      clearInterval(heartbeatInterval);
     });
+    socket.current.on('logout', () => { // one of the other tabs logouts, so this tab logs out
+      alert("you have been logged out")
+      logoutTasks()
+    })
     socket.current.on("oquit", (msg, games, allGameStats) => {
-      
+
       if (msg != null) {
         setInfo(msg);
       }
@@ -136,6 +133,7 @@ const App = () => {
       }
       socket.current.emit("oquit");
     })
+
     socket.current.on("home", (games, allGameStats) => {
       if (games != null) {
         setHomeStats((prevHomeStats) => ({
@@ -396,13 +394,22 @@ const App = () => {
     socket.current.on("info", (msg) => {
       setInfo(msg);
     })
+    socket.current.on("userCountUpdate", (count) => {
+      setNumOnline(count);
+    });
+  };
+
+  useEffect(() => {
     // Cleanup function to disconnect when the component unmounts
     return () => {
       clearInterval(heartbeatInterval);
-      if(homeStats.id != "") {
-        socket.current.emit("userId", homeStats.id)
+      if (socket.current) {
+        if (homeStats.id !== "") {
+          socket.current.emit("userId", homeStats.id);
+        }
+        socket.current.disconnect();
+        socket.current = null
       }
-      socket.current.disconnect();
     };
   }, []);
 
@@ -509,29 +516,31 @@ const App = () => {
     document.title = isLoggedIn
       ? `BattleShip - ${homeStats.userName}`
       : "BattleShip";
-  }, [isLoggedIn]); 
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    console.log("runned")
+
     if (token) {
-        axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
-            .then(res => {
-              setIsLoggedIn(true);
-              setHomeStats((prevHomeStats) => ({
-                ...prevHomeStats,
-                id: res.data.id,
-                userName: res.data.userName,
-                lastTenGames: res.data.games,
-                allGameStats: res.data.allGameStats
-              }));
-              setNumMultiplayer(res.data.connectedMPClients);
-            })
-            .catch(() => {
-                localStorage.removeItem('token');
-            });
+      console.log("runned")
+      axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
+        .then(res => {
+          connectSocket(token)
+          setIsLoggedIn(true);
+          setHomeStats((prevHomeStats) => ({
+            ...prevHomeStats,
+            id: res.data.id,
+            userName: res.data.userName,
+            lastTenGames: res.data.games,
+            allGameStats: res.data.allGameStats
+          }));
+          setNumMultiplayer(res.data.connectedMPClients);
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+        });
     }
-}, []);
+  }, []);
 
   const handleCellClick = (id) => {
     socket.current.emit("attack", id);
@@ -560,12 +569,12 @@ const App = () => {
 
   const sendMessage = (type) => {
     if (input.trim()) {
-      if (!(type == 'message' && chatEnable == false)){
-      const message = input.trim();
-      socket.current.emit(type, message);
-      setInput('');
+      if (!(type == 'message' && chatEnable == false)) {
+        const message = input.trim();
+        socket.current.emit(type, message);
+        setInput('');
+      }
     }
-  }
   }
 
   // const sendForm = (type) => {
@@ -602,18 +611,43 @@ const App = () => {
   const handleCellHoverOut = () => {
     setHoveredCell(null);
   }
-  const handleLogout = () => {
-    axios.post('/logout', { id: homeStats.id }).then(response => {
-      reset()
-      setIsLoggedIn(false);
-      setNumMultiplayer(0);
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: {} })
-      document.title = "BattleShip";
-      localStorage.removeItem('token');
-    }).catch(error => {
-      alert('logout error:', error.response ? error.response.data : error.message)
-    })
+  const logoutTasks = () => {
+    // 1. Clear heartbeat interval (if you're storing it somewhere)
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+    }
+
+    // 2. Disconnect socket if exists
+    if (socket.current) {
+      socket.current.disconnect();
+      socket.current = null;
+    }
+
+    // 3. Clear token and state
+    localStorage.removeItem('token');
+    reset();
+    setIsLoggedIn(false);
+    console.log("login false here 3")
+    setNumMultiplayer(0);
+    setHomeStats({
+      id: "",
+      userName: "",
+      lastTenGames: [],
+      allGameStats: {}
+    });
+
+    document.title = "BattleShip";
   }
+  const handleLogout = () => {
+    axios.post('/logout', { id: homeStats.id }) // add socket ID here to send it to backend
+      .then(response => {
+        logoutTasks();
+      })
+      .catch(error => {
+        alert('Logout error: ' + (error.response ? error.response.data.message : error.message));
+      });
+  };
+
 
   const handleLogin = (email, password) => {
     axios.post('/login', { email, password })
@@ -630,6 +664,7 @@ const App = () => {
         }));
         setNumMultiplayer(response.data.connectedMPClients);
         resetForm(); // Reset the form
+        connectSocket(response.data.token); // connect socket with token
       })
       .catch(error => {
         if (error.response) {
@@ -660,6 +695,7 @@ const App = () => {
         }));
         resetForm(); // Reset the form
         handleBackClick();
+        connectSocket(response.data.token); // connect socket with token
       })
       .catch(error => {
         if (error.response) {
@@ -692,7 +728,8 @@ const App = () => {
                 ? "Register"
                 : "Login"
           }`}
-      </h1>    {isLoggedIn ? (
+      </h1>
+      {isLoggedIn ? (
         <>
           <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
           {(!singlePlayer && !multiPlayer) ?
@@ -743,6 +780,9 @@ const App = () => {
           register={register}
         />)
       }
+      <div className="user-count">
+        👥 <span>{numOnline}</span> users online
+      </div>
     </>
   );
 };

@@ -7,7 +7,7 @@ const User = require('./db/UserSchema');  // Import the User model
 const Game = require('./db/GameSchema');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');        
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,7 +32,7 @@ const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
 let gameStartTime;
-
+const userSockets = new Map();
 app.use(express.json());
 
 // MongoDB connection URI
@@ -999,7 +999,7 @@ async function findLast10GamesForUser(userId) {
         const user = await User.findById(userId)
         const last10Games = user.games.slice(-10);
 
-        const games = await Game.find({ _id: { $in: last10Games } }).sort({ createdAt: -1 }) 
+        const games = await Game.find({ _id: { $in: last10Games } }).sort({ createdAt: -1 })
             .populate({
                 path: 'winner.user',
                 select: 'userName'
@@ -1071,67 +1071,67 @@ function isValidShipPlacement(command) {
 
 app.post('/login', async (req, res) => {
     try {
-      const { email, password } = req.body;
-  
-      // Find user by email
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-  
-      // Check if already logged in
-      if (user.isLoggedIn) {
-        return res.status(403).json({ message: 'User is already logged in elsewhere' });
-      }
-  
-      // Check password
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
-  
-      // Create and sign a JWT
-      const token = jwt.sign(
-        { userId: user._id },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-  
-      // Update user's isLoggedIn status and lastSeen
-      user.isLoggedIn = true;
-      user.lastSeen = new Date();
-      await user.save();
-      console.log("user.isLoggedIn", user.isLoggedIn);
-      const games = await findLast10GamesForUser(user._id);
-      const allGameStats = await calculateWinRate(user._id);
-      console.log("allGameStats", allGameStats)
-      res.json({
-        message: 'Login successful',
-        token,
-        id: user._id,
-        userName: user.userName,
-        games: games,
-        allGameStats: allGameStats,
-        connectedMPClients : connectedMPClients
-      });
+        const { email, password } = req.body;
+
+        // Find user by email
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // Check if already logged in
+        //   if (user.isLoggedIn) {
+        //     return res.status(403).json({ message: 'User is already logged in elsewhere' });
+        //   }
+
+        // Check password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // Create and sign a JWT
+        const token = jwt.sign(
+            { userId: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        // Update user's isLoggedIn status and lastSeen
+        user.isLoggedIn = true;
+        user.lastSeen = new Date();
+        await user.save();
+        console.log("user.isLoggedIn", user.isLoggedIn);
+        const games = await findLast10GamesForUser(user._id);
+        const allGameStats = await calculateWinRate(user._id);
+        console.log("allGameStats", allGameStats)
+        res.json({
+            message: 'Login successful',
+            token,
+            id: user._id,
+            userName: user.userName,
+            games: games,
+            allGameStats: allGameStats,
+            connectedMPClients: connectedMPClients
+        });
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ message: 'Server error during login' });
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error during login' });
     }
-  });
-  
-  app.get('/api/verifyToken', async (req, res) => {
+});
+
+app.get('/api/verifyToken', async (req, res) => {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET, async(err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
         if (err) return res.sendStatus(403);
-        // console.log("user", user)
+        console.log("verifyToken sucessfully run", user)
         const curUser = await User.findById(user.userId)
         curUser.lastSeen = new Date();
         curUser.isLoggedIn = true;
-        await curUser.save();    
+        await curUser.save();
         // console.log("curUser", curUser)
         const games = await findLast10GamesForUser(user.userId);
         const allGameStats = await calculateWinRate(user.userId);
@@ -1139,81 +1139,115 @@ app.post('/login', async (req, res) => {
     });
 });
 
-  app.post('/register', async (req, res) => {
+app.post('/register', async (req, res) => {
     try {
-      const { userName, email, password } = req.body;
-  
-      // Check if user already exists
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
-      }
-  
-      // Hash the password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-  
-      // Create new user
-      const newUser = new User({
-        userName,
-        email,
-        password: hashedPassword,
-        isLoggedIn: true,
-        lastSeen: new Date()
-      });
-  
-      // Save user to database
-      await newUser.save();
-  
-      // Create and sign a JWT
-      const token = jwt.sign(
-        { userId: newUser._id },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-  
-      // Respond with success message, token, and user ID
-      res.status(201).json({
-        message: 'User registered successfully',
-        token,
-        id: newUser._id, userName : newUser.userName
-      });
-    } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({ message: 'Server error during registration' });
-    }
-  });
-  app.post('/logout', async (req, res) => {
-    try {
-      const curPlayer = req.body.id;
-      // Find the user by the curPlayer ID
-      const user = await User.findById(curPlayer);
-  
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-  
-      // Update user's isLoggedIn status and lastSeen
-      user.isLoggedIn = false;
-      user.lastSeen = new Date();
-      await user.save();
-  
-      // Clear the curPlayer variable
-      if (players[curPlayer] != null) {
-        delete players[curPlayer];
+        const { userName, email, password } = req.body;
+
+        // Check if user already exists
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ message: 'User already exists' });
         }
-  
-      // Respond with success message
-      res.json({ message: 'Logout successful' });
+
+        // Hash the password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Create new user
+        const newUser = new User({
+            userName,
+            email,
+            password: hashedPassword,
+            isLoggedIn: true,
+            lastSeen: new Date()
+        });
+
+        // Save user to database
+        await newUser.save();
+
+        // Create and sign a JWT
+        const token = jwt.sign(
+            { userId: newUser._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        // Respond with success message, token, and user ID
+        res.status(201).json({
+            message: 'User registered successfully',
+            token,
+            id: newUser._id, userName: newUser.userName
+        });
     } catch (error) {
-      console.error('Logout error:', error);
-      res.status(500).json({ message: 'Server error during logout' });
+        console.error('Registration error:', error);
+        res.status(500).json({ message: 'Server error during registration' });
     }
-  });
+});
+app.post('/logout', async (req, res) => {
+    try {
+        const curPlayer = req.body.id;
+        // Find the user by the curPlayer ID
+        const user = await User.findById(curPlayer);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Update user's isLoggedIn status and lastSeen
+        user.isLoggedIn = false;
+        user.lastSeen = new Date();
+        await user.save();
+
+        // logout all logged in front-end
+
+        const sockets = userSockets.get(curPlayer);
+        if (sockets) {
+            for (const socketId of sockets) {
+                io.to(socketId).emit("logout");
+            }
+        }
+
+        if (userSockets.has(curPlayer)) {
+            userSockets.delete(curPlayer);
+            io.emit("userCountUpdate", userSockets.size)
+        }
+        // Clear the curPlayer variable
+        if (players[curPlayer] != null) {
+            delete players[curPlayer];
+        }
+
+
+        // Respond with success message
+        res.json({ message: 'Logout successful' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ message: 'Server error during logout' });
+    }
+});
+
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    console.log("io.use is runned")
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        socket.userId = payload.userId;
+        next();
+    } catch (err) {
+        next(new Error("Authentication error"));
+    }
+});
 
 io.on('connection', (socket) => {
     let opponent;
     let curPlayer;
+    const userId = socket.userId; // from middleware
+    if (userSockets.has(userId)) {
+        userSockets.get(userId).add(socket.id);
+    } else {
+        userSockets.set(userId, new Set([socket.id]));
+    }
+    console.log("userSockets: ", userSockets)
+    io.emit("userCountUpdate", userSockets.size)
     // socket.on("login", async (userId) => {
     //     try {
     //         console.log("userId:", userId)
@@ -1310,13 +1344,13 @@ io.on('connection', (socket) => {
             }
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
-            if (connectedMPClients == 2){
-            opponent = checkForMPOpponent(curPlayer);
-            io.to(players[opponent].socketId).emit("findOpponent")
-            io.to(players[opponent].socketId).emit("info", "A player has joined")
+            if (connectedMPClients == 2) {
+                opponent = checkForMPOpponent(curPlayer);
+                io.to(players[opponent].socketId).emit("findOpponent")
+                io.to(players[opponent].socketId).emit("info", "A player has joined")
             }
-            io.emit('updateMultiplayerCount',connectedMPClients);
-            
+            io.emit('updateMultiplayerCount', connectedMPClients);
+
             socket.emit("multiplayer")
         }
         console.log("connectedMPClients", connectedMPClients)
@@ -1523,31 +1557,31 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('disconnect', async () => {  // now it is using oquit of the opponent on the server side to subtract connected clients
-        if (curPlayer != null && players[curPlayer] != null) {  
+        if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null
                 && players[curPlayer].mode == "multiplayer"
-                && opponent != null 
+                && opponent != null
                 && players[opponent] != null) {
                 if (players[opponent].start && players[curPlayer].start) {
                     const message = "Your opponent has quit, you have won!";
                     await handleGameEndDB(opponent, curPlayer, 'Quit');
                     io.to(players[opponent].socketId).emit
                         ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
-                    connectedMPClients -=2;
+                    connectedMPClients -= 2;
                 }
                 else if (players[opponent].start == false && players[curPlayer].start == false) {
                     io.to(players[opponent].socketId).emit("info", "Your opponent left");
-              
-                    if(players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5){
-                      connectedMPClients -=2;
-                      io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
+
+                    if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+                        connectedMPClients -= 2;
+                        io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
                     }
-                    else{
-                    connectedMPClients --;
-                    io.to(players[opponent].socketId).emit("removeOpponent");
+                    else {
+                        connectedMPClients--;
+                        io.to(players[opponent].socketId).emit("removeOpponent");
                     }
                 }
-                io.emit('updateMultiplayerCount',connectedMPClients)
+                io.emit('updateMultiplayerCount', connectedMPClients)
             }
             else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
                 players[curPlayer].mode == "singleplayer" &&
@@ -1557,9 +1591,9 @@ io.on('connection', (socket) => {
                 await handleGameEndDB(opponent, curPlayer, 'Quit');
             }
             else if (players[curPlayer].mode == "multiplayer" && opponent == null && players[curPlayer].messages.length == 0) {
-                connectedMPClients --;
-                io.emit('updateMultiplayerCount',connectedMPClients)
-            }  
+                connectedMPClients--;
+                io.emit('updateMultiplayerCount', connectedMPClients)
+            }
 
             delete players[curPlayer];
         }
@@ -1570,7 +1604,7 @@ io.on('connection', (socket) => {
             try {
                 // Find the user in the db and set isLoggedIn to false
                 const user = await User.findOne({ _id: curPlayer });
-    
+
                 if (user) {
                     console.log(curPlayer, "log off at disconnect")
                     user.isLoggedIn = false;
@@ -1582,63 +1616,73 @@ io.on('connection', (socket) => {
             } catch (err) {
                 console.error(`Error logging out user ${curPlayer}:`, err);
             }
-        } 
+        }
+        const sockets = userSockets.get(userId);
+        if (sockets) {
+            sockets.delete(socket.id);
+            if (sockets.size === 0) {
+                userSockets.delete(userId); // Optional: cleanup if no sockets remain
+                console.log(`User ${userId} has no more active sockets.`);
+                io.emit("userCountUpdate", userSockets.size)
+            }
+        }
+
     })
 
     socket.on("home", async () => {
-        try {      
-          // Check if the game has ended for the current player
-          if (players[curPlayer].start && (players[opponent].start || players[opponent] instanceof Computer)) {
-            await handleGameEndDB(opponent, curPlayer, "Quit");
-          }
-      
-          // Handle multiplayer mode
-          if (players[curPlayer].mode === "multiplayer") {  
-            if (players[opponent] && players[opponent].start && players[curPlayer].start) { // both player started game and game have not finished
-              io.to(players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
-                "Your opponent has quit, you have won!", 
-                await findLast10GamesForUser(opponent), 
-                await calculateWinRate(opponent));
-                connectedMPClients -=2;
-            } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) { // this means that if both player finish their game or they haven't started playing yet
-              io.to(players[opponent].socketId).emit("info", "Your opponent left");
-              
-              if(players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5){
-                connectedMPClients -=2;
-                io.to(players[opponent].socketId).emit("oquit");
-              }
-              else{
-              connectedMPClients --;
-              io.to(players[opponent].socketId).emit("removeOpponent");
-              }
+        try {
+            // Check if the game has ended for the current player
+            if (players[curPlayer].start && (players[opponent].start || players[opponent] instanceof Computer)) {
+                await handleGameEndDB(opponent, curPlayer, "Quit");
             }
 
-            else if (opponent == null && players[curPlayer].messages.length == 0) {
-                connectedMPClients --;
+            // Handle multiplayer mode
+            if (players[curPlayer].mode === "multiplayer") {
+                if (players[opponent] && players[opponent].start && players[curPlayer].start) { // both player started game and game have not finished
+                    io.to(players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
+                        "Your opponent has quit, you have won!",
+                        await findLast10GamesForUser(opponent),
+                        await calculateWinRate(opponent));
+                    connectedMPClients -= 2;
+                } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) { // this means that if both player finish their game or they haven't started playing yet
+                    io.to(players[opponent].socketId).emit("info", "Your opponent left");
+
+                    if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+                        connectedMPClients -= 2;
+                        io.to(players[opponent].socketId).emit("oquit");
+                    }
+                    else {
+                        connectedMPClients--;
+                        io.to(players[opponent].socketId).emit("removeOpponent");
+                    }
+                }
+
+                else if (opponent == null && players[curPlayer].messages.length == 0) {
+                    connectedMPClients--;
+                }
+                io.emit('updateMultiplayerCount', connectedMPClients)
             }
-            io.emit('updateMultiplayerCount',connectedMPClients)
-          } 
-          // Handle single player mode, deleting computer player in players array
-          else if (players[opponent] && players[opponent] instanceof Computer) {
-            delete players[opponent];
-          }
+            // Handle single player mode, deleting computer player in players array
+            else if (players[opponent] && players[opponent] instanceof Computer) {
+                delete players[opponent];
+            }
 
 
-      
-          opponent = null;
-          console.log("opponent is set to null in home in server")
-          let games, allGameStats;
-          if (players[curPlayer].start) {
-            games = await findLast10GamesForUser(curPlayer);
-            allGameStats = await calculateWinRate(curPlayer);
-          }
-          socket.emit("home", games, allGameStats);
-          players[curPlayer].reset();
-          players[curPlayer].mode = ""
+
+            opponent = null;
+            console.log("opponent is set to null in home in server")
+            let games, allGameStats;
+            if (players[curPlayer].start) {
+                games = await findLast10GamesForUser(curPlayer);
+                allGameStats = await calculateWinRate(curPlayer);
+            }
+            socket.emit("home", games, allGameStats);
+            players[curPlayer].reset();
+            players[curPlayer].mode = ""
         } catch (err) {
-          console.error(`error handling game end DB: ${err}`);
+            console.error(`error handling game end DB: ${err}`);
         }
-      });
+    });
 
     socket.on("oquit", () => {
         let tempMessage = players[curPlayer].messages
@@ -1667,7 +1711,7 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`Server is listening on port ${PORT}`);
+    console.log(`Server is listening on port ${PORT}`);
 });
 
 const path = require('path');
@@ -1677,5 +1721,5 @@ app.use(express.static(path.join(__dirname, 'build')));
 
 // Serve React app for any route not handled by API
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
