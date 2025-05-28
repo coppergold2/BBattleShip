@@ -59,6 +59,7 @@ async function logoutAllPlayers() {
     console.log('Updating isLoggedIn status for all players to log off...');
     try {
         await User.updateMany({ isLoggedIn: true }, { $set: { isLoggedIn: false } });
+        io.emit("logout");
         console.log('All players have been logged out.');
     } catch (err) {
         console.error('Error logging out players:', err);
@@ -1188,7 +1189,6 @@ app.post('/logout', async (req, res) => {
         const curPlayer = req.body.id;
         // Find the user by the curPlayer ID
         const user = await User.findById(curPlayer);
-
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -1203,7 +1203,9 @@ app.post('/logout', async (req, res) => {
         const sockets = userSockets.get(curPlayer);
         if (sockets) {
             for (const socketId of sockets) {
-                io.to(socketId).emit("logout");
+                if (socketId != req.body.socketId) {
+                    io.to(socketId).emit("logout");
+                }
             }
         }
 
@@ -1556,7 +1558,8 @@ io.on('connection', (socket) => {
             curPlayer = userId;
         }
     })
-    socket.on('disconnect', async () => {  // now it is using oquit of the opponent on the server side to subtract connected clients
+    socket.on('disconnect', async (reason) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
+        console.log(reason)
         if (curPlayer != null && players[curPlayer] != null) {
             if (players[curPlayer].mode != null
                 && players[curPlayer].mode == "multiplayer"
@@ -1707,7 +1710,7 @@ setInterval(async () => {
     } catch (err) {
         console.error('Error logging out inactive users:', err);
     }
-}, 30000); // Check every 30 seconds
+}, 500000); // Check every 30 seconds
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {

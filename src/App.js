@@ -83,11 +83,24 @@ const App = () => {
     setChatEnable(true);
   }
 
+  let manuallyDisconnected = false;
   // Call this after login:
   const connectSocket = (token) => {
-    if (socket.current) { socket.current.off(); socket.current.disconnect(); socket.current = null; console.log("disconnected previous socket in connect socket"); }
+    if (socket.current) {
+      manuallyDisconnected = true;
+      socket.current.off();
+      socket.current.disconnect();
+      socket.current = null;
+      console.log("disconnected previous socket in connect socket");
+    }
+    manuallyDisconnected = false;
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
-      auth: { token }
+      auth: { token },
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     socket.current.on("connect", () => {
@@ -104,10 +117,38 @@ const App = () => {
     });
 
     socket.current.on('disconnect', () => { // might need to prepare for reconnection
-      console.log('Disconnected from server');
-      //setServerDown(true);
+      if (manuallyDisconnected) {
+        manuallyDisconnected = false;
+        //setServerDown(true);
+        setIsLoggedIn(false);
+        console.log("log in false here 1")
+        document.title = "BattleShip"
+        reset();
+        setNumMultiplayer(0);
+        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+        clearInterval(heartbeatInterval);
+      }
+      else {
+        console.log("Awaiting reconnection...");
+      }
+    });
+    socket.current.on('reconnect_attempt', (attempt) => {
+      console.log(`🔁 Reconnection attempt #${attempt}`);
+    });
+
+    socket.current.on('reconnect', () => {
+      console.log("✅ Successfully reconnected");
+      // Optional: re-authenticate or rejoin rooms
+      // if (homeStats.id) {
+      //   socket.current.emit("resyncUser", homeStats.id); // custom event
+      // }
+    });
+
+    socket.current.on('reconnect_failed', () => {
+      console.warn("❌ Failed to reconnect after multiple attempts");
+      // Optionally show UI or fallback
       setIsLoggedIn(false);
-      console.log("log in false here 1")
+      console.log("log in false here 5")
       document.title = "BattleShip"
       reset();
       setNumMultiplayer(0);
@@ -402,6 +443,7 @@ const App = () => {
   useEffect(() => {
     // Cleanup function to disconnect when the component unmounts
     return () => {
+      console.log("useEffect unmounted")
       clearInterval(heartbeatInterval);
       if (socket.current) {
         if (homeStats.id !== "") {
@@ -477,7 +519,6 @@ const App = () => {
         }
       }
     }
-    console.log("result in handleShipHover", result);
     if (result != null && result.size != 0) {
       setShipLocHover(result);
     }
@@ -639,7 +680,7 @@ const App = () => {
     document.title = "BattleShip";
   }
   const handleLogout = () => {
-    axios.post('/logout', { id: homeStats.id }) // add socket ID here to send it to backend
+    axios.post('/logout', { id: homeStats.id, socketId: socket.current.id }) // add socket ID here to send it to backend
       .then(response => {
         logoutTasks();
       })
