@@ -23,7 +23,7 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
-      height: '100vh',
+      height: '80vh',
       textAlign: 'center'
     }}>
       <form onSubmit={handleSubmit}>

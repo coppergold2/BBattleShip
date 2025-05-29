@@ -20,9 +20,13 @@ app.use(cors());  // Allow all origins by default
 
 const io = socketIo(server, {
     cors: {
-        origin: '*',  // Allow all origins (replace '*' with specific domain for more control)
-        methods: ["GET", "POST"],  // Specify allowed methods
-        credentials: true  // Allow credentials such as cookies
+        origin: '*',
+        methods: ['GET', 'POST'],
+        credentials: true
+    },
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        skipMiddlewares: false
     }
 });
 
@@ -1240,13 +1244,23 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
+    if (socket.recovered) {
+        // recovery was successful: socket.id, socket.rooms and socket.data were restored
+        console.log("🔄 Session recovered");
+        console.log("socket room", socket.rooms, "socket data", socket.data)
+    } else {
+        // new or unrecoverable session
+        console.log("🆕 New connection");
+    }
     let opponent;
     let curPlayer;
-    const userId = socket.userId; // from middleware
-    if (userSockets.has(userId)) {
-        userSockets.get(userId).add(socket.id);
-    } else {
-        userSockets.set(userId, new Set([socket.id]));
+    if (!socket.recovered) {
+        const userId = socket.userId; // from middleware
+        if (userSockets.has(userId)) {
+            userSockets.get(userId).add(socket.id);
+        } else {
+            userSockets.set(userId, new Set([socket.id]));
+        }
     }
     console.log("userSockets: ", userSockets)
     io.emit("userCountUpdate", userSockets.size)
@@ -1558,75 +1572,77 @@ io.on('connection', (socket) => {
             curPlayer = userId;
         }
     })
-    socket.on('disconnect', async (reason) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
-        console.log(reason)
-        if (curPlayer != null && players[curPlayer] != null) {
-            if (players[curPlayer].mode != null
-                && players[curPlayer].mode == "multiplayer"
-                && opponent != null
-                && players[opponent] != null) {
-                if (players[opponent].start && players[curPlayer].start) {
-                    const message = "Your opponent has quit, you have won!";
-                    await handleGameEndDB(opponent, curPlayer, 'Quit');
-                    io.to(players[opponent].socketId).emit
-                        ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
-                    connectedMPClients -= 2;
-                }
-                else if (players[opponent].start == false && players[curPlayer].start == false) {
-                    io.to(players[opponent].socketId).emit("info", "Your opponent left");
-
-                    if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+    socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
+        console.log("Disconnected in server side because", reason);
+        console.log('Server Disconnect details', details)
+        if (reason == "io server disconnect" || reason == "io client disconnect") {
+            if (curPlayer != null && players[curPlayer] != null) {
+                if (players[curPlayer].mode != null
+                    && players[curPlayer].mode == "multiplayer"
+                    && opponent != null
+                    && players[opponent] != null) {
+                    if (players[opponent].start && players[curPlayer].start) {
+                        const message = "Your opponent has quit, you have won!";
+                        await handleGameEndDB(opponent, curPlayer, 'Quit');
+                        io.to(players[opponent].socketId).emit
+                            ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
                         connectedMPClients -= 2;
-                        io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
                     }
-                    else {
-                        connectedMPClients--;
-                        io.to(players[opponent].socketId).emit("removeOpponent");
+                    else if (players[opponent].start == false && players[curPlayer].start == false) {
+                        io.to(players[opponent].socketId).emit("info", "Your opponent left");
+
+                        if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+                            connectedMPClients -= 2;
+                            io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
+                        }
+                        else {
+                            connectedMPClients--;
+                            io.to(players[opponent].socketId).emit("removeOpponent");
+                        }
                     }
+                    io.emit('updateMultiplayerCount', connectedMPClients)
                 }
-                io.emit('updateMultiplayerCount', connectedMPClients)
-            }
-            else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
-                players[curPlayer].mode == "singleplayer" &&
-                players[curPlayer].start
-            ) {
-                console.log("handle Game End DB is run in disconnect single player start")
-                await handleGameEndDB(opponent, curPlayer, 'Quit');
-            }
-            else if (players[curPlayer].mode == "multiplayer" && opponent == null && players[curPlayer].messages.length == 0) {
-                connectedMPClients--;
-                io.emit('updateMultiplayerCount', connectedMPClients)
-            }
-
-            delete players[curPlayer];
-        }
-        if (players[opponent] && players[opponent] instanceof Computer) {
-            delete players[opponent];
-        }
-        if (curPlayer != null) {
-            try {
-                // Find the user in the db and set isLoggedIn to false
-                const user = await User.findOne({ _id: curPlayer });
-
-                if (user) {
-                    console.log(curPlayer, "log off at disconnect")
-                    user.isLoggedIn = false;
-                    await user.save();
-                    console.log(`User ${curPlayer} logged out successfully.`);
-                } else {
-                    console.log(`User ${curPlayer} not found in database.`);
+                else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
+                    players[curPlayer].mode == "singleplayer" &&
+                    players[curPlayer].start
+                ) {
+                    console.log("handle Game End DB is run in disconnect single player start")
+                    await handleGameEndDB(opponent, curPlayer, 'Quit');
                 }
-            } catch (err) {
-                console.error(`Error logging out user ${curPlayer}:`, err);
+                else if (players[curPlayer].mode == "multiplayer" && opponent == null && players[curPlayer].messages.length == 0) {
+                    connectedMPClients--;
+                    io.emit('updateMultiplayerCount', connectedMPClients)
+                }
+
+                delete players[curPlayer];
             }
-        }
-        const sockets = userSockets.get(userId);
-        if (sockets) {
-            sockets.delete(socket.id);
-            if (sockets.size === 0) {
-                userSockets.delete(userId); // Optional: cleanup if no sockets remain
-                console.log(`User ${userId} has no more active sockets.`);
-                io.emit("userCountUpdate", userSockets.size)
+            if (players[opponent] && players[opponent] instanceof Computer) {
+                delete players[opponent];
+            }
+            if (curPlayer != null) {
+                try {
+                    // Find the user in the db and set isLoggedIn to false
+                    const user = await User.findOne({ _id: curPlayer });
+
+                    if (user) {
+                        console.log(curPlayer, "log off in Database at server disconnect")
+                        user.isLoggedIn = false;
+                        await user.save();
+                    } else {
+                        console.log(`User ${curPlayer} not found in database.`);
+                    }
+                } catch (err) {
+                    console.error(`Error logging out user ${curPlayer}:`, err);
+                }
+            }
+            const sockets = userSockets.get(userId);
+            if (sockets) {
+                sockets.delete(socket.id);
+                if (sockets.size === 0) {
+                    userSockets.delete(userId); // Optional: cleanup if no sockets remain
+                    console.log(`User ${userId} has no more active sockets.`);
+                    io.emit("userCountUpdate", userSockets.size)
+                }
             }
         }
 

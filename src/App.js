@@ -83,42 +83,52 @@ const App = () => {
     setChatEnable(true);
   }
 
-  let manuallyDisconnected = false;
   // Call this after login:
   const connectSocket = (token) => {
     if (socket.current) {
-      manuallyDisconnected = true;
       socket.current.off();
       socket.current.disconnect();
       socket.current = null;
       console.log("disconnected previous socket in connect socket");
     }
-    manuallyDisconnected = false;
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
     });
 
     socket.current.on("connect", () => {
-      console.log("Socket connected!");
-      heartbeatInterval = setInterval(() => {
-        if (socket.current) {
-          socket.current.emit('heartbeat');
-        }
-      }, 30000);
+      console.log("✅ Socket connected:", socket.current.id);
+      if (socket.recovered == false) {
+
+        //setServerDown(true);
+        setIsLoggedIn(false);
+        console.log("log in false here 1")
+        document.title = "BattleShip"
+        reset();
+        setNumMultiplayer(0);
+        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+        clearInterval(heartbeatInterval);
+        // Resume heartbeat
+        heartbeatInterval = setInterval(() => {
+          socket.current?.emit("heartbeat");
+        }, 30000);
+      }
+      else {
+        console.log("🔁 Was session recovered?", socket.current.recovered);
+
+      }
     });
 
     socket.current.on("connect_error", (err) => {
       console.error("Socket connect error:", err.message);
+      localStorage.removeItem('token')
     });
 
-    socket.current.on('disconnect', () => { // might need to prepare for reconnection
-      if (manuallyDisconnected) {
-        manuallyDisconnected = false;
+    socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
+      console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
+      console.log('Client Disconnect details', details)
+      console.warn("⚠️ Disconnected from server. Reason:", reason);
+
+      if (reason == "io server disconnect" || reason == "io client disconnect") {
         //setServerDown(true);
         setIsLoggedIn(false);
         console.log("log in false here 1")
@@ -128,9 +138,7 @@ const App = () => {
         setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
         clearInterval(heartbeatInterval);
       }
-      else {
-        console.log("Awaiting reconnection...");
-      }
+
     });
     socket.current.on('reconnect_attempt', (attempt) => {
       console.log(`🔁 Reconnection attempt #${attempt}`);
