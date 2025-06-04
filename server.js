@@ -25,7 +25,8 @@ const io = socketIo(server, {
         credentials: true
     },
     connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        //maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        maxDisconnectionDuration: 5 * 1000, // 5 seconds
         skipMiddlewares: false
     }
 });
@@ -35,7 +36,7 @@ let connectedMPClients = 0;
 const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
-let gameStartTime;
+//let gameStartTime;
 const userSockets = new Map();
 app.use(express.json());
 
@@ -79,7 +80,7 @@ process.on('SIGINT', async () => {
     process.exit();
 });
 class Player {
-    constructor(id) {
+    constructor(id, userName) {
         this.id = id;
         this.board = Array(100).fill(0); // Initialize empty board
         this.isFlipped = false;
@@ -93,6 +94,9 @@ class Player {
         this.allHitLocations = [];
         this.activeShip = null;
         this.mode = "";
+        this.opponent = null;
+        this.gameStartTime = null;
+        this.userName = userName;
     }
     displayGrid() {
         let board = this.board;
@@ -125,6 +129,8 @@ class Player {
         this.messages = [];
         this.allHitLocations = [];
         this.activeShip = null;
+        this.opponent = null;
+        this.gameStartTime = null;
     }
 }
 
@@ -142,6 +148,7 @@ class Computer {
         this.possHitDirections = [-1, -1, -1, -1] // north, west, south, east
         this.curHitDirection = null; // contain the direction of hit 0,1,2,3 representing north, west, south, east
         this.opponentShipRemain = { 'destroyer': 1, 'submarine': 1, 'cruiser': 1, 'battleship': 1, 'carrier': 1, 'minSizeShip': 2, 'maxSizeShip': 5 }
+        this.userName = "AI"
     }
     displayGrid() {
         let board = this.board;
@@ -194,24 +201,18 @@ const ships = {
 };
 
 const players = {};
-const hitMessage = (col, row) => {
-    return { 'player': "You hit at row " + row + " column " + col + "." }
+const hitMessage = (col, row, userName) => {
+    return { 'player': `${userName} hit at row ${row} column ${col}.` }
 }
-const ohitMessage = (col, row) => {
-    return { 'opponent': "Opponent hit at row " + row + " column " + col + "." }
+
+const destroyMessage = (shipName, userName) => {
+    return { 'player': `${userName} sunk the ${shipName} ship.` }
 }
-const destroyMessage = (shipName) => {
-    return { 'player': "You sunk the " + shipName + " ship" + "." }
+
+const missMessage = (col, row, userName) => {
+    return { 'player': `${userName} missed at row ${row} column ${col}.` }
 }
-const odestroyMessage = (shipName) => {
-    return { 'opponent': "Opponent sunk the " + shipName + " ship" + "." }
-}
-const missMessage = (col, row) => {
-    return { 'player': "You miss at row " + row + " column " + col + "." }
-}
-const omissMessage = (col, row) => {
-    return { 'opponent': "Opponent miss at row " + row + " column " + col + "." }
-}
+
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     let validStart = isHorizontal ?
         (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
@@ -849,18 +850,18 @@ const handleMissComm = ((misser, receiver, pos) => {
     players[receiver].board[pos] = 3;
     if (players[misser] instanceof Computer) {
         io.to(players[receiver].socketId).emit("omiss", pos, players[misser].numMisses)  // players[receiver].socketId
-        players[receiver].messages.push(omissMessage(row, col))
+        players[receiver].messages.push(missMessage(row, col, players[misser].userName))
         io.to(players[receiver].socketId).emit("message", players[receiver].messages)
         // io.to.emit("turn")
     }
     else if (players[misser] instanceof Player) {
         io.to(players[misser].socketId).emit('miss', pos, players[misser].numMisses);
-        players[misser].messages.push(missMessage(row, col))
+        players[misser].messages.push(missMessage(row, col, players[misser].userName))
         io.to(players[misser].socketId).emit("message", players[misser].messages)
         if (players[receiver] instanceof Player) {
             io.to(players[receiver].socketId).emit("omiss", pos, players[misser].numMisses);
             io.to(players[receiver].socketId).emit("turn");
-            players[receiver].messages.push(omissMessage(row, col));
+            players[receiver].messages.push(missMessage(row, col, players[misser].userName));
             io.to(players[receiver].socketId).emit("message", players[receiver].messages);
         }
     }
@@ -872,7 +873,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     const { row, col } = getRowAndColumn(pos);
     if (players[receiver] instanceof Player) {
         io.to(players[receiver].socketId).emit("ohit", pos, players[hitter].numHits)
-        players[receiver].messages.push(ohitMessage(row, col))
+        players[receiver].messages.push(hitMessage(row, col, players[hitter].userName))
         io.to(players[receiver].socketId).emit("message", players[receiver].messages)
     }
     if (players[hitter] instanceof Computer) {
@@ -881,7 +882,7 @@ const handleHitComm = ((hitter, receiver, pos) => {
     if (players[hitter] instanceof Player) {
         players[hitter].allHitLocations.push(pos);
         io.to(players[hitter].socketId).emit('hit', pos, players[hitter].numHits); //players[hitter].socketId
-        players[hitter].messages.push(hitMessage(row, col))
+        players[hitter].messages.push(hitMessage(row, col, players[hitter].userName))
         io.to(players[hitter].socketId).emit("message", players[hitter].messages)
     }
 })
@@ -891,12 +892,12 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
     if (result != "normal") {
         players[hitter].numDestroyShip++;
         if (players[receiver] instanceof Player) {
-            players[receiver].messages.push(odestroyMessage(result[0]))
+            players[receiver].messages.push(destroyMessage(result[0], players[hitter].userName))
             io.to(players[receiver].socketId).emit("message", players[receiver].messages);
         }
         if (players[hitter] instanceof Player) {
             io.to(players[hitter].socketId).emit("destroy", result);
-            players[hitter].messages.push(destroyMessage(result[0]));
+            players[hitter].messages.push(destroyMessage(result[0], players[hitter].userName));
             io.to(players[hitter].socketId).emit("message", players[hitter].messages);
         }
         if (players[hitter].numDestroyShip == 5) {
@@ -934,6 +935,7 @@ const handleDestroyComm = async (hitter, receiver, pos) => {
 
 const handleGameEndDB = async (hitter, receiver, gameEndType) => {
     try {
+        const gameStartTime = players[hitter].gameStartTime ? players[hitter.gameStartTime] : players[receiver].gameStartTime
         const gameEndTime = new Date();
         const gameDuration = (gameEndTime - gameStartTime) / 1000;
         // Create player objects for winner (hitter) and loser (receiver)
@@ -1097,7 +1099,10 @@ app.post('/login', async (req, res) => {
 
         // Create and sign a JWT
         const token = jwt.sign(
-            { userId: user._id },
+            {
+                userId: user._id,
+                userName: user.userName
+            },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
@@ -1172,7 +1177,10 @@ app.post('/register', async (req, res) => {
 
         // Create and sign a JWT
         const token = jwt.sign(
-            { userId: newUser._id },
+            {
+                userId: newUser._id,
+                userName: newUser.userName
+            },
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
@@ -1216,6 +1224,7 @@ app.post('/logout', async (req, res) => {
         if (userSockets.has(curPlayer)) {
             userSockets.delete(curPlayer);
             io.emit("userCountUpdate", userSockets.size)
+            console.log("userSockets after delete in logout", userSockets)
         }
         // Clear the curPlayer variable
         if (players[curPlayer] != null) {
@@ -1244,26 +1253,36 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
+    let opponent;
+    let curPlayer;
+    const userId = socket.userId; // from middleware
+    const userName = socket.userName;
     if (socket.recovered) {
         // recovery was successful: socket.id, socket.rooms and socket.data were restored
         console.log("🔄 Session recovered");
         console.log("socket room", socket.rooms, "socket data", socket.data)
+        curPlayer = socket.userId;
+        if (players[curPlayer]) {
+            opponent = players[curPlayer].opponent;
+        }
     } else {
         // new or unrecoverable session
         console.log("🆕 New connection");
     }
-    let opponent;
-    let curPlayer;
+
     if (!socket.recovered) {
-        const userId = socket.userId; // from middleware
+
         if (userSockets.has(userId)) {
             userSockets.get(userId).add(socket.id);
         } else {
             userSockets.set(userId, new Set([socket.id]));
+            io.emit("userCountUpdate", userSockets.size)
         }
+
+        console.log("userSockets after adding in socket connection event: ", userSockets)
     }
-    console.log("userSockets: ", userSockets)
-    io.emit("userCountUpdate", userSockets.size)
+
+
     // socket.on("login", async (userId) => {
     //     try {
     //         console.log("userId:", userId)
@@ -1342,12 +1361,13 @@ io.on('connection', (socket) => {
     socket.on("singleplayer", (id) => {
         curPlayer = id;
         if (players[curPlayer] == null) {
-            players[curPlayer] = new Player(curPlayer);
+            players[curPlayer] = new Player(curPlayer, userName);
             players[curPlayer].socketId = socket.id;
         }
         players[curPlayer].mode = "singleplayer";
         opponent = generateRandomString(10);
         players[opponent] = new Computer(opponent);
+        players[curPlayer].opponent = opponent;
     })
     socket.on("multiplayer", (id) => {
         curPlayer = id;
@@ -1355,15 +1375,16 @@ io.on('connection', (socket) => {
             socket.emit("alert", "sorry, the game room is currently full. Please try again later.")
         } else {
             if (players[curPlayer] == null) {
-                players[curPlayer] = new Player(curPlayer);
+                players[curPlayer] = new Player(curPlayer, userName);
                 players[curPlayer].socketId = socket.id;
             }
             connectedMPClients++;
             players[curPlayer].mode = "multiplayer";
             if (connectedMPClients == 2) {
                 opponent = checkForMPOpponent(curPlayer);
+                players[curPlayer].opponent = opponent
                 io.to(players[opponent].socketId).emit("findOpponent")
-                io.to(players[opponent].socketId).emit("info", "A player has joined")
+                io.to(players[opponent].socketId).emit("info", `${userName} has joined`)
             }
             io.emit('updateMultiplayerCount', connectedMPClients);
 
@@ -1464,8 +1485,8 @@ io.on('connection', (socket) => {
             players[curPlayer].numPlaceShip == 5 ?
                 (randomBoatPlacement(opponent), players[opponent].displayGrid(),
                     players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"),
-                    players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) }),
-                    socket.emit("message", players[curPlayer].messages)) :
+                    players[curPlayer].messages.push({ 'player':  players[curPlayer].userName + JSON.stringify(players[curPlayer].shipLoc) }),
+                    socket.emit("message", players[curPlayer].messages), players[curPlayer].gameStartTime = new Date()) :
                 socket.emit("not enough ship", "Please place all your ship before starting")
         }
         else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
@@ -1485,8 +1506,10 @@ io.on('connection', (socket) => {
                 // console.log("players array", players)
                 players[curPlayer].start = true;
                 players[opponent].start = true;
+                players[curPlayer].gameStartTime = new Date();
+                players[opponent].gameStartTime = players[curPlayer].gameStartTime
                 socket.emit("start");
-                players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) });
+                players[curPlayer].messages.push({ 'player': players[curPlayer].userName + JSON.stringify(players[curPlayer].shipLoc) });
                 socket.emit("message", players[curPlayer].messages);
                 io.to(players[opponent].socketId).emit("ostart");
                 io.to(players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
@@ -1495,19 +1518,20 @@ io.on('connection', (socket) => {
 
         }
         // players[curPlayer].displayGrid()
-        gameStartTime = new Date();
+        //gameStartTime = new Date();
     })
     socket.on("ostart", () => {
-        players[curPlayer].messages.push({ 'player': "You: " + JSON.stringify(players[curPlayer].shipLoc) });
+        players[curPlayer].messages.push({ 'player': players[curPlayer].userName + JSON.stringify(players[curPlayer].shipLoc) });
         socket.emit("message", players[curPlayer].messages)
     })
     socket.on("findOpponent", () => {
         opponent = checkForMPOpponent(curPlayer);
-        players[curPlayer].displayGrid()
+        players[curPlayer].opponent = opponent;
     })
     socket.on("removeOpponent", () => {
         console.log("set opponent to null", opponent)
         opponent = null;
+        players[curPlayer].opponent = null;
     })
     socket.on("attack", (pos) => {
         switch (players[opponent].board[pos]) {
@@ -1559,10 +1583,10 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        players[curPlayer].messages.push({ 'player': "You: " + message }); // Save the new message to the session messages
+        players[curPlayer].messages.push({ 'player': players[curPlayer].userName + message }); // Save the new message to the session messages
         socket.emit("message", players[curPlayer].messages)
         if (players[curPlayer].mode == "multiplayer" && opponent != null && players[opponent] && players[opponent].mode == 'multiplayer') {
-            players[opponent].messages.push({ 'opponent': "Opponent: " + message });
+            players[opponent].messages.push({ 'opponent': players[opponent].userName + message });
             io.to(players[opponent].socketId).emit("message", players[opponent].messages)
         }
     });
@@ -1575,75 +1599,74 @@ io.on('connection', (socket) => {
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log("Disconnected in server side because", reason);
         console.log('Server Disconnect details', details)
-        if (reason == "io server disconnect" || reason == "io client disconnect") {
-            if (curPlayer != null && players[curPlayer] != null) {
-                if (players[curPlayer].mode != null
-                    && players[curPlayer].mode == "multiplayer"
-                    && opponent != null
-                    && players[opponent] != null) {
-                    if (players[opponent].start && players[curPlayer].start) {
-                        const message = "Your opponent has quit, you have won!";
-                        await handleGameEndDB(opponent, curPlayer, 'Quit');
-                        io.to(players[opponent].socketId).emit
-                            ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
-                        connectedMPClients -= 2;
-                    }
-                    else if (players[opponent].start == false && players[curPlayer].start == false) {
-                        io.to(players[opponent].socketId).emit("info", "Your opponent left");
-
-                        if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
-                            connectedMPClients -= 2;
-                            io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
-                        }
-                        else {
-                            connectedMPClients--;
-                            io.to(players[opponent].socketId).emit("removeOpponent");
-                        }
-                    }
-                    io.emit('updateMultiplayerCount', connectedMPClients)
-                }
-                else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
-                    players[curPlayer].mode == "singleplayer" &&
-                    players[curPlayer].start
-                ) {
-                    console.log("handle Game End DB is run in disconnect single player start")
+        if (curPlayer != null && players[curPlayer] != null) {
+            if (players[curPlayer].mode != null
+                && players[curPlayer].mode == "multiplayer"
+                && opponent != null
+                && players[opponent] != null) {
+                if (players[opponent].start && players[curPlayer].start) {
+                    const message = "Your opponent disconnected, you can wait for your opponent to come back within 2 minutes or you may quit now and you win!";
                     await handleGameEndDB(opponent, curPlayer, 'Quit');
+                    io.to(players[opponent].socketId).emit
+                        ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
+                    connectedMPClients -= 2;
                 }
-                else if (players[curPlayer].mode == "multiplayer" && opponent == null && players[curPlayer].messages.length == 0) {
-                    connectedMPClients--;
-                    io.emit('updateMultiplayerCount', connectedMPClients)
-                }
+                else if (players[opponent].start == false && players[curPlayer].start == false) { // game start is only false if it is over or haven't started
+                    io.to(players[opponent].socketId).emit("info", "Your opponent left");
 
-                delete players[curPlayer];
-            }
-            if (players[opponent] && players[opponent] instanceof Computer) {
-                delete players[opponent];
-            }
-            if (curPlayer != null) {
-                try {
-                    // Find the user in the db and set isLoggedIn to false
-                    const user = await User.findOne({ _id: curPlayer });
-
-                    if (user) {
-                        console.log(curPlayer, "log off in Database at server disconnect")
-                        user.isLoggedIn = false;
-                        await user.save();
-                    } else {
-                        console.log(`User ${curPlayer} not found in database.`);
+                    if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+                        connectedMPClients -= 2;
+                        io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
                     }
-                } catch (err) {
-                    console.error(`Error logging out user ${curPlayer}:`, err);
+                    else {
+                        connectedMPClients--;
+                        io.to(players[opponent].socketId).emit("removeOpponent");
+                    }
                 }
+                io.emit('updateMultiplayerCount', connectedMPClients)
             }
-            const sockets = userSockets.get(userId);
-            if (sockets) {
-                sockets.delete(socket.id);
-                if (sockets.size === 0) {
-                    userSockets.delete(userId); // Optional: cleanup if no sockets remain
-                    console.log(`User ${userId} has no more active sockets.`);
-                    io.emit("userCountUpdate", userSockets.size)
+            else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
+                players[curPlayer].mode == "singleplayer" &&
+                players[curPlayer].start
+            ) {
+                console.log("handle Game End DB is run in disconnect single player start")
+                await handleGameEndDB(opponent, curPlayer, 'Quit');
+            }
+            else if (players[curPlayer].mode == "multiplayer" && opponent == null && players[curPlayer].messages.length == 0) {
+                connectedMPClients--;
+                io.emit('updateMultiplayerCount', connectedMPClients)
+            }
+
+            delete players[curPlayer];
+        }
+        if (players[opponent] && players[opponent] instanceof Computer) {
+            delete players[opponent];
+        }
+        if (curPlayer != null) {
+            try {
+                // Find the user in the db and set isLoggedIn to false
+                const user = await User.findOne({ _id: curPlayer });
+
+                if (user) {
+                    console.log(curPlayer, "log off in Database at server disconnect")
+                    user.isLoggedIn = false;
+                    await user.save();
+                } else {
+                    console.log(`User ${curPlayer} not found in database.`);
                 }
+            } catch (err) {
+                console.error(`Error logging out user ${curPlayer}:`, err);
             }
+        }
+        const sockets = userSockets.get(userId);
+        if (sockets) {
+            sockets.delete(socket.id);
+            if (sockets.size === 0) {
+                userSockets.delete(userId); // Optional: cleanup if no sockets remain
+                console.log(`User ${userId} has no more active sockets.`);
+                io.emit("userCountUpdate", userSockets.size)
+            }
+            console.log("userSockets after deleting in disconnect event", userSockets)
         }
 
     })
@@ -1689,6 +1712,7 @@ io.on('connection', (socket) => {
 
 
             opponent = null;
+            players[curPlayer].opponent = null;
             console.log("opponent is set to null in home in server")
             let games, allGameStats;
             if (players[curPlayer].start) {

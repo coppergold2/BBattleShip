@@ -89,6 +89,7 @@ const App = () => {
       socket.current.off();
       socket.current.disconnect();
       socket.current = null;
+      sessionStorage.removeItem('socket')
       console.log("disconnected previous socket in connect socket");
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
@@ -97,38 +98,36 @@ const App = () => {
 
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
-      if (socket.recovered == false) {
+      console.log("🔁 Was session recovered?", socket.current.recovered);
+      if (socket.current.recovered == false) {
+        const oldSocketId = sessionStorage.getItem("socket")
+        console.log("sessionStorgeSocket", oldSocketId)
+        if (oldSocketId != null && oldSocketId != socket.current.id) {  //  reconnected failed new connection
+          window.location.reload();
+        }
+        else {   //  true new connection
+          sessionStorage.setItem("socket", socket.current.id)
+          // Resume heartbeat
+          heartbeatInterval = setInterval(() => {
+            socket.current?.emit("heartbeat");
+          }, 30000);
+        }
 
-        //setServerDown(true);
-        setIsLoggedIn(false);
-        console.log("log in false here 1")
-        document.title = "BattleShip"
-        reset();
-        setNumMultiplayer(0);
-        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-        clearInterval(heartbeatInterval);
-        // Resume heartbeat
-        heartbeatInterval = setInterval(() => {
-          socket.current?.emit("heartbeat");
-        }, 30000);
       }
-      else {
-        console.log("🔁 Was session recovered?", socket.current.recovered);
-
+      else {  // if this is a recovered connection
       }
     });
 
     socket.current.on("connect_error", (err) => {
       console.error("Socket connect error:", err.message);
-      localStorage.removeItem('token')
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
     });
 
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
       console.warn("⚠️ Disconnected from server. Reason:", reason);
-
-      if (reason == "io server disconnect" || reason == "io client disconnect") {
         //setServerDown(true);
         setIsLoggedIn(false);
         console.log("log in false here 1")
@@ -136,8 +135,9 @@ const App = () => {
         reset();
         setNumMultiplayer(0);
         setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+        document.title = "BattleShip"
         clearInterval(heartbeatInterval);
-      }
+        sessionStorage.removeItem("socket")
 
     });
     socket.current.on('reconnect_attempt', (attempt) => {
@@ -161,6 +161,7 @@ const App = () => {
       reset();
       setNumMultiplayer(0);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+      document.title = "BattleShip"
       clearInterval(heartbeatInterval);
     });
     socket.current.on('logout', () => { // one of the other tabs logouts, so this tab logs out
@@ -460,6 +461,7 @@ const App = () => {
         socket.current.disconnect();
         socket.current = null
       }
+      sessionStorage.removeItem("socket");
     };
   }, []);
 
@@ -561,11 +563,11 @@ const App = () => {
     };
   })
 
-  useEffect(() => {
-    document.title = isLoggedIn
-      ? `BattleShip - ${homeStats.userName}`
-      : "BattleShip";
-  }, [isLoggedIn]);
+  // useEffect(() => {
+  //   document.title = isLoggedIn
+  //     ? `BattleShip - ${homeStats.userName}`
+  //     : "BattleShip";
+  // }, [isLoggedIn]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -583,10 +585,12 @@ const App = () => {
             lastTenGames: res.data.games,
             allGameStats: res.data.allGameStats
           }));
+          document.title = `BattleShip - ${res.data.userName}`
           setNumMultiplayer(res.data.connectedMPClients);
         })
         .catch(() => {
           localStorage.removeItem('token');
+          sessionStorage.removeItem('socket')
         });
     }
   }, []);
@@ -674,6 +678,7 @@ const App = () => {
 
     // 3. Clear token and state
     localStorage.removeItem('token');
+    sessionStorage.removeItem("socket")
     reset();
     setIsLoggedIn(false);
     console.log("login false here 3")
@@ -711,6 +716,7 @@ const App = () => {
           lastTenGames: response.data.games,
           allGameStats: response.data.allGameStats
         }));
+        document.title = `BattleShip - ${response.data.userName}`
         setNumMultiplayer(response.data.connectedMPClients);
         resetForm(); // Reset the form
         connectSocket(response.data.token); // connect socket with token
@@ -742,6 +748,7 @@ const App = () => {
           id: response.data.id,
           userName: response.data.userName,
         }));
+        document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
         handleBackClick();
         connectSocket(response.data.token); // connect socket with token
