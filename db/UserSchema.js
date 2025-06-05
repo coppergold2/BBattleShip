@@ -26,6 +26,10 @@ const UserSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    currGameRoom: {
+        type: String,
+        default: null
+    },
     lastSeen: {
         type: Date,
         default: () => new Date()

@@ -8,6 +8,7 @@ const Game = require('./db/GameSchema');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const server = http.createServer(app);
@@ -79,9 +80,45 @@ process.on('SIGINT', async () => {
     // Gracefully close the server
     process.exit();
 });
+
+function generateRoomCode(length = 6) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/1/0
+    let code = '';
+    for (let i = 0; i < length; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+}
+
+function createGameSession({ isSinglePlayer = false, playerId, socketId }) {
+  let roomCode;
+  do {
+    roomCode = generateRoomCode();
+  } while (gameRooms[roomCode]); // avoid collision
+
+  const gameId = uuidv4();
+
+  gameRooms[roomCode] = {
+    gameId,
+    roomCode,
+    players: {
+      [playerId]: { socketId: null, grid: [], shots: [], connected: true },
+    },
+    isSinglePlayer,
+    status: isSinglePlayer ? 'in_progress' : 'waiting',
+    start: false,
+    turn: playerId,
+    createdAt: Date.now(),
+  };
+
+  return { roomCode, gameId };
+}
+
 class Player {
-    constructor(id, userName) {
+    constructor(id, userName, socketId) {
         this.id = id;
+        this.userName = userName;
+        this.socketId = socketId
         this.board = Array(100).fill(0); // Initialize empty board
         this.isFlipped = false;
         this.numPlaceShip = 0;
@@ -96,7 +133,7 @@ class Player {
         this.mode = "";
         this.opponent = null;
         this.gameStartTime = null;
-        this.userName = userName;
+        
     }
     displayGrid() {
         let board = this.board;
@@ -192,6 +229,8 @@ class Computer {
         }
     }
 }
+
+
 const ships = {
     'carrier': 5, //length of ship 
     'battleship': 4,
@@ -201,6 +240,7 @@ const ships = {
 };
 
 const players = {};
+const gameRooms = {}; // roomCode => game session
 const hitMessage = (col, row, userName) => {
     return { 'player': `${userName} hit at row ${row} column ${col}.` }
 }
@@ -746,8 +786,9 @@ const computerMove = (curPlayer, socket, opponent) => {
 }
 
 
-const randomBoatPlacement = (user) => {
-    players[user].board = Array(100).fill(0);
+const randomBoatPlacement = (roomCode, user) => {
+    const gameRoom = gameRooms[roomCode];
+    gameRoom.players[user].board = Array(100).fill(0);
     function addShipPiece(allBoardBlocks, shipLength) {
         let randomBoolean = Math.random() < 0.5
         let isHorizontal = randomBoolean
@@ -760,11 +801,11 @@ const randomBoatPlacement = (user) => {
         }
     }
     for (let ship in ships) {
-        const result = addShipPiece(players[user].board, ships[ship])
-        players[user].shipLoc[ship] = result;
-        result.forEach((pos) => { players[user].board[pos] = 1 })
+        const result = addShipPiece(gameRoom.players[user].board, ships[ship])
+        gameRoom.players[user].shipLoc[ship] = result;
+        result.forEach((pos) => { gameRoom.players[user].board[pos] = 1 })
     }
-    console.log("players[user].shipLoc: ", players[user].shipLoc)
+    console.log("gameRoom.players[user].shipLoc: ", gameRoom.players[user].shipLoc)
 }
 
 function generateRandomString(length) {
@@ -1255,6 +1296,7 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
     let opponent;
     let curPlayer;
+    let gameRoom;
     const userId = socket.userId; // from middleware
     const userName = socket.userName;
     if (socket.recovered) {
@@ -1262,26 +1304,25 @@ io.on('connection', (socket) => {
         console.log("🔄 Session recovered");
         console.log("socket room", socket.rooms, "socket data", socket.data)
         curPlayer = socket.userId;
-        if (players[curPlayer]) {
-            opponent = players[curPlayer].opponent;
+        if (gameRoom.players[curPlayer]) {
+            opponent = gameRoom.players[curPlayer].opponent;
+        }
+        if (socket.rooms != null) {
+
         }
     } else {
         // new or unrecoverable session
         console.log("🆕 New connection");
     }
 
-    if (!socket.recovered) {
-
-        if (userSockets.has(userId)) {
-            userSockets.get(userId).add(socket.id);
-        } else {
-            userSockets.set(userId, new Set([socket.id]));
-            io.emit("userCountUpdate", userSockets.size)
-        }
-
-        console.log("userSockets after adding in socket connection event: ", userSockets)
+    if (userSockets.has(userId)) {
+        userSockets.get(userId).add(socket.id);
+    } else {
+        userSockets.set(userId, new Set([socket.id]));
+        io.emit("userCountUpdate", userSockets.size)
     }
 
+    console.log("userSockets after adding in socket connection event: ", userSockets)
 
     // socket.on("login", async (userId) => {
     //     try {
@@ -1336,8 +1377,8 @@ io.on('connection', (socket) => {
     //             }       
 
     //             // Clean up the players object if the player exists
-    //             if (players[curPlayer] != null) {
-    //                 delete players[curPlayer];
+    //             if (gameRoom.players[curPlayer] != null) {
+    //                 delete gameRoom.players[curPlayer];
     //             }
 
     //             // Reset curPlayer
@@ -1358,33 +1399,61 @@ io.on('connection', (socket) => {
             await User.updateOne({ _id: curPlayer }, { $set: { lastSeen: new Date() } });
         }
     });
-    socket.on("singleplayer", (id) => {
-        curPlayer = id;
-        if (players[curPlayer] == null) {
-            players[curPlayer] = new Player(curPlayer, userName);
-            players[curPlayer].socketId = socket.id;
+    socket.on("singleplayer", async () => {
+        // curPlayer = id;
+        // if (gameRoom.players[curPlayer] == null) {
+        //     gameRoom.players[curPlayer] = new Player(curPlayer, userName);
+        //     gameRoom.players[curPlayer].socketId = socket.id;
+        // }
+        // gameRoom.players[curPlayer].mode = "singleplayer";
+        // opponent = generateRandomString(10);
+        // gameRoom.players[opponent] = new Computer(opponent);
+        // gameRoom.players[curPlayer].opponent = opponent;
+        const user = await User.findById(userId)
+        let canCreateGame = true;
+        if (user.currGameRoom != null && gameRooms.has(user.currGameRoom)) {
+            const gameRoom = gameRooms[roomCode]
+            if(gameRoom.players.has(userId)){
+                if (gameRoom.gameRoom.players[userId].connected == true) {
+                canCreateRoom = false;
+                }
+                else{
+                    // do handleGameEnd
+                    gameRooms.delele(user.currGameRoom);
+                    user.currGameRoom = null;
+                    
+                }
+            }
         }
-        players[curPlayer].mode = "singleplayer";
-        opponent = generateRandomString(10);
-        players[opponent] = new Computer(opponent);
-        players[curPlayer].opponent = opponent;
+        
+        if(canCreateGame) {
+            const { roomCode, gameId } = createGameSession(true, userId, socket.id)
+            user.currGameRoom = roomCode;
+            socket.data.roomCode = roomCode
+            gameRoom = gameRooms[roomCode];
+            socket.emit('singleplayer')
+            await user.save();
+        }
+        else{
+            socket.emit("alert", "You are already in a game on another tab")
+        }
     })
     socket.on("multiplayer", (id) => {
         curPlayer = id;
         if (connectedMPClients >= maxConnections) {
             socket.emit("alert", "sorry, the game room is currently full. Please try again later.")
         } else {
-            if (players[curPlayer] == null) {
-                players[curPlayer] = new Player(curPlayer, userName);
-                players[curPlayer].socketId = socket.id;
+            if (gameRoom.players[curPlayer] == null) {
+                gameRoom.players[curPlayer] = new Player(curPlayer, userName);
+                gameRoom.players[curPlayer].socketId = socket.id;
             }
             connectedMPClients++;
-            players[curPlayer].mode = "multiplayer";
+            gameRoom.players[curPlayer].mode = "multiplayer";
             if (connectedMPClients == 2) {
                 opponent = checkForMPOpponent(curPlayer);
-                players[curPlayer].opponent = opponent
-                io.to(players[opponent].socketId).emit("findOpponent")
-                io.to(players[opponent].socketId).emit("info", `${userName} has joined`)
+                gameRoom.players[curPlayer].opponent = opponent
+                io.to(gameRoom.players[opponent].socketId).emit("findOpponent")
+                io.to(gameRoom.players[opponent].socketId).emit("info", `${userName} has joined`)
             }
             io.emit('updateMultiplayerCount', connectedMPClients);
 
@@ -1392,37 +1461,37 @@ io.on('connection', (socket) => {
         }
         console.log("connectedMPClients", connectedMPClients)
     })
-    socket.on("random", () => { if (players[curPlayer].start == false) { randomBoatPlacement(curPlayer); players[curPlayer].numPlaceShip = 5; socket.emit("randomresult", players[curPlayer].shipLoc); } })
+    socket.on("random", () => { if (gameRoom.start == false) { randomBoatPlacement(socket.data.roomCode, curPlayer); gameRoom.players[curPlayer].numPlaceShip = 5; socket.emit("randomresult", gameRoom.players[curPlayer].shipLoc); } })
     socket.on("flip", () => {
-        players[curPlayer].isFlipped = !players[curPlayer].isFlipped;
-        socket.emit("flip", players[curPlayer].isFlipped)
+        gameRoom.players[curPlayer].isFlipped = !gameRoom.players[curPlayer].isFlipped;
+        socket.emit("flip", gameRoom.players[curPlayer].isFlipped)
     })
     socket.on("selectShip", (shipName) => {
-        if (players[curPlayer].shipLoc[shipName].length == 0) {
-            if (players[curPlayer].activeShip == shipName) {
-                players[curPlayer].activeShip = null;
+        if (gameRoom.players[curPlayer].shipLoc[shipName].length == 0) {
+            if (gameRoom.players[curPlayer].activeShip == shipName) {
+                gameRoom.players[curPlayer].activeShip = null;
             }
             else {
-                players[curPlayer].activeShip = shipName;
+                gameRoom.players[curPlayer].activeShip = shipName;
             }
-            socket.emit("selectShip", players[curPlayer].activeShip)
+            socket.emit("selectShip", gameRoom.players[curPlayer].activeShip)
         }
         else {
             socket.emit("alert", "This ship is already placed, your game is potentially modified illegally, consider refreshing the page");
         }
     })
     socket.on("shipPlacement", (location) => {
-        if (players[curPlayer].activeShip == null || players[curPlayer].shipLoc[players[curPlayer].activeShip].length != 0) {
+        if (gameRoom.players[curPlayer].activeShip == null || gameRoom.players[curPlayer].shipLoc[gameRoom.players[curPlayer].activeShip].length != 0) {
             socket.emit("alert", "This ship is already placed on the board or the ship has not been selected, and your game is potentially modified illegally, consider refreshing the page")
         }
         else {
             const row = Math.floor(location / 10);
             const col = location % 10;
-            const shipSize = ships[players[curPlayer].activeShip];
+            const shipSize = ships[gameRoom.players[curPlayer].activeShip];
             const isValidLocation = (loc) => loc >= 0 && loc < 100;
-            const isLocationOccupied = (loc) => players[curPlayer].board[loc] == 1;
+            const isLocationOccupied = (loc) => gameRoom.players[curPlayer].board[loc] == 1;
             let result = []
-            if (players[curPlayer].isFlipped) {
+            if (gameRoom.players[curPlayer].isFlipped) {
                 if (row + shipSize <= 10) {
                     for (let i = 0; i < shipSize; i++) {
                         const loc = row * 10 + col + i * 10;
@@ -1448,93 +1517,93 @@ io.on('connection', (socket) => {
             }
             if (result != null && result.length != 0) {
                 result.forEach((element) => {
-                    players[curPlayer].board[element] = 1
+                    gameRoom.players[curPlayer].board[element] = 1
                 })
-                players[curPlayer].shipLoc[players[curPlayer].activeShip] = result;
-                players[curPlayer].numPlaceShip++;
-                console.log(players[curPlayer].shipLoc)
-                socket.emit("shipPlacement", result, players[curPlayer].activeShip);
-                players[curPlayer].activeShip = null;
+                gameRoom.players[curPlayer].shipLoc[gameRoom.players[curPlayer].activeShip] = result;
+                gameRoom.players[curPlayer].numPlaceShip++;
+                console.log(gameRoom.players[curPlayer].shipLoc)
+                socket.emit("shipPlacement", result, gameRoom.players[curPlayer].activeShip);
+                gameRoom.players[curPlayer].activeShip = null;
             }
             else {
-                socket.emit("alert", "Cannot place on this cell for this " + players[curPlayer].activeShip + " ship")
+                socket.emit("alert", "Cannot place on this cell for this " + gameRoom.players[curPlayer].activeShip + " ship")
             }
         }
     })
     socket.on("shipReplacement", (shipName, index) => {
-        if (players[curPlayer].shipLoc[shipName].length == 0) {
+        if (gameRoom.players[curPlayer].shipLoc[shipName].length == 0) {
             socket.emit("alert", "There is an issue with ship replacement, your game is potentially modified illegally, consider refreshing the page")
             socket.emit("selectShip", null);
         }
         else {
-            players[curPlayer].shipLoc[shipName].forEach((element) => {
-                players[curPlayer].board[element] = 0;
+            gameRoom.players[curPlayer].shipLoc[shipName].forEach((element) => {
+                gameRoom.players[curPlayer].board[element] = 0;
             })
-            players[curPlayer].shipLoc[shipName].forEach((loc) => { players[curPlayer].board[loc] = 0 })
-            players[curPlayer].activeShip = shipName;
-            socket.emit("selectShip", players[curPlayer].activeShip)
-            socket.emit("shipReplacement", players[curPlayer].shipLoc[shipName], shipName, index);
-            players[curPlayer].shipLoc[shipName] = [];
-            players[curPlayer].numPlaceShip--;
-            players[curPlayer].displayGrid()
+            gameRoom.players[curPlayer].shipLoc[shipName].forEach((loc) => { gameRoom.players[curPlayer].board[loc] = 0 })
+            gameRoom.players[curPlayer].activeShip = shipName;
+            socket.emit("selectShip", gameRoom.players[curPlayer].activeShip)
+            socket.emit("shipReplacement", gameRoom.players[curPlayer].shipLoc[shipName], shipName, index);
+            gameRoom.players[curPlayer].shipLoc[shipName] = [];
+            gameRoom.players[curPlayer].numPlaceShip--;
+            gameRoom.players[curPlayer].displayGrid()
         }
     })
     socket.on("start", () => {
-        console.log("opponent in start:", opponent ? players[opponent] : null)
-        if (players[curPlayer].mode == "singleplayer" && players[curPlayer].start == false) {
-            players[curPlayer].numPlaceShip == 5 ?
-                (randomBoatPlacement(opponent), players[opponent].displayGrid(),
-                    players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"),
-                    players[curPlayer].messages.push({ 'player':  players[curPlayer].userName + JSON.stringify(players[curPlayer].shipLoc) }),
-                    socket.emit("message", players[curPlayer].messages), players[curPlayer].gameStartTime = new Date()) :
+        console.log("opponent in start:", opponent ? gameRoom.players[opponent] : null)
+        if (gameRoom.players[curPlayer].mode == "singleplayer" && gameRoom.players[curPlayer].start == false) {
+            gameRoom.players[curPlayer].numPlaceShip == 5 ?
+                (randomBoatPlacement(opponent), gameRoom.players[opponent].displayGrid(),
+                    gameRoom.players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"),
+                    gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + JSON.stringify(gameRoom.players[curPlayer].shipLoc) }),
+                    socket.emit("message", gameRoom.players[curPlayer].messages), gameRoom.players[curPlayer].gameStartTime = new Date()) :
                 socket.emit("not enough ship", "Please place all your ship before starting")
         }
-        else if (players[curPlayer].mode == "multiplayer" && players[curPlayer].start == false) {
+        else if (gameRoom.players[curPlayer].mode == "multiplayer" && gameRoom.players[curPlayer].start == false) {
             // console.log("curPlayer:", curPlayer)
             // opponent = checkForMPOpponent(curPlayer);
-            if (players[curPlayer].numPlaceShip != 5) {
+            if (gameRoom.players[curPlayer].numPlaceShip != 5) {
                 socket.emit("not enough ship", "Please place all your ship before starting")
             }
             else if (opponent == null) {
                 socket.emit("info", "Waiting for a player to join");
             }
-            else if (opponent != null && players[opponent].numPlaceShip != 5) {
+            else if (opponent != null && gameRoom.players[opponent].numPlaceShip != 5) {
                 console.log("opponent should be null right? ", opponent)
                 socket.emit("info", "Your opponent is not ready yet, please wait");
             }
-            else if (opponent != null && players[opponent].numPlaceShip == 5) {
+            else if (opponent != null && gameRoom.players[opponent].numPlaceShip == 5) {
                 // console.log("players array", players)
-                players[curPlayer].start = true;
-                players[opponent].start = true;
-                players[curPlayer].gameStartTime = new Date();
-                players[opponent].gameStartTime = players[curPlayer].gameStartTime
+                gameRoom.players[curPlayer].start = true;
+                gameRoom.players[opponent].start = true;
+                gameRoom.players[curPlayer].gameStartTime = new Date();
+                gameRoom.players[opponent].gameStartTime = gameRoom.players[curPlayer].gameStartTime
                 socket.emit("start");
-                players[curPlayer].messages.push({ 'player': players[curPlayer].userName + JSON.stringify(players[curPlayer].shipLoc) });
-                socket.emit("message", players[curPlayer].messages);
-                io.to(players[opponent].socketId).emit("ostart");
-                io.to(players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
+                gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + JSON.stringify(gameRoom.players[curPlayer].shipLoc) });
+                socket.emit("message", gameRoom.players[curPlayer].messages);
+                io.to(gameRoom.players[opponent].socketId).emit("ostart");
+                io.to(gameRoom.players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
                 socket.emit("turn");
             }
 
         }
-        // players[curPlayer].displayGrid()
+        // gameRoom.players[curPlayer].displayGrid()
         //gameStartTime = new Date();
     })
     socket.on("ostart", () => {
-        players[curPlayer].messages.push({ 'player': players[curPlayer].userName + JSON.stringify(players[curPlayer].shipLoc) });
-        socket.emit("message", players[curPlayer].messages)
+        gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + JSON.stringify(gameRoom.players[curPlayer].shipLoc) });
+        socket.emit("message", gameRoom.players[curPlayer].messages)
     })
     socket.on("findOpponent", () => {
         opponent = checkForMPOpponent(curPlayer);
-        players[curPlayer].opponent = opponent;
+        gameRoom.players[curPlayer].opponent = opponent;
     })
     socket.on("removeOpponent", () => {
         console.log("set opponent to null", opponent)
         opponent = null;
-        players[curPlayer].opponent = null;
+        gameRoom.players[curPlayer].opponent = null;
     })
     socket.on("attack", (pos) => {
-        switch (players[opponent].board[pos]) {
+        switch (gameRoom.players[opponent].board[pos]) {
             case 1: {
                 handleHitComm(curPlayer, opponent, pos);
                 handleDestroyComm(curPlayer, opponent, pos);
@@ -1546,7 +1615,7 @@ io.on('connection', (socket) => {
                 break;
             case 0: {
                 handleMissComm(curPlayer, opponent, pos)
-                if (players[curPlayer].mode == "singleplayer") {
+                if (gameRoom.players[curPlayer].mode == "singleplayer") {
                     socket.emit("info", "The AI is thinking ...")
                     setTimeout(() => { computerMove(curPlayer, socket, opponent) }, 500)
                 }
@@ -1562,17 +1631,17 @@ io.on('connection', (socket) => {
             const command = JSON.parse(commandString);
             if (isValidShipPlacement(command)) {
                 console.log('Valid command:', command);
-                players[curPlayer].shipLoc = command;
-                players[curPlayer].board = Array(100).fill(0);
+                gameRoom.players[curPlayer].shipLoc = command;
+                gameRoom.players[curPlayer].board = Array(100).fill(0);
                 for (const ship in command) {
                     if (command.hasOwnProperty(ship)) {
                         command[ship].forEach((position) => {
-                            players[curPlayer].board[position] = 1;
+                            gameRoom.players[curPlayer].board[position] = 1;
                         });
                     }
                 }
-                players[curPlayer].numPlaceShip = 5;
-                socket.emit("randomresult", players[curPlayer].shipLoc);
+                gameRoom.players[curPlayer].numPlaceShip = 5;
+                socket.emit("randomresult", gameRoom.players[curPlayer].shipLoc);
             } else {
                 console.log('Invalid command format');
                 socket.emit('alert', 'Invalid command format');
@@ -1583,11 +1652,11 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        players[curPlayer].messages.push({ 'player': players[curPlayer].userName + message }); // Save the new message to the session messages
-        socket.emit("message", players[curPlayer].messages)
-        if (players[curPlayer].mode == "multiplayer" && opponent != null && players[opponent] && players[opponent].mode == 'multiplayer') {
-            players[opponent].messages.push({ 'opponent': players[opponent].userName + message });
-            io.to(players[opponent].socketId).emit("message", players[opponent].messages)
+        gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + message }); // Save the new message to the session messages
+        socket.emit("message", gameRoom.players[curPlayer].messages)
+        if (gameRoom.players[curPlayer].mode == "multiplayer" && opponent != null && gameRoom.players[opponent] && gameRoom.players[opponent].mode == 'multiplayer') {
+            gameRoom.players[opponent].messages.push({ 'opponent': gameRoom.players[opponent].userName + message });
+            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.players[opponent].messages)
         }
     });
 
@@ -1599,48 +1668,48 @@ io.on('connection', (socket) => {
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log("Disconnected in server side because", reason);
         console.log('Server Disconnect details', details)
-        if (curPlayer != null && players[curPlayer] != null) {
-            if (players[curPlayer].mode != null
-                && players[curPlayer].mode == "multiplayer"
+        if (curPlayer != null && gameRoom.players[curPlayer] != null) {
+            if (gameRoom.players[curPlayer].mode != null
+                && gameRoom.players[curPlayer].mode == "multiplayer"
                 && opponent != null
-                && players[opponent] != null) {
-                if (players[opponent].start && players[curPlayer].start) {
+                && gameRoom.players[opponent] != null) {
+                if (gameRoom.players[opponent].start && gameRoom.players[curPlayer].start) {
                     const message = "Your opponent disconnected, you can wait for your opponent to come back within 2 minutes or you may quit now and you win!";
                     await handleGameEndDB(opponent, curPlayer, 'Quit');
-                    io.to(players[opponent].socketId).emit
+                    io.to(gameRoom.players[opponent].socketId).emit
                         ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
                     connectedMPClients -= 2;
                 }
-                else if (players[opponent].start == false && players[curPlayer].start == false) { // game start is only false if it is over or haven't started
-                    io.to(players[opponent].socketId).emit("info", "Your opponent left");
+                else if (gameRoom.players[opponent].start == false && gameRoom.players[curPlayer].start == false) { // game start is only false if it is over or haven't started
+                    io.to(gameRoom.players[opponent].socketId).emit("info", "Your opponent left");
 
-                    if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+                    if (gameRoom.players[curPlayer].numDestroyShip == 5 || gameRoom.players[opponent].numDestroyShip == 5) {
                         connectedMPClients -= 2;
-                        io.to(players[opponent].socketId).emit("oquit", "Your opponent left");
+                        io.to(gameRoom.players[opponent].socketId).emit("oquit", "Your opponent left");
                     }
                     else {
                         connectedMPClients--;
-                        io.to(players[opponent].socketId).emit("removeOpponent");
+                        io.to(gameRoom.players[opponent].socketId).emit("removeOpponent");
                     }
                 }
                 io.emit('updateMultiplayerCount', connectedMPClients)
             }
-            else if (players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
-                players[curPlayer].mode == "singleplayer" &&
-                players[curPlayer].start
+            else if (gameRoom.players[curPlayer].mode != null &&  // handle if curplayer is at a singleplayer mode, then just handlegameEnd.
+                gameRoom.players[curPlayer].mode == "singleplayer" &&
+                gameRoom.players[curPlayer].start
             ) {
                 console.log("handle Game End DB is run in disconnect single player start")
                 await handleGameEndDB(opponent, curPlayer, 'Quit');
             }
-            else if (players[curPlayer].mode == "multiplayer" && opponent == null && players[curPlayer].messages.length == 0) {
+            else if (gameRoom.players[curPlayer].mode == "multiplayer" && opponent == null && gameRoom.players[curPlayer].messages.length == 0) {
                 connectedMPClients--;
                 io.emit('updateMultiplayerCount', connectedMPClients)
             }
 
-            delete players[curPlayer];
+            delete gameRoom.players[curPlayer];
         }
-        if (players[opponent] && players[opponent] instanceof Computer) {
-            delete players[opponent];
+        if (gameRoom.players[opponent] && gameRoom.players[opponent] instanceof Computer) {
+            delete gameRoom.players[opponent];
         }
         if (curPlayer != null) {
             try {
@@ -1674,64 +1743,64 @@ io.on('connection', (socket) => {
     socket.on("home", async () => {
         try {
             // Check if the game has ended for the current player
-            if (players[curPlayer].start && (players[opponent].start || players[opponent] instanceof Computer)) {
+            if (gameRoom.players[curPlayer].start && (gameRoom.players[opponent].start || gameRoom.players[opponent] instanceof Computer)) {
                 await handleGameEndDB(opponent, curPlayer, "Quit");
             }
 
             // Handle multiplayer mode
-            if (players[curPlayer].mode === "multiplayer") {
-                if (players[opponent] && players[opponent].start && players[curPlayer].start) { // both player started game and game have not finished
-                    io.to(players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
+            if (gameRoom.players[curPlayer].mode === "multiplayer") {
+                if (gameRoom.players[opponent] && gameRoom.players[opponent].start && gameRoom.players[curPlayer].start) { // both player started game and game have not finished
+                    io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
                         "Your opponent has quit, you have won!",
                         await findLast10GamesForUser(opponent),
                         await calculateWinRate(opponent));
                     connectedMPClients -= 2;
-                } else if (players[opponent] && !players[opponent].start && !players[curPlayer].start) { // this means that if both player finish their game or they haven't started playing yet
-                    io.to(players[opponent].socketId).emit("info", "Your opponent left");
+                } else if (gameRoom.players[opponent] && !gameRoom.players[opponent].start && !gameRoom.players[curPlayer].start) { // this means that if both player finish their game or they haven't started playing yet
+                    io.to(gameRoom.players[opponent].socketId).emit("info", "Your opponent left");
 
-                    if (players[curPlayer].numDestroyShip == 5 || players[opponent].numDestroyShip == 5) {
+                    if (gameRoom.players[curPlayer].numDestroyShip == 5 || gameRoom.players[opponent].numDestroyShip == 5) {
                         connectedMPClients -= 2;
-                        io.to(players[opponent].socketId).emit("oquit");
+                        io.to(gameRoom.players[opponent].socketId).emit("oquit");
                     }
                     else {
                         connectedMPClients--;
-                        io.to(players[opponent].socketId).emit("removeOpponent");
+                        io.to(gameRoom.players[opponent].socketId).emit("removeOpponent");
                     }
                 }
 
-                else if (opponent == null && players[curPlayer].messages.length == 0) {
+                else if (opponent == null && gameRoom.players[curPlayer].messages.length == 0) {
                     connectedMPClients--;
                 }
                 io.emit('updateMultiplayerCount', connectedMPClients)
             }
             // Handle single player mode, deleting computer player in players array
-            else if (players[opponent] && players[opponent] instanceof Computer) {
-                delete players[opponent];
+            else if (gameRoom.players[opponent] && gameRoom.players[opponent] instanceof Computer) {
+                delete gameRoom.players[opponent];
             }
 
 
 
             opponent = null;
-            players[curPlayer].opponent = null;
+            gameRoom.players[curPlayer].opponent = null;
             console.log("opponent is set to null in home in server")
             let games, allGameStats;
-            if (players[curPlayer].start) {
+            if (gameRoom.players[curPlayer].start) {
                 games = await findLast10GamesForUser(curPlayer);
                 allGameStats = await calculateWinRate(curPlayer);
             }
             socket.emit("home", games, allGameStats);
-            players[curPlayer].reset();
-            players[curPlayer].mode = ""
+            gameRoom.players[curPlayer].reset();
+            gameRoom.players[curPlayer].mode = ""
         } catch (err) {
             console.error(`error handling game end DB: ${err}`);
         }
     });
 
     socket.on("oquit", () => {
-        let tempMessage = players[curPlayer].messages
-        players[curPlayer].reset();
-        players[curPlayer].messages = tempMessage
-        players[curPlayer].start = false;
+        let tempMessage = gameRoom.players[curPlayer].messages
+        gameRoom.players[curPlayer].reset();
+        gameRoom.players[curPlayer].messages = tempMessage
+        gameRoom.players[curPlayer].start = false;
         //connectedMPClients--;
         console.log("opponent has set to null in oquit")
         opponent = null;

@@ -168,6 +168,17 @@ const App = () => {
       alert("you have been logged out")
       logoutTasks()
     })
+    socket.current.on('singleplayer', () => {
+      setSinglePlayer(true);
+      setInfo("Please Place your ships")
+          setPbCellClass(
+      Array.from({ length: 100 }, () => (
+        {
+          shipName: null,
+          ohit: false,
+          omiss: false
+        })))
+    })
     socket.current.on("oquit", (msg, games, allGameStats) => {
 
       if (msg != null) {
@@ -466,16 +477,16 @@ const App = () => {
   }, []);
 
   const handleSinglePlayerClick = () => {
-    setSinglePlayer(true);
-    socket.current.emit("singleplayer", homeStats.id)
-    setInfo("Please Place your ships")
-    setPbCellClass(
-      Array.from({ length: 100 }, () => (
-        {
-          shipName: null,
-          ohit: false,
-          omiss: false
-        })))
+    socket.current.emit("singleplayer", homeStats.id)    
+    // setSinglePlayer(true);
+    // setInfo("Please Place your ships")
+    // setPbCellClass(
+    //   Array.from({ length: 100 }, () => (
+    //     {
+    //       shipName: null,
+    //       ohit: false,
+    //       omiss: false
+    //     })))
   }
   const handleMultiPlayerClick = () => {
     socket.current.emit("multiplayer", homeStats.id)
