@@ -90,28 +90,31 @@ function generateRoomCode(length = 6) {
     return code;
 }
 
-function createGameSession({ isSinglePlayer = false, playerId, socketId }) {
-  let roomCode;
-  do {
-    roomCode = generateRoomCode();
-  } while (gameRooms[roomCode]); // avoid collision
+function createGameSession({ isSinglePlayer = false, playerId, socketId, userName }) {
+    let roomCode;
+    do {
+        roomCode = generateRoomCode();
+    } while (gameRooms[roomCode]); // avoid collision
 
-  const gameId = uuidv4();
+    const gameId = uuidv4();
 
-  gameRooms[roomCode] = {
-    gameId,
-    roomCode,
-    players: {
-      [playerId]: { socketId: null, grid: [], shots: [], connected: true },
-    },
-    isSinglePlayer,
-    status: isSinglePlayer ? 'in_progress' : 'waiting',
-    start: false,
-    turn: playerId,
-    createdAt: Date.now(),
-  };
+    gameRooms[roomCode] = {
+        gameId,
+        roomCode,
+        players: {
+            [playerId]: new Player(playerId, userName, socketId),
+        },
+        isSinglePlayer,
+        status: isSinglePlayer ? 'in_progress' : 'waiting',
+        start: false,
+        turn: playerId,
+        chat : [
 
-  return { roomCode, gameId };
+        ],
+        createdAt: Date.now(),
+    };
+
+    return { roomCode, gameId };
 }
 
 class Player {
@@ -126,14 +129,14 @@ class Player {
         this.numDestroyShip = 0;
         this.numHits = 0;
         this.numMisses = 0;
-        this.start = false;
-        this.messages = [];
+        //this.start = false;
+        //this.messages = [];
         this.allHitLocations = [];
         this.activeShip = null;
-        this.mode = "";
+        //this.mode = "";
         this.opponent = null;
-        this.gameStartTime = null;
-        
+        //this.gameStartTime = null;
+
     }
     displayGrid() {
         let board = this.board;
@@ -1304,11 +1307,13 @@ io.on('connection', (socket) => {
         console.log("🔄 Session recovered");
         console.log("socket room", socket.rooms, "socket data", socket.data)
         curPlayer = socket.userId;
-        if (gameRoom.players[curPlayer]) {
-            opponent = gameRoom.players[curPlayer].opponent;
-        }
-        if (socket.rooms != null) {
+        if (socket.data.roomCode && gameRooms[socket.data.roomCode]) {
+            if (gameRoom.players[curPlayer]) {
+                opponent = gameRoom.players[curPlayer].opponent;
+            }
+            if (socket.rooms != null) {
 
+            }
         }
     } else {
         // new or unrecoverable session
@@ -1413,28 +1418,28 @@ io.on('connection', (socket) => {
         let canCreateGame = true;
         if (user.currGameRoom != null && gameRooms.has(user.currGameRoom)) {
             const gameRoom = gameRooms[roomCode]
-            if(gameRoom.players.has(userId)){
+            if (gameRoom.players.has(userId)) {
                 if (gameRoom.gameRoom.players[userId].connected == true) {
-                canCreateRoom = false;
+                    canCreateRoom = false;
                 }
-                else{
+                else {
                     // do handleGameEnd
                     gameRooms.delele(user.currGameRoom);
                     user.currGameRoom = null;
-                    
+
                 }
             }
         }
-        
-        if(canCreateGame) {
-            const { roomCode, gameId } = createGameSession(true, userId, socket.id)
+
+        if (canCreateGame) {
+            const { roomCode, gameId } = createGameSession(true, userId, socket.id, userName)
             user.currGameRoom = roomCode;
             socket.data.roomCode = roomCode
             gameRoom = gameRooms[roomCode];
             socket.emit('singleplayer')
             await user.save();
         }
-        else{
+        else {
             socket.emit("alert", "You are already in a game on another tab")
         }
     })
