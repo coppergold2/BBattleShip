@@ -65,7 +65,9 @@ async function logoutAllPlayers() {
     console.log('Updating isLoggedIn status for all players to log off...');
     try {
         await User.updateMany({ isLoggedIn: true }, { $set: { isLoggedIn: false } });
+        io.emit("userCountUpdate", 0)
         io.emit("logout");
+
         console.log('All players have been logged out.');
     } catch (err) {
         console.error('Error logging out players:', err);
@@ -82,7 +84,7 @@ process.on('SIGINT', async () => {
 });
 
 function generateRoomCode(length = 6) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I/O/1/0
+    const chars = 'ABCDEFGHJ KLMNPQRSTUVWXYZ23456789'; // no I/O/1/0
     let code = '';
     for (let i = 0; i < length; i++) {
         code += chars[Math.floor(Math.random() * chars.length)];
@@ -91,6 +93,7 @@ function generateRoomCode(length = 6) {
 }
 
 function createGameSession({ isSinglePlayer = false, playerId, socketId, userName }) {
+    console.log("playerId in createGameSession", playerId)
     let roomCode;
     do {
         roomCode = generateRoomCode();
@@ -108,7 +111,7 @@ function createGameSession({ isSinglePlayer = false, playerId, socketId, userNam
         status: isSinglePlayer ? 'in_progress' : 'waiting',
         start: false,
         turn: playerId,
-        chat : [
+        messages: [
 
         ],
         createdAt: Date.now(),
@@ -136,6 +139,7 @@ class Player {
         //this.mode = "";
         this.opponent = null;
         //this.gameStartTime = null;
+        this.connected = true;
 
     }
     displayGrid() {
@@ -245,15 +249,15 @@ const ships = {
 const players = {};
 const gameRooms = {}; // roomCode => game session
 const hitMessage = (col, row, userName) => {
-    return { 'player': `${userName} hit at row ${row} column ${col}.` }
+    return { [userName]: `hit at row ${row} column ${col}.` }
 }
 
 const destroyMessage = (shipName, userName) => {
-    return { 'player': `${userName} sunk the ${shipName} ship.` }
+    return { [userName]: `sunk the ${shipName} ship.` }
 }
 
 const missMessage = (col, row, userName) => {
-    return { 'player': `${userName} missed at row ${row} column ${col}.` }
+    return { [userName]: `missed at row ${row} column ${col}.` }
 }
 
 function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
@@ -285,123 +289,127 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
     return { shipBlocks, valid, notTaken }
 }
 
-function getRandomIndexWithOneValue(computer) {
-    let nextHitLocations = checkMostValueableHit(players[computer].maxPossHitLocations, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'], players[computer].numMisses, players[computer].opponentShipRemain['minSizeShip'])
-    nextHitLocations = checkMinAllDirection(nextHitLocations, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'])
+function getRandomIndexWithOneValue(computer, roomCode) {
+    const gameRoom = gameRooms[roomCode]
+    let nextHitLocations = checkMostValueableHit(gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'], gameRoom.players[computer].numMisses, gameRoom.players[computer].opponentShipRemain['minSizeShip'])
+    nextHitLocations = checkMinAllDirection(nextHitLocations, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'])
     console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
     return nextHitLocations[randomIndex];
 }
 
-const handleAIMiss = (computer, socket) => {
-    if (players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
-        players[computer].possHitDirections[players[computer].curHitDirection] = -1;
+const handleAIMiss = (computer, socket, roomCode) => {
+    const gameRoom = gameRooms[roomCode]
+    if (gameRoom.players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
+        gameRoom.players[computer].possHitDirections[gameRoom.players[computer].curHitDirection] = -1;
         if (AIFirstTimeHitNewShip == false) {
-            switch (players[computer].curHitDirection) {
+            switch (gameRoom.players[computer].curHitDirection) {
                 case 0:
-                    if (players[computer].possHitDirections[2] != -1) {
-                        players[computer].curHitDirection = 2;
+                    if (gameRoom.players[computer].possHitDirections[2] != -1) {
+                        gameRoom.players[computer].curHitDirection = 2;
                     }
                     break;
                 case 1:
-                    if (players[computer].possHitDirections[3] != -1) {
-                        players[computer].curHitDirection = 3;
+                    if (gameRoom.players[computer].possHitDirections[3] != -1) {
+                        gameRoom.players[computer].curHitDirection = 3;
                     }
                     break;
                 case 2:
-                    if (players[computer].possHitDirections[0] != -1) {
-                        players[computer].curHitDirection = 0;
+                    if (gameRoom.players[computer].possHitDirections[0] != -1) {
+                        gameRoom.players[computer].curHitDirection = 0;
                     }
                     break;
                 case 3:
-                    if (players[computer].possHitDirections[1] != -1) {
-                        players[computer].curHitDirection = 1;
+                    if (gameRoom.players[computer].possHitDirections[1] != -1) {
+                        gameRoom.players[computer].curHitDirection = 1;
                     }
                     break;
             }
         }
-        if (players[computer].possHitDirections[players[computer].curHitDirection] == -1 || AIFirstTimeHitNewShip == true) {
-            players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
+        if (gameRoom.players[computer].possHitDirections[gameRoom.players[computer].curHitDirection] == -1 || AIFirstTimeHitNewShip == true) {
+            gameRoom.players[computer].curHitDirection = pickDirection(gameRoom.players[computer].possHitDirections)
         }
     }
     else {
-        checkPossHitLocs(computer)
-        socket.emit("updatePossHitLocation", [...players[computer].maxPossHitLocations]);
+        checkPossHitLocs(computer, roomCode)
+        socket.emit("updatePossHitLocation", [...gameRoom.players[computer].maxPossHitLocations]);
     }
 }
 
-const handleAIHit = (computer, loc) => {
-    if (!players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
-        players[computer].possHitDirections = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true, players[computer].hitLocs);
-        players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
+const handleAIHit = (computer, loc, roomCode) => {
+    const gameRoom = gameRooms[roomCode]
+    if (!gameRoom.players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
+        gameRoom.players[computer].possHitDirections = checkAdjacentCells(loc, gameRoom.players[computer].possHitLocations, gameRoom.players[computer].opponentShipRemain.minSizeShip, true, gameRoom.players[computer].hitLocs);
+        gameRoom.players[computer].curHitDirection = pickDirection(gameRoom.players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
-    else if (players[computer].curHitDirection != null) {   // if some of the possHitDirections is not -1 and curHitDirection is not null ?
+    else if (gameRoom.players[computer].curHitDirection != null) {   // if some of the possHitDirections is not -1 and curHitDirection is not null ?
         AIFirstTimeHitNewShip = false
         const cols = 10;
-        switch (players[computer].curHitDirection) {
+        switch (gameRoom.players[computer].curHitDirection) {
             case 0:
-                if (loc - cols >= 0 && players[computer].possHitLocations.has(loc - cols)) {
-                    players[computer].possHitDirections[0] = loc - cols
+                if (loc - cols >= 0 && gameRoom.players[computer].possHitLocations.has(loc - cols)) {
+                    gameRoom.players[computer].possHitDirections[0] = loc - cols
                 }
                 else {
-                    players[computer].possHitDirections[0] = -1;
-                    if (players[computer].possHitDirections[2] != -1) {
-                        players[computer].curHitDirection = 2;
+                    gameRoom.players[computer].possHitDirections[0] = -1;
+                    if (gameRoom.players[computer].possHitDirections[2] != -1) {
+                        gameRoom.players[computer].curHitDirection = 2;
                     }
                 }
                 break;
             case 1:
-                if (loc % cols !== 0 && players[computer].possHitLocations.has(loc - 1)) {
-                    players[computer].possHitDirections[1] = loc - 1
+                if (loc % cols !== 0 && gameRoom.players[computer].possHitLocations.has(loc - 1)) {
+                    gameRoom.players[computer].possHitDirections[1] = loc - 1
                 }
                 else {
-                    players[computer].possHitDirections[1] = -1;
-                    if (players[computer].possHitDirections[3] != -1) {
-                        players[computer].curHitDirection = 3
+                    gameRoom.players[computer].possHitDirections[1] = -1;
+                    if (gameRoom.players[computer].possHitDirections[3] != -1) {
+                        gameRoom.players[computer].curHitDirection = 3
                     }
                 }
                 break;
             case 2:
-                if (loc + cols < 100 && players[computer].possHitLocations.has(loc + cols)) {
-                    players[computer].possHitDirections[2] = loc + cols
+                if (loc + cols < 100 && gameRoom.players[computer].possHitLocations.has(loc + cols)) {
+                    gameRoom.players[computer].possHitDirections[2] = loc + cols
                 }
                 else {
-                    players[computer].possHitDirections[2] = -1;
-                    if (players[computer].possHitDirections[0] != -1) {
-                        players[computer].curHitDirection = 0;
+                    gameRoom.players[computer].possHitDirections[2] = -1;
+                    if (gameRoom.players[computer].possHitDirections[0] != -1) {
+                        gameRoom.players[computer].curHitDirection = 0;
                     }
                 }
                 break;
             case 3:
-                if ((loc + 1) % cols !== 0 && players[computer].possHitLocations.has(loc + 1)) {
-                    players[computer].possHitDirections[3] = loc + 1
+                if ((loc + 1) % cols !== 0 && gameRoom.players[computer].possHitLocations.has(loc + 1)) {
+                    gameRoom.players[computer].possHitDirections[3] = loc + 1
                 }
                 else {
-                    players[computer].possHitDirections[3] = -1;
-                    if (players[computer].possHitDirections[1] != -1) {
-                        players[computer].curHitDirection = 1;
+                    gameRoom.players[computer].possHitDirections[3] = -1;
+                    if (gameRoom.players[computer].possHitDirections[1] != -1) {
+                        gameRoom.players[computer].curHitDirection = 1;
                     }
                 }
                 break;
         }
-        if (players[computer].possHitDirections[players[computer].curHitDirection] == -1) {
-            players[computer].curHitDirection = pickDirection(players[computer].possHitDirections)
+        if (gameRoom.players[computer].possHitDirections[gameRoom.players[computer].curHitDirection] == -1) {
+            gameRoom.players[computer].curHitDirection = pickDirection(gameRoom.players[computer].possHitDirections)
         }
     }
 }
 
-const handleAIDestroy = (computer, destroyShip) => {
-    removeDestroyShipLoc(computer, destroyShip[1]);
-    players[computer].curHitDirection = null;
-    players[computer].possHitDirections = [-1, -1, -1, -1]
+const handleAIDestroy = (computer, destroyShip, roomCode) => {
+    const gameRoom = gameRooms[roomCode];
+    removeDestroyShipLoc(computer, destroyShip[1], roomCode);
+    gameRoom.players[computer].curHitDirection = null;
+    gameRoom.players[computer].possHitDirections = [-1, -1, -1, -1]
     // need to update the minSizeShip
-    players[computer].opponentShipRemain[destroyShip[0]] = 0;
+    gameRoom.players[computer].opponentShipRemain[destroyShip[0]] = 0;
     let minSize = 5;
     let maxSize = 2;
     for (const shipName in ships) {
-        if (players[computer].opponentShipRemain[shipName] == 1) {
+        if (gameRoom.players[computer].opponentShipRemain[shipName] == 1) {
             if (ships[shipName] < minSize) {
                 minSize = ships[shipName]
             }
@@ -410,19 +418,19 @@ const handleAIDestroy = (computer, destroyShip) => {
             }
         }
     }
-    players[computer].opponentShipRemain['minSizeShip'] = minSize;
-    players[computer].opponentShipRemain['maxSizeShip'] = maxSize;
-    console.log('minSizeShip:', players[computer].opponentShipRemain['minSizeShip'])
-    console.log('maxSizeShip:', players[computer].opponentShipRemain['maxSizeShip'])
+    gameRoom.players[computer].opponentShipRemain['minSizeShip'] = minSize;
+    gameRoom.players[computer].opponentShipRemain['maxSizeShip'] = maxSize;
+    console.log('minSizeShip:', gameRoom.players[computer].opponentShipRemain['minSizeShip'])
+    console.log('maxSizeShip:', gameRoom.players[computer].opponentShipRemain['maxSizeShip'])
 
-    if (players[computer].hitLocs.length != 0) {
-        players[computer].possHitDirections = checkAdjacentCells(players[computer].hitLocs[0], players[computer].possHitLocations, players[computer].opponentShipRemain.minSizeShip, true, players[computer].hitLocs);
-        players[computer].curHitDirection = pickDirection(players[computer].possHitDirections);
+    if (gameRoom.players[computer].hitLocs.length != 0) {
+        gameRoom.players[computer].possHitDirections = checkAdjacentCells(gameRoom.players[computer].hitLocs[0], gameRoom.players[computer].possHitLocations, gameRoom.players[computer].opponentShipRemain.minSizeShip, true, gameRoom.players[computer].hitLocs);
+        gameRoom.players[computer].curHitDirection = pickDirection(gameRoom.players[computer].possHitDirections);
         AIFirstTimeHitNewShip = true;
     }
     else {
-        players[computer].maxPossHitLocations = "reset"
-        checkPossHitLocs(computer)
+        gameRoom.players[computer].maxPossHitLocations = "reset"
+        checkPossHitLocs(computer, roomCode)
     }
 }
 function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit, hitLocs) {      // check each of the cell within the minSizeShip
@@ -731,54 +739,56 @@ function randomIndexNonMinusOne(arr) {
     // Return the original index corresponding to the random non-minus-one element
     return arr.indexOf(nonMinusOneElements[randomIndex]);
 }
-const checkPossHitLocs = (computer) => {
+const checkPossHitLocs = (computer, roomCode) => {
+    const gameRoom = gameRooms[roomCode]
     console.log("got to here before bugging")
-    for (let loc of players[computer].possHitLocations) {
-        const result = checkAdjacentCells(loc, players[computer].possHitLocations, players[computer].opponentShipRemain['minSizeShip'], false, players[computer].hitLocs)
+    for (let loc of gameRoom.players[computer].possHitLocations) {
+        const result = checkAdjacentCells(loc, gameRoom.players[computer].possHitLocations, gameRoom.players[computer].opponentShipRemain['minSizeShip'], false, gameRoom.players[computer].hitLocs)
         if (result == false) {
-            players[computer].possHitLocations.delete(loc);
+            gameRoom.players[computer].possHitLocations.delete(loc);
         }
     }
-    if (players[computer].maxPossHitLocations == "reset") {
-        players[computer].maxPossHitLocations = new Set(players[computer].possHitLocations);
+    if (gameRoom.players[computer].maxPossHitLocations == "reset") {
+        gameRoom.players[computer].maxPossHitLocations = new Set(gameRoom.players[computer].possHitLocations);
     }
     else {
-        for (let loc of players[computer].maxPossHitLocations) {
-            const result = checkAdjacentCells(loc, players[computer].maxPossHitLocations, players[computer].opponentShipRemain['maxSizeShip'], false, players[computer].hitLocs)
+        for (let loc of gameRoom.players[computer].maxPossHitLocations) {
+            const result = checkAdjacentCells(loc, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'], false, gameRoom.players[computer].hitLocs)
             if (result == false) {
-                players[computer].maxPossHitLocations.delete(loc);
+                gameRoom.players[computer].maxPossHitLocations.delete(loc);
             }
         }
     }
 }
 
-const computerMove = (curPlayer, socket, opponent) => {
-    if (players[curPlayer] != null && players[opponent] != null) {
+const computerMove = (curPlayer, socket, opponent, roomCode) => {
+    const gameRoom = gameRooms[roomCode]
+    if (gameRoom.players[curPlayer] != null && gameRoom.players[opponent] != null) {
         let pos;
-        if (players[opponent].hitLocs.length == 0) {
+        if (gameRoom.players[opponent].hitLocs.length == 0) {
 
-            pos = getRandomIndexWithOneValue(opponent)
+            pos = getRandomIndexWithOneValue(opponent, roomCode)
         }
-        else if (players[opponent].curHitDirection != null) { // what if hitLocs is not null and curHitDirection is null.   
-            pos = players[opponent].possHitDirections[players[opponent].curHitDirection]
+        else if (gameRoom.players[opponent].curHitDirection != null) { // what if hitLocs is not null and curHitDirection is null.   
+            pos = gameRoom.players[opponent].possHitDirections[gameRoom.players[opponent].curHitDirection]
         }
-        players[opponent].possHitLocations.delete(pos);
-        players[opponent].maxPossHitLocations.delete(pos);
+        gameRoom.players[opponent].possHitLocations.delete(pos);
+        gameRoom.players[opponent].maxPossHitLocations.delete(pos);
 
         console.log("computer move", pos)
-        if (players[curPlayer].board[pos] === 0) {  // miss
-            handleMissComm(opponent, curPlayer, pos);
-            handleAIMiss(opponent, socket)
+        if (gameRoom.players[curPlayer].board[pos] === 0) {  // miss
+            handleMissComm(opponent, curPlayer, pos, roomCode);
+            handleAIMiss(opponent, socket, roomCode)
             socket.emit("turn")
         }
-        else if (players[curPlayer].board[pos] === 1) { // hit
-            handleHitComm(opponent, curPlayer, pos);
-            handleAIHit(opponent, pos)
-            handleDestroyComm(opponent, curPlayer, pos);
-            if (players[opponent].numDestroyShip < 5) {
+        else if (gameRoom.players[curPlayer].board[pos] === 1) { // hit
+            handleHitComm(opponent, curPlayer, pos, roomCode);
+            handleAIHit(opponent, pos, roomCode)
+            handleDestroyComm(opponent, curPlayer, pos, roomCode);
+            if (gameRoom.players[opponent].numDestroyShip < 5) {
                 socket.emit("info", "The AI is thinking ...")
                 setTimeout(() => {
-                    computerMove(curPlayer, socket, opponent);
+                    computerMove(curPlayer, socket, opponent, roomCode);
                 }, 500);
             }
         }
@@ -821,15 +831,16 @@ function generateRandomString(length) {
     return result;
 }
 
-const checkShip = (opponent, pos) => {
+const checkShip = (opponent, pos, roomCode) => {
+    const gameRoom = gameRooms[roomCode]
     let shipPosition = [];
     let shipName = "";
     for (let ship in ships) {
-        if (players[opponent].shipLoc[ship].includes(pos)) { shipPosition = players[opponent].shipLoc[ship]; shipName = ship; break; }
+        if (gameRoom.players[opponent].shipLoc[ship].includes(pos)) { shipPosition = gameRoom.players[opponent].shipLoc[ship]; shipName = ship; break; }
     }
     let shipDestoryed = true;
     shipPosition.forEach((index) => {
-        if (players[opponent].board[index] != 2) {
+        if (gameRoom.players[opponent].board[index] != 2) {
             shipDestoryed = false;
         }
     })
@@ -852,10 +863,11 @@ const checkForMPOpponent = ((curPlayer) => { // there can only be two online pla
     return null;
 })
 
-const removeDestroyShipLoc = (computer, destroyShip) => {
-    for (let i = players[computer].hitLocs.length - 1; i >= 0; i--) {
-        if (destroyShip.includes(players[computer].hitLocs[i])) {
-            players[computer].hitLocs.splice(i, 1);
+const removeDestroyShipLoc = (computer, destroyShip, roomCode) => {
+    const gameRoom = gameRooms[roomCode];
+    for (let i = gameRoom.players[computer].hitLocs.length - 1; i >= 0; i--) {
+        if (destroyShip.includes(gameRoom.players[computer].hitLocs[i])) {
+            gameRoom.players[computer].hitLocs.splice(i, 1);
         }
     }
 }
@@ -888,113 +900,107 @@ const loserGetUnHitShip = (loserHits, winnerShips) => {
     return unHitShips;
 };
 
-const handleMissComm = ((misser, receiver, pos) => {
+const handleMissComm = ((misser, receiver, pos, roomCode) => {
+    const gameRoom = gameRooms[roomCode];
     const { row, col } = getRowAndColumn(pos);
-    players[misser].numMisses++;
-    players[receiver].board[pos] = 3;
-    if (players[misser] instanceof Computer) {
-        io.to(players[receiver].socketId).emit("omiss", pos, players[misser].numMisses)  // players[receiver].socketId
-        players[receiver].messages.push(missMessage(row, col, players[misser].userName))
-        io.to(players[receiver].socketId).emit("message", players[receiver].messages)
+    gameRoom.players[misser].numMisses++;
+    gameRoom.players[receiver].board[pos] = 3;
+    gameRoom.messages.push(missMessage(row, col, gameRoom.players[misser].userName))
+    io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+    if (gameRoom.players[misser] instanceof Computer) {
+        io.to(gameRoom.players[receiver].socketId).emit("omiss", pos, gameRoom.players[misser].numMisses)  // gameRoom.players[receiver].socketId
         // io.to.emit("turn")
     }
-    else if (players[misser] instanceof Player) {
-        io.to(players[misser].socketId).emit('miss', pos, players[misser].numMisses);
-        players[misser].messages.push(missMessage(row, col, players[misser].userName))
-        io.to(players[misser].socketId).emit("message", players[misser].messages)
-        if (players[receiver] instanceof Player) {
-            io.to(players[receiver].socketId).emit("omiss", pos, players[misser].numMisses);
-            io.to(players[receiver].socketId).emit("turn");
-            players[receiver].messages.push(missMessage(row, col, players[misser].userName));
-            io.to(players[receiver].socketId).emit("message", players[receiver].messages);
+    else if (gameRoom.players[misser] instanceof Player) {
+        io.to(gameRoom.players[misser].socketId).emit('miss', pos, gameRoom.players[misser].numMisses);
+        if (gameRoom.players[receiver] instanceof Player) {
+            io.to(gameRoom.players[receiver].socketId).emit("omiss", pos, gameRoom.players[misser].numMisses);
+            io.to(gameRoom.players[receiver].socketId).emit("turn");
         }
     }
 })
 
-const handleHitComm = ((hitter, receiver, pos) => {
-    players[receiver].board[pos] = 2;
-    players[hitter].numHits++;
+const handleHitComm = ((hitter, receiver, pos, roomCode) => {
+    const gameRoom = gameRooms[roomCode];
+    gameRoom.players[receiver].board[pos] = 2;
+    gameRoom.players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
-    if (players[receiver] instanceof Player) {
-        io.to(players[receiver].socketId).emit("ohit", pos, players[hitter].numHits)
-        players[receiver].messages.push(hitMessage(row, col, players[hitter].userName))
-        io.to(players[receiver].socketId).emit("message", players[receiver].messages)
+    gameRoom.messages.push(hitMessage(row, col, gameRoom.players[hitter].userName))
+    io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+    if (gameRoom.players[receiver] instanceof Player) {
+        io.to(gameRoom.players[receiver].socketId).emit("ohit", pos, gameRoom.players[hitter].numHits)
     }
-    if (players[hitter] instanceof Computer) {
-        players[hitter].hitLocs.push(pos)
+    if (gameRoom.players[hitter] instanceof Computer) {
+        gameRoom.players[hitter].hitLocs.push(pos)
     }
-    if (players[hitter] instanceof Player) {
-        players[hitter].allHitLocations.push(pos);
-        io.to(players[hitter].socketId).emit('hit', pos, players[hitter].numHits); //players[hitter].socketId
-        players[hitter].messages.push(hitMessage(row, col, players[hitter].userName))
-        io.to(players[hitter].socketId).emit("message", players[hitter].messages)
+    if (gameRoom.players[hitter] instanceof Player) {
+        gameRoom.players[hitter].allHitLocations.push(pos);
+        io.to(gameRoom.players[hitter].socketId).emit('hit', pos, gameRoom.players[hitter].numHits); //gameRoom.players[hitter].socketId
     }
 })
 
-const handleDestroyComm = async (hitter, receiver, pos) => {
-    const result = checkShip(receiver, pos);
+const handleDestroyComm = async (hitter, receiver, pos, roomCode) => {
+    const gameRoom = gameRooms[roomCode];
+    const result = checkShip(receiver, pos, roomCode);
     if (result != "normal") {
-        players[hitter].numDestroyShip++;
-        if (players[receiver] instanceof Player) {
-            players[receiver].messages.push(destroyMessage(result[0], players[hitter].userName))
-            io.to(players[receiver].socketId).emit("message", players[receiver].messages);
+        gameRoom.players[hitter].numDestroyShip++;
+        gameRoom.messages.push(destroyMessage(result[0], gameRoom.players[hitter].userName))
+        io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+        if (gameRoom.players[hitter] instanceof Player) {
+            io.to(gameRoom.players[hitter].socketId).emit("destroy", result);
         }
-        if (players[hitter] instanceof Player) {
-            io.to(players[hitter].socketId).emit("destroy", result);
-            players[hitter].messages.push(destroyMessage(result[0], players[hitter].userName));
-            io.to(players[hitter].socketId).emit("message", players[hitter].messages);
-        }
-        if (players[hitter].numDestroyShip == 5) {
-            await handleGameEndDB(hitter, receiver, 'Complete')
-            if (players[hitter] instanceof Player) {
+        if (gameRoom.players[hitter].numDestroyShip == 5) {
+            await handleGameEndDB(hitter, receiver, 'Complete', roomCode)
+            if (gameRoom.players[hitter] instanceof Player) {
                 const games = await findLast10GamesForUser(hitter);
                 const allGameStats = await calculateWinRate(hitter)
-                io.to(players[hitter].socketId).emit("win", "You win !", games, allGameStats);
-                players[hitter].start = false;
-                //players[hitter].mode = "";
+                io.to(gameRoom.players[hitter].socketId).emit("win", "You win !", games, allGameStats);
+
+                //gameRoom.players[hitter].mode = "";
             }
-            if (players[receiver] instanceof Player) {
+            if (gameRoom.players[receiver] instanceof Player) {
                 const games = await findLast10GamesForUser(receiver)
                 const allGameStats = await calculateWinRate(receiver)
-                io.to(players[receiver].socketId).emit(
+                io.to(gameRoom.players[receiver].socketId).emit(
                     "owin",
-                    loserGetUnHitShip(players[receiver].allHitLocations, players[hitter].shipLoc),
+                    loserGetUnHitShip(gameRoom.players[receiver].allHitLocations, gameRoom.players[hitter].shipLoc),
                     games,
                     allGameStats
                 );
-                players[receiver].start = false;
-                //players[hitter].mode = "";
+                //gameRoom.players[hitter].mode = "";
             }
-            // if (players[hitter] instanceof Player && players[receiver] instanceof Player) {
+            // if (gameRoom.players[hitter] instanceof Player && gameRoom.players[receiver] instanceof Player) {
             //     connectedMPClients -= 2; // did this so that other players can play multiplayer since only two at a time
             //     // need to reset hitter and receiver or should I do it when they press home ? 
             // }
+            gameRoom.start = false;
         }
-        else if (players[hitter] instanceof Computer) {
-            handleAIDestroy(hitter, result)
+        else if (gameRoom.players[hitter] instanceof Computer) {
+            handleAIDestroy(hitter, result, roomCode)
         }
     }
 
 }
 
-const handleGameEndDB = async (hitter, receiver, gameEndType) => {
+const handleGameEndDB = async (hitter, receiver, gameEndType, roomCode) => {
     try {
-        const gameStartTime = players[hitter].gameStartTime ? players[hitter.gameStartTime] : players[receiver].gameStartTime
+        const gameRoom = gameRooms[roomCode];
+        const gameStartTime = gameRoom.gameStartTime
         const gameEndTime = new Date();
         const gameDuration = (gameEndTime - gameStartTime) / 1000;
         // Create player objects for winner (hitter) and loser (receiver)
         const winnerPlayer = {
-            user: players[hitter] instanceof Player ? hitter : null,
-            isComputer: players[hitter] instanceof Computer,
-            numHits: players[hitter].numHits,
-            numMisses: players[hitter].numMisses
+            user: gameRoom.players[hitter] instanceof Player ? hitter : null,
+            isComputer: gameRoom.players[hitter] instanceof Computer,
+            numHits: gameRoom.players[hitter].numHits,
+            numMisses: gameRoom.players[hitter].numMisses
         };
 
         const loserPlayer = {
-            user: players[receiver] instanceof Player ? receiver : null,
-            isComputer: players[receiver] instanceof Computer,
-            numHits: players[receiver].numHits,
-            numMisses: players[receiver].numMisses
+            user: gameRoom.players[receiver] instanceof Player ? receiver : null,
+            isComputer: gameRoom.players[receiver] instanceof Computer,
+            numHits: gameRoom.players[receiver].numHits,
+            numMisses: gameRoom.players[receiver].numMisses
         };
         console.log("loserPlayer", loserPlayer)
         // Create and save the new Game document
@@ -1011,7 +1017,7 @@ const handleGameEndDB = async (hitter, receiver, gameEndType) => {
         // Update User documents for human players
         const updatePromises = [];
 
-        if (players[hitter] instanceof Player) {
+        if (gameRoom.players[hitter] instanceof Player) {
             updatePromises.push(
                 User.findByIdAndUpdate(
                     hitter,
@@ -1021,7 +1027,7 @@ const handleGameEndDB = async (hitter, receiver, gameEndType) => {
             );
         }
 
-        if (players[receiver] instanceof Player) {
+        if (gameRoom.players[receiver] instanceof Player) {
             updatePromises.push(
                 User.findByIdAndUpdate(
                     receiver,
@@ -1318,10 +1324,12 @@ io.on('connection', (socket) => {
     } else {
         // new or unrecoverable session
         console.log("🆕 New connection");
+        curPlayer = socket.userId;
     }
 
     if (userSockets.has(userId)) {
         userSockets.get(userId).add(socket.id);
+        socket.emit("userCountUpdate", userSockets.size);
     } else {
         userSockets.set(userId, new Set([socket.id]));
         io.emit("userCountUpdate", userSockets.size)
@@ -1413,18 +1421,21 @@ io.on('connection', (socket) => {
         // gameRoom.players[curPlayer].mode = "singleplayer";
         // opponent = generateRandomString(10);
         // gameRoom.players[opponent] = new Computer(opponent);
-        // gameRoom.players[curPlayer].opponent = opponent;
+        // gameRoom.players[curPlayer].opponent = opponent;       
         const user = await User.findById(userId)
         let canCreateGame = true;
-        if (user.currGameRoom != null && gameRooms.has(user.currGameRoom)) {
-            const gameRoom = gameRooms[roomCode]
-            if (gameRoom.players.has(userId)) {
-                if (gameRoom.gameRoom.players[userId].connected == true) {
-                    canCreateRoom = false;
+        if (user.currGameRoom != null && gameRooms[user.currGameRoom]) {
+            const gameRoom = gameRooms[user.currGameRoom]
+            if (gameRoom.players[userId]) {
+                console.log("checking the player class connected ", gameRoom.players[userId].connected);
+                console.log("check if the connected is true or not ", gameRoom.players[userId].connected == true)
+                if (gameRoom.players[userId].connected == true) {
+                    canCreateGame = false;
                 }
                 else {
+                    console.log("got to check connected is false in singleplayer")
                     // do handleGameEnd
-                    gameRooms.delele(user.currGameRoom);
+                    delete gameRooms[user.currGameRoom];
                     user.currGameRoom = null;
 
                 }
@@ -1432,9 +1443,14 @@ io.on('connection', (socket) => {
         }
 
         if (canCreateGame) {
-            const { roomCode, gameId } = createGameSession(true, userId, socket.id, userName)
-            user.currGameRoom = roomCode;
-            socket.data.roomCode = roomCode
+            const { roomCode, gameId } = createGameSession({
+                isSinglePlayer: true,
+                playerId: userId,
+                socketId: socket.id,
+                userName: user.userName
+            }); user.currGameRoom = roomCode;
+            socket.data.roomCode = roomCode;
+            socket.join(roomCode);
             gameRoom = gameRooms[roomCode];
             socket.emit('singleplayer')
             await user.save();
@@ -1442,6 +1458,8 @@ io.on('connection', (socket) => {
         else {
             socket.emit("alert", "You are already in a game on another tab")
         }
+        console.log("gameRooms in singleplayer event", gameRooms)
+        console.log("userId", userId)
     })
     socket.on("multiplayer", (id) => {
         curPlayer = id;
@@ -1554,16 +1572,17 @@ io.on('connection', (socket) => {
         }
     })
     socket.on("start", () => {
-        console.log("opponent in start:", opponent ? gameRoom.players[opponent] : null)
-        if (gameRoom.players[curPlayer].mode == "singleplayer" && gameRoom.players[curPlayer].start == false) {
+        console.log("detected start event")
+        if (gameRoom.isSinglePlayer == true && gameRoom.start == false) {
             gameRoom.players[curPlayer].numPlaceShip == 5 ?
-                (randomBoatPlacement(opponent), gameRoom.players[opponent].displayGrid(),
-                    gameRoom.players[curPlayer].start = true, socket.emit("start"), socket.emit("turn"),
-                    gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + JSON.stringify(gameRoom.players[curPlayer].shipLoc) }),
-                    socket.emit("message", gameRoom.players[curPlayer].messages), gameRoom.players[curPlayer].gameStartTime = new Date()) :
+                (opponent = generateRandomString(10), gameRoom.players[opponent] = new Computer(opponent), gameRoom.turn = curPlayer,
+                    randomBoatPlacement(gameRoom.roomCode, opponent), gameRoom.players[opponent].displayGrid(),
+                    gameRoom.start = true, socket.emit("start"), socket.emit("turn"),
+                    gameRoom.messages.push({ [gameRoom.players[curPlayer].userName] :  JSON.stringify(gameRoom.players[curPlayer].shipLoc) }),
+                    socket.emit("message", gameRoom.messages[gameRoom.messages.length - 1]), gameRoom.gameStartTime = new Date()) :
                 socket.emit("not enough ship", "Please place all your ship before starting")
         }
-        else if (gameRoom.players[curPlayer].mode == "multiplayer" && gameRoom.players[curPlayer].start == false) {
+        else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) {
             // console.log("curPlayer:", curPlayer)
             // opponent = checkForMPOpponent(curPlayer);
             if (gameRoom.players[curPlayer].numPlaceShip != 5) {
@@ -1583,7 +1602,7 @@ io.on('connection', (socket) => {
                 gameRoom.players[curPlayer].gameStartTime = new Date();
                 gameRoom.players[opponent].gameStartTime = gameRoom.players[curPlayer].gameStartTime
                 socket.emit("start");
-                gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + JSON.stringify(gameRoom.players[curPlayer].shipLoc) });
+                gameRoom.players[curPlayer].messages.push({ [gameRoom.players[curPlayer].userName] : JSON.stringify(gameRoom.players[curPlayer].shipLoc) });
                 socket.emit("message", gameRoom.players[curPlayer].messages);
                 io.to(gameRoom.players[opponent].socketId).emit("ostart");
                 io.to(gameRoom.players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
@@ -1595,8 +1614,8 @@ io.on('connection', (socket) => {
         //gameStartTime = new Date();
     })
     socket.on("ostart", () => {
-        gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + JSON.stringify(gameRoom.players[curPlayer].shipLoc) });
-        socket.emit("message", gameRoom.players[curPlayer].messages)
+        //gameRoom.players[curPlayer].messages.push({ [gameRoom.players[curPlayer].userName] :  JSON.stringify(gameRoom.players[curPlayer].shipLoc) });
+        socket.emit("message", JSON.stringify(gameRoom.players[curPlayer].shipLoc))
     })
     socket.on("findOpponent", () => {
         opponent = checkForMPOpponent(curPlayer);
@@ -1610,8 +1629,8 @@ io.on('connection', (socket) => {
     socket.on("attack", (pos) => {
         switch (gameRoom.players[opponent].board[pos]) {
             case 1: {
-                handleHitComm(curPlayer, opponent, pos);
-                handleDestroyComm(curPlayer, opponent, pos);
+                handleHitComm(curPlayer, opponent, pos, gameRoom.roomCode);
+                handleDestroyComm(curPlayer, opponent, pos, gameRoom.roomCode);
                 break;
             }
             case 2:
@@ -1619,10 +1638,10 @@ io.on('connection', (socket) => {
                 socket.emit('alert', "This location is not available to attack")
                 break;
             case 0: {
-                handleMissComm(curPlayer, opponent, pos)
-                if (gameRoom.players[curPlayer].mode == "singleplayer") {
+                handleMissComm(curPlayer, opponent, pos, gameRoom.roomCode);
+                if (gameRoom.isSinglePlayer) {
                     socket.emit("info", "The AI is thinking ...")
-                    setTimeout(() => { computerMove(curPlayer, socket, opponent) }, 500)
+                    setTimeout(() => { computerMove(curPlayer, socket, opponent, gameRoom.roomCode) }, 500)
                 }
                 break;
             }
@@ -1657,12 +1676,8 @@ io.on('connection', (socket) => {
         }
     })
     socket.on('message', (message) => {
-        gameRoom.players[curPlayer].messages.push({ 'player': gameRoom.players[curPlayer].userName + message }); // Save the new message to the session messages
-        socket.emit("message", gameRoom.players[curPlayer].messages)
-        if (gameRoom.players[curPlayer].mode == "multiplayer" && opponent != null && gameRoom.players[opponent] && gameRoom.players[opponent].mode == 'multiplayer') {
-            gameRoom.players[opponent].messages.push({ 'opponent': gameRoom.players[opponent].userName + message });
-            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.players[opponent].messages)
-        }
+        gameRoom.messages.push({ [gameRoom.players[curPlayer].userName] :  message }); // Save the new message to the session messages
+        io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
     });
 
     socket.on("userId", (userId) => {
@@ -1673,14 +1688,14 @@ io.on('connection', (socket) => {
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log("Disconnected in server side because", reason);
         console.log('Server Disconnect details', details)
-        if (curPlayer != null && gameRoom.players[curPlayer] != null) {
+        if (curPlayer != null && gameRoom != null && gameRoom.players[curPlayer] != null) {
             if (gameRoom.players[curPlayer].mode != null
                 && gameRoom.players[curPlayer].mode == "multiplayer"
                 && opponent != null
                 && gameRoom.players[opponent] != null) {
                 if (gameRoom.players[opponent].start && gameRoom.players[curPlayer].start) {
                     const message = "Your opponent disconnected, you can wait for your opponent to come back within 2 minutes or you may quit now and you win!";
-                    await handleGameEndDB(opponent, curPlayer, 'Quit');
+                    await handleGameEndDB(opponent, curPlayer, 'Quit', gameRoom.roomCode);
                     io.to(gameRoom.players[opponent].socketId).emit
                         ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
                     connectedMPClients -= 2;
@@ -1704,7 +1719,7 @@ io.on('connection', (socket) => {
                 gameRoom.players[curPlayer].start
             ) {
                 console.log("handle Game End DB is run in disconnect single player start")
-                await handleGameEndDB(opponent, curPlayer, 'Quit');
+                await handleGameEndDB(opponent, curPlayer, 'Quit', gameRoom.roomCode);
             }
             else if (gameRoom.players[curPlayer].mode == "multiplayer" && opponent == null && gameRoom.players[curPlayer].messages.length == 0) {
                 connectedMPClients--;
@@ -1713,8 +1728,8 @@ io.on('connection', (socket) => {
 
             delete gameRoom.players[curPlayer];
         }
-        if (gameRoom.players[opponent] && gameRoom.players[opponent] instanceof Computer) {
-            delete gameRoom.players[opponent];
+        if (gameRoom != null && gameRoom.players[opponent] && gameRoom.players[opponent] instanceof Computer) {
+            //delete gameRoom.players[opponent];
         }
         if (curPlayer != null) {
             try {
@@ -1749,7 +1764,7 @@ io.on('connection', (socket) => {
         try {
             // Check if the game has ended for the current player
             if (gameRoom.players[curPlayer].start && (gameRoom.players[opponent].start || gameRoom.players[opponent] instanceof Computer)) {
-                await handleGameEndDB(opponent, curPlayer, "Quit");
+                await handleGameEndDB(opponent, curPlayer, "Quit", gameRoom.roomCode);
             }
 
             // Handle multiplayer mode
@@ -1837,6 +1852,6 @@ const path = require('path');
 app.use(express.static(path.join(__dirname, 'build')));
 
 // Serve React app for any route not handled by API
-app.get('*', (req, res) => {
+app.get('*', (req, res) => { 
     res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });

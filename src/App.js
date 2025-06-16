@@ -128,16 +128,16 @@ const App = () => {
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
       console.warn("⚠️ Disconnected from server. Reason:", reason);
-        //setServerDown(true);
-        setIsLoggedIn(false);
-        console.log("log in false here 1")
-        document.title = "BattleShip"
-        reset();
-        setNumMultiplayer(0);
-        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-        document.title = "BattleShip"
-        clearInterval(heartbeatInterval);
-        sessionStorage.removeItem("socket")
+      //setServerDown(true);
+      setIsLoggedIn(false);
+      console.log("log in false here 1")
+      document.title = "BattleShip"
+      reset();
+      setNumMultiplayer(0);
+      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+      document.title = "BattleShip"
+      clearInterval(heartbeatInterval);
+      sessionStorage.removeItem("socket")
 
     });
     socket.current.on('reconnect_attempt', (attempt) => {
@@ -171,13 +171,13 @@ const App = () => {
     socket.current.on('singleplayer', () => {
       setSinglePlayer(true);
       setInfo("Please Place your ships")
-          setPbCellClass(
-      Array.from({ length: 100 }, () => (
-        {
-          shipName: null,
-          ohit: false,
-          omiss: false
-        })))
+      setPbCellClass(
+        Array.from({ length: 100 }, () => (
+          {
+            shipName: null,
+            ohit: false,
+            omiss: false
+          })))
     })
     socket.current.on("oquit", (msg, games, allGameStats) => {
 
@@ -210,9 +210,9 @@ const App = () => {
       setNumMultiplayer(connectedMPClients)
       console.log(numMultiPlayer)
     })
-    socket.current.on("message", (messages) => {
-      setMessages(messages);
-    })
+    socket.current.on("message", (newMessage) => {
+      setMessages(prevMessages => [...prevMessages, newMessage]);
+    });
     socket.current.on('randomresult', (shipLoc) => {
       setPbCellClass((oldClass) => {
         const newCellClass = oldClass.map((cell) => ({
@@ -266,6 +266,7 @@ const App = () => {
       setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
     })
     socket.current.on('start', () => {
+      console.log("start event detected")
       setObCellClass(
         Array.from({ length: 100 }, () => (
           {
@@ -477,7 +478,7 @@ const App = () => {
   }, []);
 
   const handleSinglePlayerClick = () => {
-    socket.current.emit("singleplayer", homeStats.id)    
+    socket.current.emit("singleplayer", homeStats.id)
     // setSinglePlayer(true);
     // setInfo("Please Place your ships")
     // setPbCellClass(
@@ -803,6 +804,7 @@ const App = () => {
             <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} numMultiPlayer={numMultiPlayer} /> :
             (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer) ?
               <Game
+                userName={homeStats.userName}
                 socket={socket.current}
                 multiPlayer={multiPlayer}
                 start={start}

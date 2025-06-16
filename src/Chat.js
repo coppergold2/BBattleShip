@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) => {
+const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer, userName }) => {
   const chatMessagesRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -19,15 +19,13 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer }) 
       <div className="chat-header">Chat</div>
       <div className="chat-messages" ref={chatMessagesRef}>
         {messages.map((msg, index) => {
-          let owner = '';
-          if (msg['player'] != null) {
-            owner = 'player';
-          } else if (msg['opponent'] != null) {
-            owner = 'opponent';
-          }
+          const key = Object.keys(msg)[0];
+          const value = msg[key];
+          const owner = msg[userName] != null ? 'player' : 'opponent';
+
           return (
             <div key={index} className={`chat-message chat-message-${owner}`}>
-              {msg[owner]}
+              <strong>{key}</strong>: {value}
             </div>
           );
         })}
