@@ -140,6 +140,71 @@ const App = () => {
       sessionStorage.removeItem("socket")
 
     });
+    socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips) => {
+      setIsLoggedIn(true);
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        id: player.id,
+        userName: player.userName,
+      }));
+      if (isSinglePlayer) {
+        setSinglePlayer(true);
+        setPbCellClass(() => {
+          const newCellClass = Array.from({ length: 100 }, () => ({
+            shipName: null,
+            ohit: false,
+            omiss: false
+          }));
+
+          Object.entries(player.shipLoc).forEach(([ship, locations]) => {
+            locations.forEach((location) => {
+              newCellClass[location].shipName = ship;
+            });
+          });
+
+          for (let index = 0; index < player.board.length; index++) {
+            if (player.board[index] == 2 || player.board[index] == 4) {
+              newCellClass[index].ohit = true;
+            }
+            else if (player.board[index] == 3) {
+              newCellClass[index].omiss = true;
+            }
+          }
+          return newCellClass;
+        });
+
+        setObCellClass(() => {
+          const newCellClass = Array.from({ length: 100 }, () => (
+            {
+              shipName: null,
+              hit: false,
+              miss: false,
+              destroy: false
+            }))
+          for (let pos of player.allHitLocations) {
+            newCellClass[pos].hit = true;
+          }
+          for (let pos of allMissLocations) {
+            newCellClass[pos].miss = true;
+          }
+          for (let ship in destroyedShips) {
+            if (destroyedShips.hasOwnProperty(ship)) {
+              for (let pos of destroyedShips[ship]) {
+                newCellClass[pos].shipName = ship
+              }
+            }
+          }
+          return newCellClass;
+
+        })
+
+        setPlacedShips(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'])
+        setStart(true)
+        setMessages(messages)
+        setStats({ numHits: player.numHits, numMisses: player.numMisses, onumHits: onumHits, onumMisses: onumMisses })
+      }
+    })
+
     socket.current.on('reconnect_attempt', (attempt) => {
       console.log(`🔁 Reconnection attempt #${attempt}`);
     });
