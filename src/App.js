@@ -35,7 +35,6 @@ const App = () => {
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
-  const [numMultiPlayer, setNumMultiplayer] = useState(0);
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({
     username: "",
@@ -133,7 +132,6 @@ const App = () => {
       console.log("log in false here 1")
       document.title = "BattleShip"
       reset();
-      setNumMultiplayer(0);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       document.title = "BattleShip"
       clearInterval(heartbeatInterval);
@@ -224,7 +222,6 @@ const App = () => {
       console.log("log in false here 5")
       document.title = "BattleShip"
       reset();
-      setNumMultiplayer(0);
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       document.title = "BattleShip"
       clearInterval(heartbeatInterval);
@@ -257,7 +254,7 @@ const App = () => {
           allGameStats: allGameStats
         }));
       }
-      socket.current.emit("oquit");
+      //socket.current.emit("oquit");
     })
 
     socket.current.on("home", (games, allGameStats) => {
@@ -270,11 +267,9 @@ const App = () => {
       }
       reset();
     })
-    socket.current.on("updateMultiplayerCount", (connectedMPClients) => {
-      console.log("updateMultiplayerCount: ", connectedMPClients);
-      setNumMultiplayer(connectedMPClients)
-      console.log(numMultiPlayer)
-    })
+    // socket.current.on("updateMultiplayerCount", (connectedMPClients) => {
+    //   console.log("updateMultiplayerCount: ", connectedMPClients);
+    // })
     socket.current.on("message", (newMessage) => {
       setMessages(prevMessages => [...prevMessages, newMessage]);
     });
@@ -362,8 +357,8 @@ const App = () => {
     //   setGameFull(true)
     //   setInfo(msg)
     // })
-    socket.current.on("findOpponent", () => {
-      socket.current.emit("findOpponent");
+    socket.current.on("setOpponent", (playerId) => {
+      socket.current.emit("setOpponent", playerId);
     })
     socket.current.on("removeOpponent", () => {
       socket.current.emit("removeOpponent");
@@ -663,7 +658,6 @@ const App = () => {
             allGameStats: res.data.allGameStats
           }));
           document.title = `BattleShip - ${res.data.userName}`
-          setNumMultiplayer(res.data.connectedMPClients);
         })
         .catch(() => {
           localStorage.removeItem('token');
@@ -759,7 +753,6 @@ const App = () => {
     reset();
     setIsLoggedIn(false);
     console.log("login false here 3")
-    setNumMultiplayer(0);
     setHomeStats({
       id: "",
       userName: "",
@@ -794,7 +787,6 @@ const App = () => {
           allGameStats: response.data.allGameStats
         }));
         document.title = `BattleShip - ${response.data.userName}`
-        setNumMultiplayer(response.data.connectedMPClients);
         resetForm(); // Reset the form
         connectSocket(response.data.token); // connect socket with token
       })
@@ -866,7 +858,7 @@ const App = () => {
         <>
           <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
           {(!singlePlayer && !multiPlayer) ?
-            <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} numMultiPlayer={numMultiPlayer} /> :
+            <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} /> :
             (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer) ?
               <Game
                 userName={homeStats.userName}
@@ -913,10 +905,11 @@ const App = () => {
           form={form}
           register={register}
         />)
-      }
-      <div className="user-count">
-        👥 <span>{numOnline}</span> users online
-      </div>
+      } {isLoggedIn ? (
+        <div className="user-count">
+          👥 <span>{numOnline}</span> users online
+        </div>
+      ) : null}
     </>
   );
 };
