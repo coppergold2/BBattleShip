@@ -1009,7 +1009,7 @@ const checkExistingGame = async (userId) => {
                 console.log("got to check connected is false in singleplayer")
                 // do handleGameEnd
                 if (gameRoom.start) {
-                    await handleGameEndDB(gameRoom[userId].opponent, userId, "Quit", gameRoom.roomCode);
+                    await handleGameEndDB(gameRoom.players[userId].opponent, userId, "Quit", gameRoom.roomCode);
                 }
                 delete gameRooms[user.currGameRoom];
                 user.currGameRoom = null;
@@ -1349,6 +1349,9 @@ io.on('connection', async (socket) => {
         console.log("socket room", socket.rooms, "socket data", socket.data)
         if (socket.data.roomCode && gameRooms[socket.data.roomCode]) {
             gameRoom = gameRooms[socket.data.roomCode]
+            if (gameRoom.isSinglePlayer || gameRoom.allDisconnectTime != null) {
+                gameRoom.allDisconnectTime = null;
+            }
             const opponent = gameRoom.players[userId].opponent;
             const allMissLocations = [];
             const destroyedShips = {};
@@ -1363,13 +1366,19 @@ io.on('connection', async (socket) => {
                     destroyedShips[ship] = shipPosition
                 }
             }
+            const turn = gameRoom.turn == userId ? true : false
+            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} reconnected` });
+            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+            socket.emit("restoreGame", gameRoom.players[userId], gameRoom.isSinglePlayer, gameRoom.messages, gameRoom.players[opponent].numHits, gameRoom.players[opponent].numMisses, allMissLocations, destroyedShips, turn)
             socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) })
-            socket.emit("restoreGame", gameRoom.players[userId], gameRoom.isSinglePlayer, gameRoom.messages, gameRoom.players[opponent].numHits, gameRoom.players[opponent].numMisses, allMissLocations, destroyedShips)
-            socket.emit("updatePossHitLocation", [...gameRoom.players[opponent].maxPossHitLocations]);
-            gameRoom.players[userId].connected = true;
-            if (gameRoom.turn == userId) {
-                socket.emit("turn")
+            if (gameRoom.isSinglePlayer) {
+                socket.emit("updatePossHitLocation", [...gameRoom.players[opponent].maxPossHitLocations]);
             }
+            gameRoom.players[userId].connected = true;
+            console.log("gameRoom.turn in reconnect", gameRoom.turn)
+        }
+        else {
+            socket.emit("reload")
         }
     } else {
         // new or unrecoverable session
@@ -1525,7 +1534,7 @@ io.on('connection', async (socket) => {
             socket.emit("multiplayer")
             if (Object.keys(gameRoom.players).length == 2) {
                 const opponent = gameRoom.players[userId].opponent
-                socket.emit("info", `You have joined a gameRoom with player ${gameRoom.players[opponent].userName}`)
+                socket.emit("info", `You have joined a game room with player ${gameRoom.players[opponent].userName}`)
             }
         }
         else {
@@ -1739,21 +1748,70 @@ io.on('connection', async (socket) => {
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log("Disconnected in server side because", reason);
         console.log('Server Disconnect details', details)
+        const forceDisconnect = (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") ? true : false
 
         if (userId != null && gameRoom != null && gameRoom.players[userId] != null) {
             const opponent = gameRoom.players[userId].opponent;
-            if (gameRoom.start == true) {
-                if (gameRoom.isSinglePlayer) {
-                    if (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") {
-                        await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
-                        const user = await User.findById(userId)
-                        user.currGameRoom = null;
-                        await user.save();
-                        delete gameRooms[gameRoom.roomCode];
-                    }
-                    else {
-                        gameRoom.players[userId].connected = false;
-                    }
+            if (gameRoom.isSinglePlayer && forceDisconnect && gameRoom.start == true) {
+                await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
+                const user = await User.findById(userId)
+                user.currGameRoom = null;
+                await user.save();
+                delete gameRooms[gameRoom.roomCode];
+            }
+            else if (gameRoom.isSinglePlayer && gameRoom.start == false) {  // includes both forceDisconnect false and true
+                socket.leave(gameRoom.roomCode)
+                socket.data.roomCode = null;
+                const user = await User.findById(userId)
+                user.currGameRoom = null;
+                await user.save();
+                delete gameRooms[gameRoom.roomCode];
+            }
+            else if (gameRoom.isSinglePlayer && forceDisconnect == false && gameRoom.start == true) {
+                gameRoom.players[userId].connected = false;
+                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                gameRoom.allDisconnectTime = Date.now();
+            }
+            else if (gameRoom.isSinglePlayer == false && forceDisconnect == true && gameRoom.start == true) {
+                await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
+                const message = `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`
+                io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
+                    message,
+                    await findLast10GamesForUser(opponent),
+                    await calculateWinRate(opponent));
+                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
+                io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                gameRoom.players[opponent].opponent = null;
+                const user = await User.findById(userId)
+                user.currGameRoom = null;
+                await user.save();
+                gameRoom.start = false;
+            }
+            else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) { // includes both forceDisconnect false and true
+                socket.leave(gameRoom.roomCode)
+                socket.data.roomCode = null;
+                if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
+                    gameRoom.players[opponent].opponent = null;
+                    const message = `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`
+                    io.to(gameRoom.players[opponent].socketId).emit("info", message)
+                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
+                    io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                }
+                else {
+                    delete gameRooms[gameRoom.roomCode]
+                }
+                const user = await User.findById(userId)
+                user.currGameRoom = null;
+                await user.save();
+
+            }
+            else if (gameRoom.isSinglePlayer == false && forceDisconnect == false && gameRoom.start == true) {
+                gameRoom.players[userId].connected = false;
+                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                if (gameRoom.players[opponent].connected == true) {
+                    const message = `Your opponent, ${gameRoom.players[userId].userName}, has been disconnected. You can wait up to two minutes for them to return, or you can quit now and claim the win.`;
+                    io.to(gameRoom.players[opponent].socketId).emit("info", message)
+                    io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
                 }
             }
         }
@@ -1839,7 +1897,7 @@ io.on('connection', async (socket) => {
                 if (opponent) {
                     if (gameRoom.players[opponent] && gameRoom.start) { // both player started game and game have not finished
                         io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
-                            "Your opponent has quit, you have won!",
+                            `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`,
                             await findLast10GamesForUser(opponent),
                             await calculateWinRate(opponent));
                     } else if (gameRoom.players[opponent] && gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
