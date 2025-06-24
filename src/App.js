@@ -366,9 +366,6 @@ const App = () => {
     //   setGameFull(true)
     //   setInfo(msg)
     // })
-    socket.current.on("setOpponent", (playerId) => {
-      socket.current.emit("setOpponent", playerId);
-    })
     socket.current.on("removeOpponent", () => {
       socket.current.emit("removeOpponent");
     })

@@ -93,7 +93,6 @@ function generateRoomCode(length = 6) {
 }
 
 function createGameSession({ isSinglePlayer = false, playerId, socketId, userName }) {
-    console.log("playerId in createGameSession", playerId)
     let roomCode;
     do {
         roomCode = generateRoomCode();
@@ -293,7 +292,6 @@ function getRandomIndexWithOneValue(computer, roomCode) {
     const gameRoom = gameRooms[roomCode]
     let nextHitLocations = checkMostValueableHit(gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'], gameRoom.players[computer].numMisses, gameRoom.players[computer].opponentShipRemain['minSizeShip'])
     nextHitLocations = checkMinAllDirection(nextHitLocations, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'])
-    console.log("nextHitLocations on getRandomIndexWithOneValue", nextHitLocations);
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
 
     return nextHitLocations[randomIndex];
@@ -855,16 +853,16 @@ const checkShip = (opponent, pos, roomCode) => {
     }
 }
 
-const checkForMPOpponent = ((curPlayer) => { // there can only be two online player
-    for (let id in players) {
-        if (players[id].mode == "multiplayer" && id != curPlayer) {
-            console.log("id:", id);
-            console.log("curPlayer:", curPlayer)
-            return id;
-        }
-    }
-    return null;
-})
+// const checkForMPOpponent = ((curPlayer) => { // there can only be two online player
+//     for (let id in players) {
+//         if (players[id].mode == "multiplayer" && id != curPlayer) {
+//             console.log("id:", id);
+//             console.log("curPlayer:", curPlayer)
+//             return id;
+//         }
+//     }
+//     return null;
+// })
 
 // Search for a room waiting for a second player
 function findOpenRoom() {
@@ -999,24 +997,62 @@ const handleDestroyComm = async (hitter, receiver, pos, roomCode) => {
 
 const checkExistingGame = async (userId) => {
     const user = await User.findById(userId)
-    if (user.currGameRoom != null && gameRooms[user.currGameRoom]) {
-        const gameRoom = gameRooms[user.currGameRoom]
-        if (gameRoom.players[userId]) {
-            if (gameRoom.players[userId].connected == true) {
-                return false;
-            }
-            else {
-                console.log("got to check connected is false in singleplayer")
-                // do handleGameEnd
-                if (gameRoom.start) {
-                    await handleGameEndDB(gameRoom.players[userId].opponent, userId, "Quit", gameRoom.roomCode);
+    if (user.currGameRoom != null) {
+        if (gameRooms[user.currGameRoom]) {
+            const gameRoom = gameRooms[user.currGameRoom]
+            if (gameRoom.players[userId]) {
+                if (gameRoom.players[userId].connected == true) {
+                    return false;
                 }
-                delete gameRooms[user.currGameRoom];
-                user.currGameRoom = null;
-                await user.save();
+                else {
+                    const opponent = gameRoom.players[userId].opponent
+                    console.log("got to check connected is false")
+                    if (gameRoom.start) {  // opponent is guarenteed to be not null
+                        if (gameRoom.isSinglePlayer) {
+                            await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
+                            delete gameRooms[gameRoom.roomCode];
+                        }
+                        else if (gameRoom.players[opponent].connected == false) { // guarenteed to be multiplayer
+                            if (userId == gameRoom.firstDisconnect) {
+                                await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
+                            }
+                            else {
+                                await handleGameEndDB(userId, opponent, "Quit", gameRoom.roomCode);
+                            }
+                            delete gameRooms[gameRoom.roomCode];
+                        }
+                        else if (gameRoom.players[opponent].connected == true) {
+                            await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
+                            gameRoom.start = false;
+                            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
+                            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                            io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`)
+                            gameRoom.players[opponent].opponent = null
+                            delete gameRoom.players[userId]
+
+                        }
+                    }
+                    else {
+                        if (gameRoom.isSinglePlayer == false && opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
+                            const message = `Your opponent ${gameRoom.players[userId].userName} has left`
+                            io.to(gameRoom.players[opponent].socketId).emit("info", message)
+                            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
+                            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                            gameRoom.players[opponent].opponent = null
+                            delete gameRoom.players[userId]
+                        }
+                        else {
+                            delete gameRooms[gameRoom.roomCode]
+                        }
+                    }
+
+                }
             }
         }
+        user.currGameRoom = null;
+        await user.save();
     }
+
     return true;
 }
 const handleGameEndDB = async (hitter, receiver, gameEndType, roomCode) => {
@@ -1201,7 +1237,6 @@ app.post('/login', async (req, res) => {
         console.log("user.isLoggedIn", user.isLoggedIn);
         const games = await findLast10GamesForUser(user._id);
         const allGameStats = await calculateWinRate(user._id);
-        console.log("allGameStats", allGameStats)
         res.json({
             message: 'Login successful',
             token,
@@ -1224,7 +1259,6 @@ app.get('/api/verifyToken', async (req, res) => {
     if (!token) return res.sendStatus(401);
     jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
         if (err) return res.sendStatus(403);
-        console.log("verifyToken sucessfully run", user)
         const curUser = await User.findById(user.userId)
         curUser.lastSeen = new Date();
         curUser.isLoggedIn = true;
@@ -1351,6 +1385,9 @@ io.on('connection', async (socket) => {
             gameRoom = gameRooms[socket.data.roomCode]
             if (gameRoom.isSinglePlayer || gameRoom.allDisconnectTime != null) {
                 gameRoom.allDisconnectTime = null;
+                if (gameRoom.isSinglePlayer == false) {
+                    gameRoom.firstDisconnect = null;
+                }
             }
             const opponent = gameRoom.players[userId].opponent;
             const allMissLocations = [];
@@ -1395,91 +1432,12 @@ io.on('connection', async (socket) => {
 
     console.log("userSockets after adding in socket connection event: ", userSockets)
 
-    // socket.on("login", async (userId) => {
-    //     try {
-    //         console.log("userId:", userId)
-    //         const user = await User.findOne({ _id: userId });
-    //         if (user) {
-    //             if (user.isLoggedIn == true) {
-    //                 socket.emit('alert', "This user is already logged in");
-    //             }
-    //             else {
-    //                 user.isLoggedIn = true;
-    //                 user.lastSeen = new Date();
-    //                 await user.save(); // Save the updated user to the database
-    //                 userId = user._id.toString()
-    //                 const games = await findLast10GamesForUser(userId)
-    //                 const allGameStats = await calculateWinRate(userId)
-    //                 socket.emit('login', userId, user.averageGameOverSteps, games, user.userName, allGameStats);
-    //             }
-    //         } else {
-    //             socket.emit('alert', "invalid ID, please retry or be a new user ")
-    //         }
-    //     }
-    //     catch (err) {
-    //         socket.emit('alert', 'An error occurred while logging in');
-    //     }
-    // })
-    // socket.on("new", async (userName) => {
-    //     try {
-    //         const newUser = new User();
-    //         newUser.isLoggedIn = true;
-    //         newUser.userName = userName;
-    //         // Save the new user to the database
-    //         await newUser.save();
-    //         console.log('User added to the database');
-    //         userId = newUser._id.toString();
-    //         // Emit the user's ID after successful save
-    //         socket.emit("login", newUser._id.toString(), newUser.averageGameOverSteps, newUser.games, newUser.userName, { wins: 0, losses: 0, winRate: 0 });
-    //     } catch (err) {
-    //         console.log('Error adding user to the database:', err);
-    //     }
-    // });
-    // socket.on("logout", async () => {
-    //     try {
-    //         if (userId) {
-    //             // Find the user by userId (which contains the userId)
-    //             const user = await User.findOne({ _id: userId });
-
-    //             if (user) {
-    //                 // Set the user's isLoggedIn status to false
-    //                 user.isLoggedIn = false;
-    //                 await user.save();
-    //             }       
-
-    //             // Clean up the players object if the player exists
-    //             if (gameRoom.players[userId] != null) {
-    //                 delete gameRoom.players[userId];
-    //             }
-
-    //             // Reset userId
-    //             userId = null;
-
-    //             // Emit the logout event
-    //             socket.emit("logout");
-    //         } else {
-    //             socket.emit("alert", "No user is currently logged in");
-    //         }
-    //     } catch (err) {
-    //         console.error(err); // Log the error for debugging
-    //         socket.emit('alert', 'An error occurred while logging out');
-    //     }
-    // });
     socket.on('heartbeat', async () => {
         if (userId) {
             await User.updateOne({ _id: userId }, { $set: { lastSeen: new Date() } });
         }
     });
     socket.on("singleplayer", async () => {
-        // userId = id;
-        // if (gameRoom.players[userId] == null) {
-        //     gameRoom.players[userId] = new Player(userId, userName);
-        //     gameRoom.players[userId].socketId = socket.id;
-        // }
-        // gameRoom.players[userId].mode = "singleplayer";
-        // opponent = generateRandomString(10);
-        // gameRoom.players[opponent] = new Computer(opponent);
-        // gameRoom.players[userId].opponent = opponent;       
         const canCreateGame = checkExistingGame(userId);
         if (canCreateGame) {
             const user = await User.findById(userId)
@@ -1521,16 +1479,14 @@ io.on('connection', async (socket) => {
                             gameRoom.players[userId].opponent = opponent
                             gameRoom.players[opponent].opponent = userId
                             io.to(gameRoom.players[opponent].socketId).emit("info", `${user.userName} has joined`)
-                            io.to(gameRoom.players[opponent].socketId).emit("setOpponent", userId);
                         }
                     }
                 }
             }
-            gameRoom = gameRooms[roomCode];
             user.currGameRoom = roomCode;
+            await user.save();
             socket.data.roomCode = roomCode;
             socket.join(roomCode);
-            user.currGameRoom = roomCode
             socket.emit("multiplayer")
             if (Object.keys(gameRoom.players).length == 2) {
                 const opponent = gameRoom.players[userId].opponent
@@ -1625,11 +1581,9 @@ io.on('connection', async (socket) => {
             socket.emit("shipReplacement", gameRoom.players[userId].shipLoc[shipName], shipName, index);
             gameRoom.players[userId].shipLoc[shipName] = [];
             gameRoom.players[userId].numPlaceShip--;
-            gameRoom.players[userId].displayGrid()
         }
     })
     socket.on("start", () => {
-        console.log("detected start event")
         if (gameRoom.isSinglePlayer == true && gameRoom.start == false) {
             if (gameRoom.players[userId].numPlaceShip == 5) {
                 const opponent = generateRandomString(10);
@@ -1637,7 +1591,6 @@ io.on('connection', async (socket) => {
                 gameRoom.players[userId].opponent = opponent;
                 gameRoom.turn = userId;
                 randomBoatPlacement(gameRoom.roomCode, opponent);
-                gameRoom.players[opponent].displayGrid();
                 gameRoom.start = true;
                 socket.emit("start");
                 socket.emit("turn");
@@ -1649,7 +1602,7 @@ io.on('connection', async (socket) => {
                 socket.emit("not enough ship", "Please place all your ship before starting");
             }
         }
-        else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) {
+        else if (gameRoom.isSinglePlayer == false && gameRoom.start == false && gameRoom.status == 'waiting') {
             const opponent = gameRoom.players[userId].opponent;
             // console.log("userId:", userId)
             // opponent = checkForMPOpponent(userId);
@@ -1660,7 +1613,6 @@ io.on('connection', async (socket) => {
                 socket.emit("info", "Waiting for a player to join");
             }
             else if (opponent != null && gameRoom.players[opponent].numPlaceShip != 5) {
-                console.log("opponent should be null right? ", opponent)
                 socket.emit("info", "Your opponent is not ready yet, please wait");
             }
             else if (opponent != null && gameRoom.players[opponent].numPlaceShip == 5) {
@@ -1708,13 +1660,10 @@ io.on('connection', async (socket) => {
         }
     })
     socket.on('command', (commandString) => {
-        console.log("type of commandString", typeof (commandString));
-        console.log("commandString", commandString);
         try {
 
             const command = JSON.parse(commandString);
             if (isValidShipPlacement(command)) {
-                console.log('Valid command:', command);
                 gameRoom.players[userId].shipLoc = command;
                 gameRoom.players[userId].board = Array(100).fill(0);
                 for (const ship in command) {
@@ -1727,11 +1676,9 @@ io.on('connection', async (socket) => {
                 gameRoom.players[userId].numPlaceShip = 5;
                 socket.emit("randomresult", gameRoom.players[userId].shipLoc);
             } else {
-                console.log('Invalid command format');
                 socket.emit('alert', 'Invalid command format');
             }
         } catch (e) {
-            console.log('Invalid JSON format');
             socket.emit('error', 'Invalid JSON format');
         }
     })
@@ -1773,29 +1720,43 @@ io.on('connection', async (socket) => {
                 gameRoom.allDisconnectTime = Date.now();
             }
             else if (gameRoom.isSinglePlayer == false && forceDisconnect == true && gameRoom.start == true) {
-                await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
-                const message = `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`
-                io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
-                    message,
-                    await findLast10GamesForUser(opponent),
-                    await calculateWinRate(opponent));
-                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
-                io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-                gameRoom.players[opponent].opponent = null;
+                if (gameRoom.players[opponent].connected == true) {
+                    await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
+                    const message = `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`
+                    io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
+                        message,
+                        await findLast10GamesForUser(opponent),
+                        await calculateWinRate(opponent));
+                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
+                    io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                    gameRoom.players[opponent].opponent = null;
+                    delete gameRoom.players[userId]
+                    gameRoom.start = false;
+                }
+                else {
+                    if (gameRoom.players[userId].numHits >= gameRoom.players[opponent].numHits) {
+                        await handleGameEndDB(userId, opponent, 'Quit', gameRoom.roomCode);
+                    }
+                    else {
+                        await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
+                    }
+                    delete gameRooms[gameRoom.roomCode];
+                }
                 const user = await User.findById(userId)
                 user.currGameRoom = null;
                 await user.save();
-                gameRoom.start = false;
             }
             else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) { // includes both forceDisconnect false and true
                 socket.leave(gameRoom.roomCode)
                 socket.data.roomCode = null;
                 if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
                     gameRoom.players[opponent].opponent = null;
-                    const message = `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`
+                    const message = `Your opponent ${gameRoom.players[userId].userName} has left`
                     io.to(gameRoom.players[opponent].socketId).emit("info", message)
-                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
+                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
                     io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                    delete gameRoom.players[userId]
+
                 }
                 else {
                     delete gameRooms[gameRoom.roomCode]
@@ -1813,64 +1774,12 @@ io.on('connection', async (socket) => {
                     io.to(gameRoom.players[opponent].socketId).emit("info", message)
                     io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
                 }
+                else {
+                    gameRoom.allDisconnectTime = Date.now()
+                    gameRoom.firstDisconnect = opponent;
+                }
             }
         }
-        //     if (gameRoom.players[userId].mode != null   // if this is single player mode
-        //         && gameRoom.isSinglePlayer == false
-        //         && opponent != null
-        //         && gameRoom.players[opponent] != null) {
-        //         if (gameRoom.start) {
-        //             const message = "Your opponent disconnected, you can wait for your opponent to come back within 2 minutes or you may quit now and you win!";
-        //             await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
-        //             io.to(gameRoom.players[opponent].socketId).emit
-        //                 ("oquit", message, await findLast10GamesForUser(opponent), await calculateWinRate(opponent));
-        //             connectedMPClients -= 2;
-        //         }
-        //         else if (gameRoom.start == false) { // game start is only false if it is over or haven't started
-        //             io.to(gameRoom.players[opponent].socketId).emit("info", "Your opponent left");
-
-        //             if (gameRoom.players[userId].numDestroyShip == 5 || gameRoom.players[opponent].numDestroyShip == 5) { // checks if game is over
-        //                 connectedMPClients -= 2;
-        //                 io.to(gameRoom.players[opponent].socketId).emit("oquit", "Your opponent left");
-        //             }
-        //             else { // checks if game has not started
-        //                 connectedMPClients--;
-        //                 io.to(gameRoom.players[opponent].socketId).emit("removeOpponent");
-        //             }
-        //         }
-        //         //io.emit('updateMultiplayerCount', connectedMPClients)
-        //     }
-        //     else if ( gameRoom.isSinglePlayer && gameRoom.start) {    // single player and game has started
-        //         console.log("handle Game End DB is run in disconnect single player start")
-        //         await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
-        //     }
-
-        //     else if (gameRoom.isSinglePlayer && opponent == null && gameRoom.messages.length == 0) {
-        //         connectedMPClients--;
-        //         io.emit('updateMultiplayerCount', connectedMPClients)
-        //     }
-
-        //     delete gameRoom.players[userId];
-        // }
-        // if (gameRoom != null && gameRoom.players[opponent] && gameRoom.players[opponent] instanceof Computer) {
-        //     //delete gameRoom.players[opponent];
-        // }
-        // if (userId != null) {
-        //     try {
-        //         // Find the user in the db and set isLoggedIn to false
-        //         const user = await User.findOne({ _id: userId });
-
-        //         if (user) {
-        //             console.log(userId, "log off in Database at server disconnect")
-        //             user.isLoggedIn = false;
-        //             await user.save();
-        //         } else {
-        //             console.log(`User ${userId} not found in database.`);
-        //         }
-        //     } catch (err) {
-        //         console.error(`Error logging out user ${userId}:`, err);
-        //     }
-        // }
         const sockets = userSockets.get(userId);
         if (sockets) {
             sockets.delete(socket.id);
@@ -1886,53 +1795,43 @@ io.on('connection', async (socket) => {
 
     socket.on("home", async () => {
         try {
+            socket.data.roomCode = null;
+            socket.leave(gameRoom.roomCode)
             const opponent = gameRoom.players[userId].opponent
             // Check if the game has ended for the current player
             if (gameRoom.start) {
                 await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
             }
-
             // Handle multiplayer mode - communicate to the opponent player
             if (gameRoom.isSinglePlayer == false) {
-                if (opponent) {
-                    if (gameRoom.players[opponent] && gameRoom.start) { // both player started game and game have not finished
+                if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
+                    if (gameRoom.start) { // both player started game and game have not finished
                         io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
                             `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`,
                             await findLast10GamesForUser(opponent),
                             await calculateWinRate(opponent));
-                    } else if (gameRoom.players[opponent] && gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
+                    } else if (gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
                         io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[opponent].userName} left`);
-
-                        // if (gameRoom.players[userId].numDestroyShip == 5 || gameRoom.players[opponent].numDestroyShip == 5) {
-                        //     io.to(gameRoom.players[opponent].socketId).emit("oquit");
-                        // }
-                        // else {
-                        //     connectedMPClients--;
-                        //     io.to(gameRoom.players[opponent].socketId).emit("removeOpponent");
-                        // }
+                        if (gameRoom.status == "in_progress") { // if game has started and is over
+                            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
+                            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                        }
                     }
                     gameRoom.players[opponent].opponent = null
+                    delete gameRoom.players[userId]
+                }
+                else {
+                    delete gameRooms[gameRoom.roomCode]
                 }
                 //io.emit('updateMultiplayerCount', connectedMPClients)
             }
-            console.log("opponent is set to null in home in server")
+            else {
+                delete gameRooms[gameRoom.roomCode]
+            }
             let games, allGameStats;
-            if (gameRoom.start) {
-                games = await findLast10GamesForUser(userId);
-                allGameStats = await calculateWinRate(userId);
-            }
+            games = await findLast10GamesForUser(userId);
+            allGameStats = await calculateWinRate(userId);
             socket.emit("home", games, allGameStats);
-            // need to delete the gameRoom
-            socket.data.roomCode = null;
-            socket.leave(gameRoom.roomCode)
-            if (gameRoom.isSinglePlayer == false) {
-                delete gameRoom.players[userId]
-                gameRoom.start = false;
-            }
-            else if (gameRoom.isSinglePlayer || opponent == null) {
-                delete gameRooms[gameRoom.roomCode];
-            }
-
             const user = await User.findById(userId)
             user.currGameRoom = null;
             await user.save();
@@ -1964,6 +1863,47 @@ setInterval(async () => {
         console.error('Error logging out inactive users:', err);
     }
 }, 500000); // Check every 30 seconds
+
+setInterval(async () => {
+    console.log("gameRooms in setInterval", gameRooms);
+
+    for (const gameRoom of Object.values(gameRooms)) {
+        if (gameRoom.allDisconnectTime != null && Date.now() - gameRoom.allDisconnectTime > 5 * 60 * 1000) {
+            console.log("gameRooms", gameRoom.roomCode, "is deleted due to inactivity");
+
+            if (gameRoom.start === true) {
+                let winner;
+                let loser;
+
+                if (gameRoom.isSinglePlayer) {
+                    for (let playerId in gameRoom.players) {
+                        if (gameRoom.players.hasOwnProperty(playerId)) {
+                            if (gameRoom.players[playerId] instanceof Computer) {
+                                winner = playerId;
+                            } else {
+                                loser = playerId;
+                            }
+                        }
+                    }
+                } else {
+                    for (let playerId in gameRoom.players) {
+                        if (playerId === gameRoom.firstDisconnect) {
+                            loser = playerId;
+                        } else {
+                            winner = playerId;
+                        }
+                    }
+                }
+
+                await handleGameEndDB(winner, loser, "Quit", gameRoom.roomCode);
+            }
+
+            delete gameRooms[gameRoom.roomCode];
+        }
+    }
+}, 2 * 60 * 1000); // Run cleanup every 2 minutes
+
+
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
