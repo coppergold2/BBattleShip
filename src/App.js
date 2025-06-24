@@ -97,7 +97,11 @@ const App = () => {
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
-      if (socket.current.recovered == false) {
+      console.log("isLoggedin in socket.current.on connect", isLoggedIn)
+       if (isLoggedIn == false) {
+         window.location.reload()
+       }
+       else if (socket.recovered == false) {
         heartbeatInterval = setInterval(() => {
           socket.current?.emit("heartbeat");
         }, 30000);
@@ -511,7 +515,14 @@ const App = () => {
       setNumOnline(count);
     });
   };
-
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (isLoggedIn && token && socket.current == null) {
+      console.log("isLoggedIn true useEffect is runned");
+      connectSocket(token);
+    }
+    
+  }, [isLoggedIn]);
   useEffect(() => {
     // Cleanup function to disconnect when the component unmounts
     return () => {
@@ -633,12 +644,10 @@ const App = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-
     if (token) {
       console.log("runned")
       axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
         .then(res => {
-          connectSocket(token)
           setIsLoggedIn(true);
           setHomeStats((prevHomeStats) => ({
             ...prevHomeStats,
@@ -776,7 +785,6 @@ const App = () => {
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
-        connectSocket(response.data.token); // connect socket with token
       })
       .catch(error => {
         if (error.response) {
@@ -808,7 +816,6 @@ const App = () => {
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
         handleBackClick();
-        connectSocket(response.data.token); // connect socket with token
       })
       .catch(error => {
         if (error.response) {

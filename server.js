@@ -1414,9 +1414,6 @@ io.on('connection', async (socket) => {
             gameRoom.players[userId].connected = true;
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
-        else{
-            socket.emit("reload")
-        }
     } else {
         // new or unrecoverable session
         console.log("🆕 New connection");
