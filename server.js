@@ -1414,7 +1414,7 @@ io.on('connection', async (socket) => {
             gameRoom.players[userId].connected = true;
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
-        else {
+        else{
             socket.emit("reload")
         }
     } else {

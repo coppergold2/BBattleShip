@@ -88,7 +88,6 @@ const App = () => {
       socket.current.off();
       socket.current.disconnect();
       socket.current = null;
-      sessionStorage.removeItem('socket')
       console.log("disconnected previous socket in connect socket");
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
@@ -99,28 +98,15 @@ const App = () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
       if (socket.current.recovered == false) {
-        const oldSocketId = sessionStorage.getItem("socket")
-        console.log("sessionStorgeSocket", oldSocketId)
-        if (oldSocketId != null && oldSocketId != socket.current.id) {  //  reconnected failed new connection
-          window.location.reload();
-        }
-        else {   //  true new connection
-          sessionStorage.setItem("socket", socket.current.id)
-          // Resume heartbeat
-          heartbeatInterval = setInterval(() => {
-            socket.current?.emit("heartbeat");
-          }, 30000);
-        }
-
-      }
-      else {  // if this is a recovered connection
+        heartbeatInterval = setInterval(() => {
+          socket.current?.emit("heartbeat");
+        }, 30000);
       }
     });
 
     socket.current.on("connect_error", (err) => {
       console.error("Socket connect error:", err.message);
       localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
     });
 
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
@@ -135,12 +121,11 @@ const App = () => {
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       document.title = "BattleShip"
       clearInterval(heartbeatInterval);
-      sessionStorage.removeItem("socket")
-
     });
 
     socket.current.on("reload", () => {
       window.location.reload();
+      console.log("reload is runned in socket.on reload")
     })
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
       setIsLoggedIn(true);
@@ -539,7 +524,6 @@ const App = () => {
         socket.current.disconnect();
         socket.current = null
       }
-      sessionStorage.removeItem("socket");
     };
   }, []);
 
@@ -667,7 +651,6 @@ const App = () => {
         })
         .catch(() => {
           localStorage.removeItem('token');
-          sessionStorage.removeItem('socket')
         });
     }
   }, []);
@@ -755,7 +738,6 @@ const App = () => {
 
     // 3. Clear token and state
     localStorage.removeItem('token');
-    sessionStorage.removeItem("socket")
     reset();
     setIsLoggedIn(false);
     console.log("login false here 3")
