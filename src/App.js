@@ -114,7 +114,7 @@ const App = () => {
     });
 
     socket.current.on("connect_error", (err) => {
-      console.error("Socket connect error:", err.message);
+      console.error("token is removed here, Socket connect error:", err.message);
       localStorage.removeItem('token');
     });
 
@@ -675,6 +675,9 @@ const App = () => {
           localStorage.removeItem('token');
         });
     }
+    else{
+      console.log("token is null in useEffect verifyToken")
+    }
   }, []);
 
   const handleCellClick = (id) => {
@@ -759,6 +762,7 @@ const App = () => {
     }
 
     // 3. Clear token and state
+    console.log("token is removed in logoutTasks function")
     localStorage.removeItem('token');
     reset();
     setIsLoggedIn(false);
