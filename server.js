@@ -1292,7 +1292,23 @@ app.get('/api/verifyToken', async (req, res) => {
         // console.log("curUser", curUser)
         const games = await findLast10GamesForUser(user.userId);
         const allGameStats = await calculateWinRate(user.userId);
-        res.json({ id: user.userId, userName: curUser.userName, games: games, allGameStats: allGameStats });
+        // ✅ Issue new token
+        const newToken = jwt.sign(
+            {
+                userId: curUser._id,
+                userName: curUser.userName
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        res.json({
+            token: newToken,
+            id: curUser._id,
+            userName: curUser.userName,
+            games,
+            allGameStats
+        });
     });
 });
 

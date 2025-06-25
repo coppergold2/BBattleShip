@@ -114,7 +114,9 @@ const App = () => {
     });
 
     socket.current.on("connect_error", (err) => {
-      console.error("Socket connect error:", err.message);
+      if (err.message === "Authentication error") {
+        alert("Account verification error. Please log in again.");
+      }
     });
 
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
@@ -211,10 +213,10 @@ const App = () => {
       setMessages(messages)
       setStats({ numHits: player.numHits, numMisses: player.numMisses, onumHits: onumHits, onumMisses: onumMisses })
       console.log("turn in restoreGame", turns)
-      if(turns) {
+      if (turns) {
         setInfo("Reconnected to the game. Check chat for messages — it's your turn to go.")
       }
-      else{
+      else {
         setInfo("Reconnected to the game. Check chat for messages — it's your opponent's turn right now.")
       }
       setTurn(turns)
@@ -666,6 +668,7 @@ const App = () => {
       axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
         .then(res => {
           setIsLoggedIn(true);
+          localStorage.setItem('token', res.data.token); // ✅ Replace old token
           setHomeStats((prevHomeStats) => ({
             ...prevHomeStats,
             id: res.data.id,
@@ -681,7 +684,7 @@ const App = () => {
           localStorage.removeItem('token');
         });
     }
-    else{
+    else {
       console.log("token is null in useEffect verifyToken")
     }
   }, []);
