@@ -1444,8 +1444,11 @@ io.on('connection', async (socket) => {
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
         else {
-            console.log("emitted reload event in socket.recovered")
-            socket.emit("reload");
+            console.log("emitted restoreLogin event in socket.recovered")
+            const user = await User.findById(userId)
+            const games = await findLast10GamesForUser(userId);
+            const allGameStats = await calculateWinRate(userId);
+            socket.emit("restoreLogin", userId, user.userName, games, allGameStats)
         }
     } else {
         // new or unrecoverable session
@@ -1720,12 +1723,6 @@ io.on('connection', async (socket) => {
         gameRoom.messages.push({ [gameRoom.players[userId].userName]: message }); // Save the new message to the session messages
         io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
     });
-
-    socket.on("userId", (userId) => {
-        if (userId == null) {
-            userId = userId;
-        }
-    })
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log("Disconnected in server side because", reason);
         console.log('Server Disconnect details', details)

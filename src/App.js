@@ -132,9 +132,17 @@ const App = () => {
       clearInterval(heartbeatInterval);
     });
 
-    socket.current.on("reload", () => {
-      window.location.reload();
-      console.log("reload is runned in socket.on reload")
+    socket.current.on("restoreLogin", (userId, userName, games, allGameStats) => {
+      setIsLoggedIn(true);
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        id: userId,
+        userName: userName,
+        lastTenGames: games,
+        allGameStats: allGameStats
+      }));
+      document.title = `BattleShip - ${userName}`
+      console.log("restoreLogin is runned")
     })
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
       setIsLoggedIn(true);
@@ -535,9 +543,6 @@ const App = () => {
       console.log("useEffect unmounted")
       clearInterval(heartbeatInterval);
       if (socket.current) {
-        if (homeStats.id !== "") {
-          socket.current.emit("userId", homeStats.id);
-        }
         socket.current.disconnect();
         socket.current = null
       }
