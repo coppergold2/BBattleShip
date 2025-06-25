@@ -114,8 +114,7 @@ const App = () => {
     });
 
     socket.current.on("connect_error", (err) => {
-      console.error("token is removed here, Socket connect error:", err.message);
-      localStorage.removeItem('token');
+      console.error("Socket connect error:", err.message);
     });
 
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
