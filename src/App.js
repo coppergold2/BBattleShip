@@ -93,7 +93,7 @@ const App = () => {
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
     });
-
+    console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);

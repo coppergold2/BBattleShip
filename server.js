@@ -33,8 +33,6 @@ const io = socketIo(server, {
 });
 
 // Server setup
-let connectedMPClients = 0;
-const maxConnections = 2;
 const width = 10;
 let AIFirstTimeHitNewShip = false;
 //let gameStartTime;
@@ -759,7 +757,7 @@ const checkPossHitLocs = (computer, roomCode) => {
     }
 }
 
-const computerMove = (curPlayer, socket, opponent, roomCode) => {
+const computerMove = async (curPlayer, socket, opponent, roomCode) => {
     const gameRoom = gameRooms[roomCode]
     if (gameRoom.players[curPlayer] != null && gameRoom.players[opponent] != null) {
         let pos;
@@ -782,11 +780,11 @@ const computerMove = (curPlayer, socket, opponent, roomCode) => {
         else if (gameRoom.players[curPlayer].board[pos] === 1) { // hit
             handleHitComm(opponent, curPlayer, pos, roomCode);
             handleAIHit(opponent, pos, roomCode)
-            handleDestroyComm(opponent, curPlayer, pos, roomCode);
+            await handleDestroyComm(opponent, curPlayer, pos, roomCode);
             if (gameRoom.players[opponent].numDestroyShip < 5) {
                 socket.emit("info", "The AI is thinking ...")
-                setTimeout(() => {
-                    computerMove(curPlayer, socket, opponent, roomCode);
+                setTimeout(async () => {
+                    await computerMove(curPlayer, socket, opponent, roomCode);
                 }, 500);
             }
         }
@@ -1173,14 +1171,6 @@ async function calculateWinRate(userId) {
     }
 }
 
-// calculateWinRate('669e6890491ff3876acd1005')
-//     .then(games => {
-//         console.log("winRate", games);
-//     })
-//     .catch(error => {
-//         console.error('Error:', error);
-//     });
-
 function isValidShipPlacement(command) {
     if (typeof command !== 'object' || command === null) return false;
 
@@ -1244,7 +1234,6 @@ app.post('/login', async (req, res) => {
             userName: user.userName,
             games: games,
             allGameStats: allGameStats,
-            connectedMPClients: connectedMPClients
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -1266,7 +1255,7 @@ app.get('/api/verifyToken', async (req, res) => {
         // console.log("curUser", curUser)
         const games = await findLast10GamesForUser(user.userId);
         const allGameStats = await calculateWinRate(user.userId);
-        res.json({ id: user.userId, userName: curUser.userName, games: games, allGameStats: allGameStats, connectedMPClients: connectedMPClients });
+        res.json({ id: user.userId, userName: curUser.userName, games: games, allGameStats: allGameStats });
     });
 });
 
@@ -1414,6 +1403,9 @@ io.on('connection', async (socket) => {
             gameRoom.players[userId].connected = true;
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
+        else {
+            socket.emit("reload")
+        }
     } else {
         // new or unrecoverable session
         console.log("🆕 New connection");
@@ -1435,8 +1427,9 @@ io.on('connection', async (socket) => {
         }
     });
     socket.on("singleplayer", async () => {
-        const canCreateGame = checkExistingGame(userId);
-        if (canCreateGame) {
+        const canCreateGame = await checkExistingGame(userId);
+        console.log("canCreateGame in singlePlayer", canCreateGame)
+        if (canCreateGame == true) {
             const user = await User.findById(userId)
             const { roomCode, gameId } = createGameSession({
                 isSinglePlayer: true,
@@ -1446,9 +1439,11 @@ io.on('connection', async (socket) => {
             }); user.currGameRoom = roomCode;
             socket.data.roomCode = roomCode;
             socket.join(roomCode);
-            gameRoom = gameRooms[roomCode];
-            socket.emit('singleplayer')
+            gameRoom = gameRooms[roomCode];            
+            user.currGameRoom = roomCode
             await user.save();
+            socket.emit('singleplayer')
+ 
         }
         else {
             socket.emit("alert", "You are already in a game on another tab")
@@ -1457,8 +1452,9 @@ io.on('connection', async (socket) => {
         console.log("userId", userId)
     })
     socket.on("multiplayer", async () => {
-        const canCreateGame = checkExistingGame(userId);
-        if (canCreateGame) {
+        const canCreateGame = await checkExistingGame(userId);
+        console.log("canCreateGame in multiPlayer", canCreateGame)
+        if (canCreateGame == true) {
             const user = await User.findById(userId)
             // Join or create
             let { roomCode, gameId } = findOpenRoom() || {};
@@ -1633,12 +1629,12 @@ io.on('connection', async (socket) => {
         //gameRoom.players[userId].messages.push({ [gameRoom.players[userId].userName] :  JSON.stringify(gameRoom.players[userId].shipLoc) });
         socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) })
     })
-    socket.on("attack", (pos) => {
+    socket.on("attack", async (pos) => {
         const opponent = gameRoom.players[userId].opponent
         switch (gameRoom.players[opponent].board[pos]) {
             case 1: {
                 handleHitComm(userId, opponent, pos, gameRoom.roomCode);
-                handleDestroyComm(userId, opponent, pos, gameRoom.roomCode);
+                await handleDestroyComm(userId, opponent, pos, gameRoom.roomCode);
                 break;
             }
             case 2:
@@ -1650,7 +1646,7 @@ io.on('connection', async (socket) => {
                 handleMissComm(userId, opponent, pos, gameRoom.roomCode);
                 if (gameRoom.isSinglePlayer) {
                     socket.emit("info", "The AI is thinking ...")
-                    setTimeout(() => { computerMove(userId, socket, opponent, gameRoom.roomCode) }, 500)
+                    setTimeout(async () => { await computerMove(userId, socket, opponent, gameRoom.roomCode) }, 500)
                 }
                 break;
             }
@@ -1820,7 +1816,6 @@ io.on('connection', async (socket) => {
                 else {
                     delete gameRooms[gameRoom.roomCode]
                 }
-                //io.emit('updateMultiplayerCount', connectedMPClients)
             }
             else {
                 delete gameRooms[gameRoom.roomCode]
