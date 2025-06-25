@@ -288,6 +288,9 @@ function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
 
 function getRandomIndexWithOneValue(computer, roomCode) {
     const gameRoom = gameRooms[roomCode]
+    if (gameRoom == null) {
+        return;
+    }
     let nextHitLocations = checkMostValueableHit(gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'], gameRoom.players[computer].numMisses, gameRoom.players[computer].opponentShipRemain['minSizeShip'])
     nextHitLocations = checkMinAllDirection(nextHitLocations, gameRoom.players[computer].maxPossHitLocations, gameRoom.players[computer].opponentShipRemain['maxSizeShip'])
     const randomIndex = Math.floor(Math.random() * nextHitLocations.length);
@@ -297,6 +300,9 @@ function getRandomIndexWithOneValue(computer, roomCode) {
 
 const handleAIMiss = (computer, socket, roomCode) => {
     const gameRoom = gameRooms[roomCode]
+    if (gameRoom == null) {
+        return;
+    }
     if (gameRoom.players[computer].possHitDirections.some(element => element !== -1)) {  // if the next hit positions has already been calculated aka if this is followed by a previous hit
         gameRoom.players[computer].possHitDirections[gameRoom.players[computer].curHitDirection] = -1;
         if (AIFirstTimeHitNewShip == false) {
@@ -335,6 +341,9 @@ const handleAIMiss = (computer, socket, roomCode) => {
 
 const handleAIHit = (computer, loc, roomCode) => {
     const gameRoom = gameRooms[roomCode]
+    if (gameRoom == null) {
+        return;
+    }
     if (!gameRoom.players[computer].possHitDirections.some(element => element !== -1)) {   // if it contains all -1
         gameRoom.players[computer].possHitDirections = checkAdjacentCells(loc, gameRoom.players[computer].possHitLocations, gameRoom.players[computer].opponentShipRemain.minSizeShip, true, gameRoom.players[computer].hitLocs);
         gameRoom.players[computer].curHitDirection = pickDirection(gameRoom.players[computer].possHitDirections);
@@ -397,6 +406,9 @@ const handleAIHit = (computer, loc, roomCode) => {
 
 const handleAIDestroy = (computer, destroyShip, roomCode) => {
     const gameRoom = gameRooms[roomCode];
+    if (gameRoom == null) {
+        return;
+    }
     removeDestroyShipLoc(computer, destroyShip[1], roomCode);
     gameRoom.players[computer].curHitDirection = null;
     gameRoom.players[computer].possHitDirections = [-1, -1, -1, -1]
@@ -737,6 +749,9 @@ function randomIndexNonMinusOne(arr) {
 }
 const checkPossHitLocs = (computer, roomCode) => {
     const gameRoom = gameRooms[roomCode]
+    if (gameRoom == null) {
+        return;
+    }
     console.log("got to here before bugging")
     for (let loc of gameRoom.players[computer].possHitLocations) {
         const result = checkAdjacentCells(loc, gameRoom.players[computer].possHitLocations, gameRoom.players[computer].opponentShipRemain['minSizeShip'], false, gameRoom.players[computer].hitLocs)
@@ -759,6 +774,9 @@ const checkPossHitLocs = (computer, roomCode) => {
 
 const computerMove = async (curPlayer, socket, opponent, roomCode) => {
     const gameRoom = gameRooms[roomCode]
+    if (gameRoom == null) {
+        return;
+    }
     if (gameRoom.players[curPlayer] != null && gameRoom.players[opponent] != null) {
         let pos;
         if (gameRoom.players[opponent].hitLocs.length == 0) {
@@ -797,6 +815,9 @@ const computerMove = async (curPlayer, socket, opponent, roomCode) => {
 
 const randomBoatPlacement = (roomCode, user) => {
     const gameRoom = gameRooms[roomCode];
+    if (gameRoom == null || gameRoom.players[user] == null) {
+        return;
+    }
     gameRoom.players[user].board = Array(100).fill(0);
     function addShipPiece(allBoardBlocks, shipLength) {
         let randomBoolean = Math.random() < 0.5
@@ -829,6 +850,9 @@ function generateRandomString(length) {
 
 const checkShip = (opponent, pos, roomCode) => {
     const gameRoom = gameRooms[roomCode]
+    if (gameRoom == null || gameRoom.players[opponent] == null) {
+        return;
+    }
     let shipPosition = [];
     let shipName = "";
     for (let ship in ships) {
@@ -875,6 +899,9 @@ function findOpenRoom() {
 
 const removeDestroyShipLoc = (computer, destroyShip, roomCode) => {
     const gameRoom = gameRooms[roomCode];
+    if (gameRoom == null) {
+        return;
+    }
     for (let i = gameRoom.players[computer].hitLocs.length - 1; i >= 0; i--) {
         if (destroyShip.includes(gameRoom.players[computer].hitLocs[i])) {
             gameRoom.players[computer].hitLocs.splice(i, 1);
@@ -912,6 +939,9 @@ const loserGetUnHitShip = (loserHits, winnerShips) => {
 
 const handleMissComm = ((misser, receiver, pos, roomCode) => {
     const gameRoom = gameRooms[roomCode];
+    if (gameRoom == null) {
+        return;
+    }
     const { row, col } = getRowAndColumn(pos);
     gameRoom.players[misser].numMisses++;
     gameRoom.players[receiver].board[pos] = 3;
@@ -933,6 +963,9 @@ const handleMissComm = ((misser, receiver, pos, roomCode) => {
 
 const handleHitComm = ((hitter, receiver, pos, roomCode) => {
     const gameRoom = gameRooms[roomCode];
+    if (gameRoom == null) {
+        return;
+    }
     gameRoom.players[receiver].board[pos] = 2;
     gameRoom.players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
@@ -952,6 +985,9 @@ const handleHitComm = ((hitter, receiver, pos, roomCode) => {
 
 const handleDestroyComm = async (hitter, receiver, pos, roomCode) => {
     const gameRoom = gameRooms[roomCode];
+    if (gameRoom == null) {
+        return;
+    }
     const result = checkShip(receiver, pos, roomCode);
     if (result != "normal") {
         gameRoom.players[hitter].numDestroyShip++;
@@ -1056,6 +1092,7 @@ const checkExistingGame = async (userId) => {
 const handleGameEndDB = async (hitter, receiver, gameEndType, roomCode) => {
     try {
         const gameRoom = gameRooms[roomCode];
+
         const gameStartTime = gameRoom.gameStartTime
         const gameEndTime = new Date();
         const gameDuration = (gameEndTime - gameStartTime) / 1000;
@@ -1439,11 +1476,11 @@ io.on('connection', async (socket) => {
             }); user.currGameRoom = roomCode;
             socket.data.roomCode = roomCode;
             socket.join(roomCode);
-            gameRoom = gameRooms[roomCode];            
+            gameRoom = gameRooms[roomCode];
             user.currGameRoom = roomCode
             await user.save();
             socket.emit('singleplayer')
- 
+
         }
         else {
             socket.emit("alert", "You are already in a game on another tab")

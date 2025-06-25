@@ -138,6 +138,7 @@ const App = () => {
         id: player.id,
         userName: player.userName,
       }));
+      document.title = `BattleShip - ${player.userName}`
       if (isSinglePlayer) {
         setSinglePlayer(true);
       }
