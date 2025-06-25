@@ -26,8 +26,8 @@ const io = socketIo(server, {
         credentials: true
     },
     connectionStateRecovery: {
-        //maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
-        maxDisconnectionDuration: 5 * 1000, // 5 seconds
+        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        //maxDisconnectionDuration: 5 * 1000, // 5 seconds
         skipMiddlewares: false
     }
 });
