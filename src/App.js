@@ -666,6 +666,7 @@ const App = () => {
           connectSocket(token);
         })
         .catch(() => {
+          console.log("something is wrong in /api/verifyToken in client side")
           localStorage.removeItem('token');
         });
     }

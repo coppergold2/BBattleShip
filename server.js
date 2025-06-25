@@ -1444,6 +1444,7 @@ io.on('connection', async (socket) => {
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
         else {
+            console.log("emitted reload event in socket.recovered")
             socket.emit("reload");
         }
     } else {
