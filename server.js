@@ -1437,10 +1437,13 @@ io.on('connection', async (socket) => {
             if (gameRoom.isSinglePlayer) {
                 socket.emit("updatePossHitLocation", [...gameRoom.players[opponent].maxPossHitLocations]);
             }
+            else {
+                io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[userId].userName} reconnected`)
+            }
             gameRoom.players[userId].connected = true;
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
-        else{
+        else {
             socket.emit("reload");
         }
     } else {
@@ -1830,7 +1833,12 @@ io.on('connection', async (socket) => {
             const opponent = gameRoom.players[userId].opponent
             // Check if the game has ended for the current player
             if (gameRoom.start) {
-                await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
+                if (gameRoom.isSinglePlayer || (gameRoom.isSinglePlayer == false && opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true)) {
+                    await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
+                }
+                else {
+                    await handleGameEndDB(userId, opponent, "Quit", gameRoom.roomCode);
+                }
             }
             // Handle multiplayer mode - communicate to the opponent player
             if (gameRoom.isSinglePlayer == false) {
