@@ -26,8 +26,8 @@ const io = socketIo(server, {
         credentials: true
     },
     connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
-        //maxDisconnectionDuration: 5 * 1000, // 5 seconds
+        //maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        maxDisconnectionDuration: 5 * 1000, // 5 seconds
         skipMiddlewares: false
     }
 });
@@ -1440,8 +1440,8 @@ io.on('connection', async (socket) => {
             gameRoom.players[userId].connected = true;
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
-        else {
-            socket.emit("reload")
+        else{
+            socket.emit("reload");
         }
     } else {
         // new or unrecoverable session

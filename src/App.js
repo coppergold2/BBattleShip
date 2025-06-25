@@ -34,6 +34,10 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const isLoggedInRef = useRef(isLoggedIn)
+  useEffect(() => {
+    isLoggedInRef.current = isLoggedIn
+  }, [isLoggedIn])
   const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({
@@ -97,11 +101,12 @@ const App = () => {
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
-      console.log("isLoggedin in socket.current.on connect", isLoggedIn)
-       if (isLoggedIn == false) {
-         window.location.reload()
-       }
-       else if (socket.recovered == false) {
+      console.log("isLoggedInRef in connect event", isLoggedInRef.current)
+      if (isLoggedInRef.current == false && socket.current.recovered == false) {
+        console.log("reload is runned in connect")
+        window.location.reload()
+      }
+      else {
         heartbeatInterval = setInterval(() => {
           socket.current?.emit("heartbeat");
         }, 30000);
@@ -516,14 +521,14 @@ const App = () => {
       setNumOnline(count);
     });
   };
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (isLoggedIn && token && socket.current == null) {
-      console.log("isLoggedIn true useEffect is runned");
-      connectSocket(token);
-    }
-    
-  }, [isLoggedIn]);
+  // useEffect(() => {
+  //   const token = localStorage.getItem('token');
+  //   if (isLoggedIn && token && socket.current == null) {
+  //     console.log("isLoggedIn true useEffect is runned");
+  //     connectSocket(token);
+  //   }
+
+  // }, [isLoggedIn]);
   useEffect(() => {
     // Cleanup function to disconnect when the component unmounts
     return () => {
@@ -658,6 +663,7 @@ const App = () => {
             allGameStats: res.data.allGameStats
           }));
           document.title = `BattleShip - ${res.data.userName}`
+          connectSocket(token);
         })
         .catch(() => {
           localStorage.removeItem('token');
@@ -786,6 +792,7 @@ const App = () => {
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
+        connectSocket(response.data.token);
       })
       .catch(error => {
         if (error.response) {
@@ -817,6 +824,7 @@ const App = () => {
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
         handleBackClick();
+        connectSocket(response.data.token);
       })
       .catch(error => {
         if (error.response) {
