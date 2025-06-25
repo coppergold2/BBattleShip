@@ -1828,40 +1828,43 @@ io.on('connection', async (socket) => {
         try {
             socket.data.roomCode = null;
             socket.leave(gameRoom.roomCode)
-            const opponent = gameRoom.players[userId].opponent
-            // Check if the game has ended for the current player
-            if (gameRoom.start) {
-                if (gameRoom.isSinglePlayer || (gameRoom.isSinglePlayer == false && opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true)) {
-                    await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
-                }
-                else {
-                    await handleGameEndDB(userId, opponent, "Quit", gameRoom.roomCode);
-                }
-            }
-            // Handle multiplayer mode - communicate to the opponent player
-            if (gameRoom.isSinglePlayer == false) {
-                if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
-                    if (gameRoom.start) { // both player started game and game have not finished
-                        io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
-                            `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`,
-                            await findLast10GamesForUser(opponent),
-                            await calculateWinRate(opponent));
-                    } else if (gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
-                        io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[opponent].userName} left`);
-                        if (gameRoom.status == "in_progress") { // if game has started and is over
-                            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
-                            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-                        }
+            if (gameRooms[gameRoom.roomCode] != null) {
+                const opponent = gameRoom.players[userId].opponent
+                // Check if the game has ended for the current player
+                if (gameRoom.start) {
+                    if (gameRoom.isSinglePlayer || (gameRoom.isSinglePlayer == false && opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true)) {
+                        await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
                     }
-                    gameRoom.players[opponent].opponent = null
-                    delete gameRoom.players[userId]
+                    else {
+                        await handleGameEndDB(userId, opponent, "Quit", gameRoom.roomCode);
+                    }
+                }
+                // Handle multiplayer mode - communicate to the opponent player
+                if (gameRoom.isSinglePlayer == false) {
+                    if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
+                        if (gameRoom.start) { // both player started game and game have not finished
+                            io.to(gameRoom.players[opponent].socketId).emit("oquit",  // tell the opponent this current player has quit/ clicked home
+                                `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`,
+                                await findLast10GamesForUser(opponent),
+                                await calculateWinRate(opponent));
+                        } else if (gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
+                            io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[opponent].userName} left`);
+                            if (gameRoom.status == "in_progress") { // if game has started and is over
+                                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
+                                io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                            }
+                        }
+                        gameRoom.players[opponent].opponent = null
+                        delete gameRoom.players[userId]
+                        gameRoom.start = false;
+                    }
+                    else {
+                        delete gameRooms[gameRoom.roomCode]
+                    }
                 }
                 else {
                     delete gameRooms[gameRoom.roomCode]
                 }
-            }
-            else {
-                delete gameRooms[gameRoom.roomCode]
             }
             let games, allGameStats;
             games = await findLast10GamesForUser(userId);
