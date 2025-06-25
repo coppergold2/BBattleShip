@@ -1515,7 +1515,7 @@ io.on('connection', async (socket) => {
                             const opponent = playerId
                             gameRoom.players[userId].opponent = opponent
                             gameRoom.players[opponent].opponent = userId
-                            io.to(gameRoom.players[opponent].socketId).emit("info", `${user.userName} has joined`)
+                            io.to(gameRoom.players[opponent].socketId).emit("info", `Player ${user.userName} has joined`)
                         }
                     }
                 }

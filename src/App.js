@@ -211,7 +211,14 @@ const App = () => {
       setMessages(messages)
       setStats({ numHits: player.numHits, numMisses: player.numMisses, onumHits: onumHits, onumMisses: onumMisses })
       console.log("turn in restoreGame", turns)
+      if(turns) {
+        setInfo("Reconnected to the game. Check chat for messages — it's your turn to go.")
+      }
+      else{
+        setInfo("Reconnected to the game. Check chat for messages — it's your opponent's turn right now.")
+      }
       setTurn(turns)
+
     })
 
     socket.current.on('reconnect_attempt', (attempt) => {
@@ -226,17 +233,17 @@ const App = () => {
       // }
     });
 
-    socket.current.on('reconnect_failed', () => {
-      console.warn("❌ Failed to reconnect after multiple attempts");
-      // Optionally show UI or fallback
-      setIsLoggedIn(false);
-      console.log("log in false here 5")
-      document.title = "BattleShip"
-      reset();
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-      document.title = "BattleShip"
-      clearInterval(heartbeatInterval);
-    });
+    // socket.current.on('reconnect_failed', () => {
+    //   console.warn("❌ Failed to reconnect after multiple attempts");
+    //   // Optionally show UI or fallback
+    //   setIsLoggedIn(false);
+    //   console.log("log in false here 5")
+    //   document.title = "BattleShip"
+    //   reset();
+    //   setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+    //   document.title = "BattleShip"
+    //   clearInterval(heartbeatInterval);
+    // });
     socket.current.on('logout', () => { // one of the other tabs logouts, so this tab logs out
       alert("you have been logged out")
       logoutTasks()
