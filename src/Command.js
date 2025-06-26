@@ -10,13 +10,12 @@ const Command = ({ handleInputChange, input, sendMessage }) => {
 
   return (
     <div className="command-section">
-      <input
+      <input className="command-input-box"
         type="text"
         value={input}
         onChange={(e) => handleInputChange(e.target.value)}
         onKeyDown={handleKeyPress}
         placeholder="Enter command"
-        style={{ width: '300px', height: '50px' }} // Adjust the width as needed
       />
       <button onClick={() => sendMessage('command')}>Send</button>
     </div>

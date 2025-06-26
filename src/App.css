@@ -37,7 +37,7 @@ body {
   display: flex;
 }
 
-.command-section{
+.command-section {
   display: flex;
   flex: 0 1 30%;
   justify-content: end;
@@ -56,7 +56,7 @@ body {
   grid-template-columns: 30px repeat(10, 60px);
   grid-template-rows: 30px repeat(10, 60px);
   gap: 2px;
-  margin: 0px 50px ;
+  margin: 0px 50px;
 }
 
 .corner {
@@ -90,22 +90,26 @@ body {
   grid-row: span 1;
 }
 
-.grab{
+.grab {
   cursor: pointer;
 }
 
 .hover {
-  opacity: 0.2; /* Slightly transparent to indicate hover */
-  background-color: rgba(0, 123, 255, 0.3); /* Light blue background with transparency */
-  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Soft shadow around the cell */
-  border-radius: 5px; /* Slightly rounded corners */
+  opacity: 0.2;
+  /* Slightly transparent to indicate hover */
+  background-color: rgba(0, 123, 255, 0.3);
+  /* Light blue background with transparency */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+  /* Soft shadow around the cell */
+  border-radius: 5px;
+  /* Slightly rounded corners */
   /*transition: all 0.2s ease-in-out; /* Smooth transition effect */
 }
 
-.stats-container{
+.stats-container {
   margin-Left: 50px;
-  margin-top : 30px;
-  color : white
+  margin-top: 30px;
+  color: white
 }
 
 .ship-options {
@@ -121,8 +125,10 @@ body {
   border: 1px solid rgb(115, 250, 4);
   border-radius: 100px;
   cursor: move;
-  transition: all 0.3s ease-in-out; /* Smooth transition for the effects */
-  margin: 0 20px; /* Adjust the margin value as needed */
+  transition: all 0.3s ease-in-out;
+  /* Smooth transition for the effects */
+  margin: 0 20px;
+  /* Adjust the margin value as needed */
 }
 
 .ship-option.destroyer {
@@ -150,22 +156,24 @@ body {
   background-color: rgb(154, 61, 61);
 }
 
-.cell.destroyer{
+.cell.destroyer {
   background-color: rgb(7, 88, 77);
 }
-.cell.submarine{
-  background-color:rgba(119, 47, 187, 0.64)
-}
-.cell.cruiser{
-  background-color:rgb(154, 61, 61) ;
+
+.cell.submarine {
+  background-color: rgba(119, 47, 187, 0.64)
 }
 
-.cell.battleship{
+.cell.cruiser {
+  background-color: rgb(154, 61, 61);
+}
+
+.cell.battleship {
   background-color: rgb(94, 83, 83);
 }
 
 
-.cell.carrier{
+.cell.carrier {
   background-color: rgb(122, 68, 122);
 }
 
@@ -177,7 +185,8 @@ body {
 }
 
 button {
-  background-color: #4CAF50; /* Green */
+  background-color: #4CAF50;
+  /* Green */
   border: none;
   color: white;
   padding: 15px 32px;
@@ -188,7 +197,8 @@ button {
   margin: 4px 2px;
   cursor: pointer;
   border-radius: 4px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.4s, color 0.4s; /* Smooth transition */
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.4s, color 0.4s;
+  /* Smooth transition */
 }
 
 button:hover {
@@ -201,6 +211,7 @@ button:hover {
     transform: scale(1);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
+
   100% {
     transform: scale(0.95);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -212,6 +223,7 @@ button:hover {
     transform: scale(0.95);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   }
+
   100% {
     transform: scale(1);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -228,16 +240,21 @@ button:not(:active) {
 
 .ship-option.flipped {
   transform: rotate(90deg);
-  
+
 }
 
 .selected {
   margin-bottom: 50px;
-  background-color: rgba(0, 123, 255, 0.2); /* Light blue background */
-  border: 2px solid #007bff; /* Solid blue border */
-  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5); /* Soft blue glow */
-  transform: scale(1.05); /* Slightly scale up to emphasize selection */
-  transition: all 0.3s ease-in-out; /* Smooth transition for the effects */
+  background-color: rgba(0, 123, 255, 0.2);
+  /* Light blue background */
+  border: 2px solid #007bff;
+  /* Solid blue border */
+  box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+  /* Soft blue glow */
+  transform: scale(1.05);
+  /* Slightly scale up to emphasize selection */
+  transition: all 0.3s ease-in-out;
+  /* Smooth transition for the effects */
 }
 
 .cell {
@@ -250,7 +267,8 @@ button:not(:active) {
 }
 
 .hittable {
-  background-color: #1e90ff; /* Darker or more saturated shade of blue */
+  background-color: #1e90ff;
+  /* Darker or more saturated shade of blue */
   position: relative;
   z-index: 1;
 }
@@ -273,9 +291,11 @@ button:not(:active) {
   0% {
     box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
   }
+
   50% {
     box-shadow: 0 0 20px rgba(255, 0, 0, 1);
   }
+
   100% {
     box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
   }
@@ -286,6 +306,7 @@ button:not(:active) {
     transform: scale(1);
     box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
   }
+
   100% {
     transform: scale(0.95);
     box-shadow: 0 0 30px rgba(255, 0, 0, 1);
@@ -297,6 +318,7 @@ button:not(:active) {
     transform: scale(0.95);
     box-shadow: 0 0 30px rgba(255, 0, 0, 1);
   }
+
   100% {
     transform: scale(1);
     box-shadow: 0 0 15px rgba(255, 0, 0, 0.8);
@@ -349,13 +371,14 @@ button:not(:active) {
     transform: translate(-50%, -50%) scale(1);
     opacity: 1;
   }
+
   100% {
     transform: translate(-50%, -50%) scale(2);
     opacity: 0;
   }
 }
 
-.miss{
+.miss {
   background-color: grey
 }
 
@@ -365,19 +388,24 @@ button:not(:active) {
   flex: 1 0;
   color: #FFFFFF;
   width: 100%;
-  max-width: 400px; /* Increased width for better readability */
+  max-width: 400px;
+  /* Increased width for better readability */
   padding: 15px;
-  margin-left: 10px; /* Optional: Add space between boards and chat */
-  background: linear-gradient(135deg, #008B8B, #005F5F); /* Subtle gradient background with darker shades */
+  margin-left: 10px;
+  /* Optional: Add space between boards and chat */
+  background: linear-gradient(135deg, #008B8B, #005F5F);
+  /* Subtle gradient background with darker shades */
   border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  /* Soft shadow */
 }
 
 .chat-header {
   font-size: 1.5em;
   font-weight: bold;
   margin-bottom: 10px;
-  color: #FFD700; /* High contrast yellow for the header */
+  color: #FFD700;
+  /* High contrast yellow for the header */
 }
 
 .chat-messages {
@@ -386,23 +414,28 @@ button:not(:active) {
   overflow-y: auto;
   padding: 10px;
   border-radius: 5px;
-  background: #001F1F; /* Dark background for messages container */
-  color: #FFFFFF; /* Ensure text is readable */
+  background: #001F1F;
+  /* Dark background for messages container */
+  color: #FFFFFF;
+  /* Ensure text is readable */
 }
 
 .chat-message {
   padding: 5px 10px;
   margin: 5px 0;
   border-radius: 5px;
-  color: #000000; /* Ensure text is readable */
+  color: #000000;
+  /* Ensure text is readable */
 }
 
 .chat-message-player {
-  background-color: #00CED1; /* Bright cyan for player messages */
+  background-color: #00CED1;
+  /* Bright cyan for player messages */
 }
 
 .chat-message-opponent {
-  background-color: #FF7F50; /* Light coral for opponent messages */
+  background-color: #FF7F50;
+  /* Light coral for opponent messages */
 }
 
 .chat-input-container {
@@ -423,16 +456,20 @@ button:not(:active) {
   word-wrap: break-word;
   border: 1px solid #FFFFFF;
   border-radius: 5px;
-  background: #00CED1; /* Dark background for input area */
+  background: #00CED1;
+  /* Dark background for input area */
   color: #000000;
   font-size: 16px;
 }
 
 .chat-input::placeholder {
-  color: #652020; /* Replace with your desired color */
+  color: #652020;
+  /* Replace with your desired color */
 }
+
 .chat-button {
-  background-color: #FFD700; /* Bright yellow button */
+  background-color: #FFD700;
+  /* Bright yellow button */
   color: #000000;
   border: 1px solid #FFFFFF;
   padding: 10px 15px;
@@ -442,7 +479,8 @@ button:not(:active) {
 }
 
 .chat-button:hover {
-  background-color: #FFA500; /* Darker shade of yellow on hover */
+  background-color: #FFA500;
+  /* Darker shade of yellow on hover */
 }
 
 /* Custom scrollbar styling */
@@ -451,22 +489,29 @@ button:not(:active) {
 }
 
 .chat-messages::-webkit-scrollbar-thumb {
-  background-color: #FFD700; /* Yellow scrollbar for high contrast */
+  background-color: #FFD700;
+  /* Yellow scrollbar for high contrast */
   border-radius: 4px;
 }
 
 .chat-messages::-webkit-scrollbar-track {
   background: #001F1F;
 }
+
 .loser {
-  border: 1px solid #ddd; /* Base border */
-  box-shadow: 0 0 5px rgba(255, 0, 255, 0.5), inset 0 0 2px rgba(128, 0, 128, 0.2); /* Inner pink glow, outer purple glow */
+  border: 1px solid #ddd;
+  /* Base border */
+  box-shadow: 0 0 5px rgba(255, 0, 255, 0.5), inset 0 0 2px rgba(128, 0, 128, 0.2);
+  /* Inner pink glow, outer purple glow */
 }
 
 @keyframes breathe {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 10px 2px rgba(255, 40, 40, 0.4);
   }
+
   50% {
     box-shadow: 0 0 15px 4px rgba(255, 40, 40, 0.7);
   }
@@ -497,38 +542,60 @@ button:not(:active) {
 }
 
 .home-stats-container {
-  display: flex; /* Use flexbox layout */
-  justify-content: center; /* Center the two sections horizontally */
-  align-items: flex-start; /* Align items to the top */
-  gap: 20px; /* Add space between the two sections */
-  margin: auto; /* Center the container horizontally */
-  background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
-  width: fit-content; /* Make the width of the container fit its children */
-  padding: 20px; /* Optional: Add padding to the container */
-  border-radius: 10px; /* Rounded corners */
+  display: flex;
+  /* Use flexbox layout */
+  justify-content: center;
+  /* Center the two sections horizontally */
+  align-items: flex-start;
+  /* Align items to the top */
+  gap: 20px;
+  /* Add space between the two sections */
+  margin: auto;
+  /* Center the container horizontally */
+  background-color: rgba(0, 0, 0, 0.7);
+  /* Semi-transparent background */
+  width: fit-content;
+  /* Make the width of the container fit its children */
+  padding: 20px;
+  /* Optional: Add padding to the container */
+  border-radius: 10px;
+  /* Rounded corners */
 }
+
 .home-stats {
-  padding: 20px; /* Padding inside the container */
-  color: #FFFFFF; /* White text color */
-  font-family: 'Arial', sans-serif; /* Font family */
-  text-align: center; /* Centered text */
+  padding: 20px;
+  /* Padding inside the container */
+  color: #FFFFFF;
+  /* White text color */
+  font-family: 'Arial', sans-serif;
+  /* Font family */
+  text-align: center;
+  /* Centered text */
 }
 
 .home-stats h2 {
-  font-size: 24px; /* Heading font size */
-  margin-bottom: 15px; /* Margin below the heading */
-  color: #FFD700; /* Gold color for the heading */
+  font-size: 24px;
+  /* Heading font size */
+  margin-bottom: 15px;
+  /* Margin below the heading */
+  color: #FFD700;
+  /* Gold color for the heading */
 }
 
 .home-stats p {
-  font-size: 18px; /* Paragraph font size */
-  margin: 5px 0; /* Margin around paragraphs */
+  font-size: 18px;
+  /* Paragraph font size */
+  margin: 5px 0;
+  /* Margin around paragraphs */
 }
 
 .home-stats .win-rate {
-  font-weight: bold; /* Bold font weight */
-  font-size: 20px; /* Larger font size */
-  color: #00FF00; /* Green color for win rate */
+  font-weight: bold;
+  /* Bold font weight */
+  font-size: 20px;
+  /* Larger font size */
+  color: #00FF00;
+  /* Green color for win rate */
 }
 
 .match-history-heading {
@@ -575,11 +642,13 @@ button:not(:active) {
 }
 
 .match-history-item.won {
-  border-left: 5px solid #00FF00; /* Green border for wins */
+  border-left: 5px solid #00FF00;
+  /* Green border for wins */
 }
 
 .match-history-item.lost {
-  border-left: 5px solid #FF4500; /* Red border for losses */
+  border-left: 5px solid #FF4500;
+  /* Red border for losses */
 }
 
 .match-history-item:hover {
@@ -594,7 +663,8 @@ button:not(:active) {
 }
 
 .player-stats {
-  background-color: rgba(0, 128, 0, 0.3); /* Darker green background */
+  background-color: rgba(0, 128, 0, 0.3);
+  /* Darker green background */
   padding: 10px;
   border-radius: 5px;
   margin-right: 10px;
@@ -602,7 +672,8 @@ button:not(:active) {
 }
 
 .opponent-stats {
-  background-color: rgba(128, 0, 0, 0.3); /* Darker red background */
+  background-color: rgba(128, 0, 0, 0.3);
+  /* Darker red background */
   padding: 10px;
   border-radius: 5px;
   flex: 1;
@@ -618,11 +689,11 @@ button:not(:active) {
   align-items: center;
   gap: 6px;
   color: #333;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .top-most-container {
-   display : flex;
+  display: flex;
 }
 
 .footer {
@@ -636,16 +707,22 @@ button:not(:active) {
   justify-content: center;
 }
 
+.command-input-box {
+  width: 300px;
+  height: 50px;
+}
 @media (max-width: 1755px) {
   .board-after {
     grid-template-columns: 30px repeat(10, 55px);
     grid-template-rows: 30px repeat(10, 55px);
   }
+
   .boom::before {
     width: 25px;
     height: 25px;
   }
-  .boom::after{
+
+  .boom::after {
     width: 25px;
     height: 25px;
   }
@@ -656,11 +733,13 @@ button:not(:active) {
     grid-template-columns: 25px repeat(10, 50px);
     grid-template-rows: 25px repeat(10, 50px);
   }
+
   .boom::before {
     width: 23px;
     height: 23px;
   }
-  .boom::after{
+
+  .boom::after {
     width: 23px;
     height: 23px;
   }
@@ -670,19 +749,22 @@ button:not(:active) {
   .boards {
     width: 55%
   }
+
   .board-after {
     grid-template-columns: 30px repeat(10, 55px);
     grid-template-rows: 30px repeat(10, 55px);
   }
+
   .boom::before {
     width: 25px;
     height: 25px;
   }
-  .boom::after{
+
+  .boom::after {
     width: 25px;
     height: 25px;
   }
-  
+
 }
 
 @media (max-width: 1250px) {
@@ -701,15 +783,17 @@ button:not(:active) {
     grid-template-columns: 25px repeat(10, 45px);
     grid-template-rows: 25px repeat(10, 45px);
   }
+
   .boom::before {
     width: 20px;
     height: 20px;
-  } 
-   .boom::after{
+  }
+
+  .boom::after {
     width: 20px;
     height: 20px;
   }
-  
+
 }
 
 @media (max-width: 920px) {
@@ -762,15 +846,30 @@ button:not(:active) {
     grid-template-columns: 18px repeat(10, 33px);
     grid-template-rows: 18px repeat(10, 33px);
   }
+
   .boom::before {
     width: 18px;
     height: 18px;
   }
-  .boom::after{
+
+  .boom::after {
     width: 18px;
     height: 18px;
   }
-  
+
+}
+
+@media (max-width: 460px) {
+  .board-before {
+    grid-template-columns: 23px repeat(10, 33px);
+    grid-template-rows: 23px repeat(10, 33px);
+  }
+
+  .command-input-box {
+    width: 250px;
+    height: 50px;
+  }
+
 }
 
 @media (max-width: 425px) {
@@ -790,22 +889,20 @@ button:not(:active) {
   } */
 
   .board-after {
-    grid-template-columns: 16px repeat(10, 30px);
-    grid-template-rows: 16px repeat(10, 30px);
+    grid-template-columns: 18px repeat(10, 33px);
+    grid-template-rows: 18px repeat(10, 33px);
   }
+
   .boom::before {
     width: 15px;
     height: 15px;
   }
-  .boom::after{
+
+  .boom::after {
     width: 15px;
     height: 15px;
   }
 
 
-  
+
 }
-
-
-
-  
