@@ -9,10 +9,12 @@ body {
   margin-top: 80px;
 }
 
-h1 {
+.title {
   text-align: center;
   color: #fffacd;
   font-family: 'Lucida Handwriting', cursive;
+  width: 94.5%;
+  padding-left: 5.5%;
 }
 
 .game-container {
@@ -475,16 +477,18 @@ button:not(:active) {
 }
 
 .home-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  position: relative;
+  /* top: 10px;
+  right: 10px; */
   padding: 10px 20px;
   background-color: #007bff;
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 16px;
+  /* font-size: 16px; */
+  margin-top: 21.44px;
+  margin-bottom: 21.44px;
 }
 
 .home-button:hover {
@@ -617,6 +621,20 @@ button:not(:active) {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.top-most-container {
+   display : flex;
+}
+
+.footer {
+  text-align: center;
+  padding: 20px;
+  font-size: 17px;
+  color: #ffffff;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
 
 @media (max-width: 1755px) {
   .board-after {
@@ -700,7 +718,7 @@ button:not(:active) {
   }
 }
 
-@media (max-width: 730px) {
+/* @media (max-width: 730px) {
   .home-button {
     font-size: 12px;
   }
@@ -711,9 +729,9 @@ button:not(:active) {
     font-size: 1.2rem ;
   }
 
-}
+} */
 
-@media (max-width: 575px) {
+/* @media (max-width: 575px) {
   .home-button {
     font-size: 10pxpx;
   }
@@ -723,10 +741,10 @@ button:not(:active) {
   h2{
     font-size: 1.0rem ;
   }
-}
+} */
 
 @media (max-width: 520px) {
-  .home-button {
+  /* .home-button {
     font-size: 9px;
   }
   h1{
@@ -738,7 +756,7 @@ button:not(:active) {
   .stats-container{
     margin-top: 10px;
     font-size: 12px;
-  }
+  } */
 
   .board-after {
     grid-template-columns: 18px repeat(10, 33px);
@@ -756,7 +774,7 @@ button:not(:active) {
 }
 
 @media (max-width: 425px) {
-  .home-button {
+  /* .home-button {
     font-size: 7px;
     padding: 5px 10px;
   }
@@ -769,7 +787,7 @@ button:not(:active) {
   .stats-container{
     margin-top: 10px;
     font-size: 12px;
-  }
+  } */
 
   .board-after {
     grid-template-columns: 16px repeat(10, 30px);

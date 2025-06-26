@@ -19,7 +19,6 @@ const App = () => {
   const [pbCellClass, setPbCellClass] = useState(null);
   //const [multiPlayerGameFull, setGameFull] = useState(false);
   const [chatEnable, setChatEnable] = useState(true);
-  const [serverDown, setServerDown] = useState(false);
   const [placedShips, setPlacedShips] = useState([]);
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
   const [isFlipped, setIsFlipped] = useState(false);
@@ -860,23 +859,29 @@ const App = () => {
     resetForm()
   };
 
-  if (serverDown) {
-    return <h1>The server is down</h1>;
-  }
   return (
     <>
-      <h1>
-        {`BattleShip ${singlePlayer
-          ? "Single Player vs Computer"
-          : multiPlayer
-            ? "Two Player Mode"
-            : isLoggedIn
-              ? ""
-              : register
-                ? "Register"
-                : "Login"
-          }`}
-      </h1>
+      <div className="top-most-container">
+        <h1 className="title">
+          {`BattleShip ${singlePlayer
+            ? "Single Player vs Computer"
+            : multiPlayer
+              ? "Two Player Mode"
+              : isLoggedIn
+                ? ""
+                : register
+                  ? "Register"
+                  : "Login"
+            }`}
+        </h1>
+        {(singlePlayer || multiPlayer) ?
+          (<button className="home-button" onClick={handleHomeClick}>
+            Home
+          </button>) : (isLoggedIn && !singlePlayer && !multiPlayer) ?
+            (<button className="home-button" onClick={handleLogout}>
+              Logout
+            </button>) : null}
+      </div>
       {isLoggedIn ? (
         <>
           <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
@@ -933,6 +938,10 @@ const App = () => {
           👥 <span>{numOnline}</span> users online
         </div>
       ) : null}
+      <hr style={{ marginTop: "5rem", borderColor: "#ccc" }} />
+      <footer className="footer">
+        © 2025 Cooper Chen · MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
+      </footer>
     </>
   );
 };

@@ -37,9 +37,6 @@ const Game = ({
 
   return (
     <>
-      <button className="home-button" onClick={handleHomeClick}>
-        Home
-      </button>
       <div className= "game-container">
         <div className={start == false ? 'boards_before' : 'boards'}>
           <Board className="player-board"

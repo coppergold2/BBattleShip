@@ -22,9 +22,6 @@ const Home = ({ handleLogout, handleSinglePlayerClick, handleMultiPlayerClick, h
 
     return (
         <>
-            <button className="home-button" onClick={handleLogout}>
-                Logout
-            </button>
             <h2 style={{ textAlign: 'center', color: 'white' }}>User: {homeStats.userName}</h2>
             <div className="home-stats-container">
                 <div className="home-stats">
