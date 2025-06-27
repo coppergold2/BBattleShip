@@ -61,7 +61,7 @@ const App = () => {
     'destroyer': 2
   };
 
-  const reset = () => {
+  const reset = () => { // Not in here: isLoading, numOnline, isLoggedIn, homeStats, form
     setSinglePlayer(false);
     setMultiPlayer(false);
     setInfo("Select Your Mode");
@@ -131,14 +131,14 @@ const App = () => {
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
       if (!socket.current.active) {
-        //setServerDown(true);
-        setIsLoggedIn(false);
+        //setServerDown(true);        
         console.log("log in false here 1")
+        setIsLoggedIn(false);
         document.title = "BattleShip"
         reset();
         setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-        document.title = "BattleShip"
         clearInterval(heartbeatInterval);
+        setNumOnline(0);
       }
       else {
         setIsLoading(true);
@@ -150,17 +150,18 @@ const App = () => {
       reset()
       setIsLoggedIn(true);
       setHomeStats((prevHomeStats) => ({
-        ...prevHomeStats,
         id: userId,
         userName: userName,
         lastTenGames: games,
         allGameStats: allGameStats
       }));
       document.title = `BattleShip - ${userName}`
+      setInfo("Reconnected")
       console.log("restoreLogin is runned")
       setIsLoading(false)
     })
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
+      reset()
       setIsLoggedIn(true);
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
@@ -791,6 +792,7 @@ const App = () => {
     localStorage.removeItem('token');
     reset();
     setIsLoggedIn(false);
+    setNumOnline(0);
     console.log("login false here 3")
     setHomeStats({
       id: "",

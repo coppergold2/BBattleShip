@@ -13,15 +13,21 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigin = 'https://bbattleship.onrender.com';
 // Use cors middleware for Express
 const cors = require("cors");
-app.use(cors());  // Allow all origins by default
+// app.use(cors());  // Allow all origins by default
 // Optionally, you can configure specific origins
 // app.use(cors({ origin: 'http://your-frontend-domain.com' }));
 
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true
+}));
+
 const io = socketIo(server, {
     cors: {
-        origin: '*',
+        origin: allowedOrigin,
         methods: ['GET', 'POST'],
         credentials: true
     },
