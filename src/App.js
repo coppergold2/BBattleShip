@@ -134,9 +134,9 @@ const App = () => {
         setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
         document.title = "BattleShip"
       }
-      else {
-        setIsLoading(true);
-      }
+      // else {
+      //   setIsLoading(true);
+      // }
       clearInterval(heartbeatInterval);
     });
 
