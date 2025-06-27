@@ -107,16 +107,10 @@ const App = () => {
         console.log("reload is runned in connect")
         window.location.reload()
       }
-      // else {
-      //   heartbeatInterval = setInterval(() => {
-      //     socket.current?.emit("heartbeat");
-      //   }, 30000);
-      // }
-      if (socket.current.recovered == false) {
-        heartbeatInterval = setInterval(() => {
-          socket.current?.emit("heartbeat");
-        }, 30000);
-      }
+      heartbeatInterval = setInterval(() => {
+        socket.current?.emit("heartbeat");
+      }, 30000);
+
     });
 
     socket.current.on("connect_error", (err) => {
@@ -130,18 +124,21 @@ const App = () => {
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
-      if (!socket.current.active) {
-        //setServerDown(true);        
-        console.log("log in false here 1")
-        setIsLoggedIn(false);
-        document.title = "BattleShip"
-        reset();
-        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-        clearInterval(heartbeatInterval);
-        setNumOnline(0);
+
+      //setServerDown(true);        
+      console.log("log in false here 1")
+      setIsLoggedIn(false);
+      document.title = "BattleShip"
+      reset();
+      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+      clearInterval(heartbeatInterval);
+      setNumOnline(0);
+
+      if (socket.current.active) {
+        setIsLoading(true);
       }
       else {
-        setIsLoading(true);
+        alert("You have been disconnected");
       }
 
     });
