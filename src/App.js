@@ -96,8 +96,6 @@ const App = () => {
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
-      reconnectionDelay: 25000, // defaults to 1000
-      reconnectionDelayMax: 25000 // defaults to 5000
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -108,7 +106,12 @@ const App = () => {
         console.log("reload is runned in connect")
         window.location.reload()
       }
-      else {
+      // else {
+      //   heartbeatInterval = setInterval(() => {
+      //     socket.current?.emit("heartbeat");
+      //   }, 30000);
+      // }
+      if (socket.current.recovered == false) {
         heartbeatInterval = setInterval(() => {
           socket.current?.emit("heartbeat");
         }, 30000);
@@ -126,7 +129,7 @@ const App = () => {
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
-      if (forceDisconnect) {
+      if (!socket.current.active) {
         //setServerDown(true);
         setIsLoggedIn(false);
         console.log("log in false here 1")
@@ -134,11 +137,12 @@ const App = () => {
         reset();
         setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
         document.title = "BattleShip"
+        clearInterval(heartbeatInterval);
       }
       else {
         setIsLoading(true);
       }
-      clearInterval(heartbeatInterval);
+      
     });
 
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats) => {
