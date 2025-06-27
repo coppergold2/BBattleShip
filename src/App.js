@@ -271,7 +271,6 @@ const App = () => {
             ohit: false,
             omiss: false
           })))
-      setIsLoading(false);
     })
     socket.current.on("oquit", (msg, games, allGameStats) => {
 
@@ -403,7 +402,6 @@ const App = () => {
             ohit: false,
             omiss: false
           })))
-      setIsLoading(false);
     })
     socket.current.on("not enough ship", (msg) => {
       setInfo(msg)
@@ -572,7 +570,6 @@ const App = () => {
   }, []);
 
   const handleSinglePlayerClick = () => {
-    setIsLoading(true);
     socket.current.emit("singleplayer", homeStats.id)
     // setSinglePlayer(true);
     // setInfo("Please Place your ships")
@@ -585,10 +582,13 @@ const App = () => {
     //     })))
   }
   const handleMultiPlayerClick = () => {
-    setIsLoading(true);
     socket.current.emit("multiplayer", homeStats.id)
   }
-  const handleHomeClick = () => {    
+
+  const handleStartClick = () => {
+    socket.current.emit("start")
+  }
+  const handleHomeClick = () => {
     setIsLoading(true);
     socket.current.emit("home")
 
@@ -682,6 +682,7 @@ const App = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
+      setIsLoading(true);
       console.log("runned")
       axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
         .then(res => {
@@ -700,6 +701,9 @@ const App = () => {
         .catch(() => {
           console.log("something is wrong in /api/verifyToken in client side")
           localStorage.removeItem('token');
+        })
+        .finally(() => {
+          setIsLoading(false);
         });
     }
     else {
@@ -928,7 +932,6 @@ const App = () => {
             (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer) ?
               <Game
                 userName={homeStats.userName}
-                socket={socket.current}
                 multiPlayer={multiPlayer}
                 start={start}
                 turn={turn}
@@ -955,6 +958,7 @@ const App = () => {
                 handleCellHover={handleCellHover}
                 handleCellHoverOut={handleCellHoverOut}
                 handleHomeClick={handleHomeClick}
+                handleStartClick={handleStartClick}
               /> :
               <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
           }

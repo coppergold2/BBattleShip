@@ -7,7 +7,6 @@ import Chat from './Chat'
 import Command from './Command'
 const Game = ({
   userName,
-  socket,
   multiPlayer,
   start,
   turn,
@@ -33,7 +32,8 @@ const Game = ({
   handleInputChange,
   handleCellHover,
   handleCellHoverOut,
-  handleHomeClick }) => {
+  handleStartClick
+}) => {
 
   return (
     <>
@@ -57,7 +57,7 @@ const Game = ({
       </div>
       {start == false &&
         (<><ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick={handleShipOptionClick} />
-          <Buttons start={start} socket={socket} handleRandomPlacement={handleRandomPlacement} handleFlipBoat={handleFlipBoat} isFlipped={isFlipped} /></>)}
+          <Buttons start={start} handleRandomPlacement={handleRandomPlacement} handleFlipBoat={handleFlipBoat} isFlipped={isFlipped} handleStartClick={handleStartClick} /></>)}
     </>
   );
 };

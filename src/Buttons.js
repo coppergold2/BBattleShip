@@ -1,6 +1,6 @@
 import React from "react"
 
-const Buttons = ({ start, socket, isFlipped, handleRandomPlacement, handleFlipBoat }) => {
+const Buttons = ({ start, isFlipped, handleRandomPlacement, handleFlipBoat, handleStartClick }) => {
     return (
         !start && (
             <div className='button-container'>
@@ -10,7 +10,7 @@ const Buttons = ({ start, socket, isFlipped, handleRandomPlacement, handleFlipBo
                 </button>
                
                 {/* <button className='random-rest-button' onClick= */}
-                <button className='start-button' onClick={() => { socket.emit("start"); }}>Start Game</button>
+                <button className='start-button' onClick={() => { handleStartClick() }}>Start Game</button>
             </div>
         )
     )

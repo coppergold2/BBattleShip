@@ -14,6 +14,7 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigin = 'https://bbattleship.onrender.com';
+//const allowedOrigin = 'http://localhost:3000';
 // Use cors middleware for Express
 const cors = require("cors");
 // app.use(cors());  // Allow all origins by default
@@ -1513,7 +1514,7 @@ io.on('connection', async (socket) => {
 
         }
         else {
-            socket.emit("alert", "You are already in a game on another tab")
+            socket.emit("alert", "The server indicates that you're still in a game. If you're playing in another tab, please return to it. Otherwise, please wait a moment while the server clears up your session.");
         }
         console.log("gameRooms in singleplayer event", gameRooms)
         console.log("userId", userId)
@@ -1554,7 +1555,7 @@ io.on('connection', async (socket) => {
             }
         }
         else {
-            socket.emit("alert", "You are already in a game on another tab")
+            socket.emit("alert", "The server indicates that you're still in a game. If you're playing in another tab, please return to it. Otherwise, please wait a moment while the server clears up your session.");
         }
     })
     socket.on("random", () => { if (gameRoom.start == false) { randomBoatPlacement(socket.data.roomCode, userId); gameRoom.players[userId].numPlaceShip = 5; socket.emit("randomresult", gameRoom.players[userId].shipLoc); } })
