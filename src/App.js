@@ -137,9 +137,6 @@ const App = () => {
       if (socket.current.active) {
         setIsLoading(true);
       }
-      else {
-        alert("You have been disconnected");
-      }
 
     });
 
@@ -274,6 +271,7 @@ const App = () => {
             ohit: false,
             omiss: false
           })))
+      setIsLoading(false);
     })
     socket.current.on("oquit", (msg, games, allGameStats) => {
 
@@ -300,6 +298,7 @@ const App = () => {
         }));
       }
       reset();
+      setIsLoading(false);
     })
     // socket.current.on("updateMultiplayerCount", (connectedMPClients) => {
     //   console.log("updateMultiplayerCount: ", connectedMPClients);
@@ -404,6 +403,7 @@ const App = () => {
             ohit: false,
             omiss: false
           })))
+      setIsLoading(false);
     })
     socket.current.on("not enough ship", (msg) => {
       setInfo(msg)
@@ -572,6 +572,7 @@ const App = () => {
   }, []);
 
   const handleSinglePlayerClick = () => {
+    setIsLoading(true);
     socket.current.emit("singleplayer", homeStats.id)
     // setSinglePlayer(true);
     // setInfo("Please Place your ships")
@@ -584,10 +585,13 @@ const App = () => {
     //     })))
   }
   const handleMultiPlayerClick = () => {
+    setIsLoading(true);
     socket.current.emit("multiplayer", homeStats.id)
   }
-  const handleHomeClick = () => {
+  const handleHomeClick = () => {    
+    setIsLoading(true);
     socket.current.emit("home")
+
   }
   const handleRandomPlacement = () => {
     socket.current.emit("random")
@@ -801,17 +805,23 @@ const App = () => {
     document.title = "BattleShip";
   }
   const handleLogout = () => {
-    axios.post('/logout', { id: homeStats.id, socketId: socket.current.id }) // add socket ID here to send it to backend
+    setIsLoading(true);
+    axios.post('/logout', { id: homeStats.id, socketId: socket.current.id })
       .then(response => {
         logoutTasks();
       })
       .catch(error => {
         alert('Logout error: ' + (error.response ? error.response.data.message : error.message));
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   };
 
 
+
   const handleLogin = (email, password) => {
+    setIsLoading(true);
     axios.post('/login', { email, password })
       .then(response => {
         console.log('Login successful:', response.data);
@@ -840,11 +850,15 @@ const App = () => {
           // Something happened in setting up the request that triggered an Error
           alert('Login error: ' + error.message);
         }
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   };
 
 
   const handleRegister = (username, email, password) => {
+    setIsLoading(true);
     axios.post('/register', { userName: username, email, password })
       .then(response => {
         console.log('Registration successful:', response.data);
@@ -868,6 +882,9 @@ const App = () => {
         } else {
           alert('Registration error: ' + error.message);
         }
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
   };
   const handleBackClick = () => {
