@@ -17,12 +17,22 @@ body {
   padding-left: 5.5%;
 }
 
+.title-login {
+  text-align: center;
+  color: #fffacd;
+  font-family: 'Lucida Handwriting', cursive;
+  width: 100%;
+}
+
 .game-container {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
 }
 
+.info-container {
+  color: #F5FFFA;
+}
 .boards {
   display: flex;
   /* flex-direction: column; Optional: Align boards vertically */
@@ -534,6 +544,8 @@ button:not(:active) {
   /* font-size: 16px; */
   margin-top: 21.44px;
   margin-bottom: 21.44px;
+  height: 43px;
+  width: 92px;
 }
 
 .home-button:hover {
@@ -698,7 +710,7 @@ button:not(:active) {
 
 .footer {
   text-align: center;
-  padding: 20px;
+  padding-top: 20px;
   font-size: 17px;
   color: #ffffff;
   bottom: 0;
@@ -799,6 +811,12 @@ button:not(:active) {
 @media (max-width: 920px) {
   .boards {
     width: 100%;
+  }
+}
+
+@media (max-width: 795px) {
+  .info-container{
+    height: 66px
   }
 }
 

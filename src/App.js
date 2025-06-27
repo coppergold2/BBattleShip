@@ -862,7 +862,7 @@ const App = () => {
   return (
     <>
       <div className="top-most-container">
-        <h1 className="title">
+        <h1 className={`title${!isLoggedIn ? '-login' : ''}`} >
           {`BattleShip ${singlePlayer
             ? "Single Player vs Computer"
             : multiPlayer
@@ -884,7 +884,7 @@ const App = () => {
       </div>
       {isLoggedIn ? (
         <>
-          <h2 style={{ color: '#F5FFFA' }}>Info: {info}</h2>
+          <h2 className="info-container">Info: {info}</h2>
           {(!singlePlayer && !multiPlayer) ?
             <Home handleLogout={handleLogout} handleSinglePlayerClick={handleSinglePlayerClick} handleMultiPlayerClick={handleMultiPlayerClick} homeStats={homeStats} /> :
             (singlePlayer && !multiPlayer) || (!singlePlayer && multiPlayer) ?
@@ -940,7 +940,7 @@ const App = () => {
       ) : null}
       <hr style={{ marginTop: "5rem", borderColor: "#ccc" }} />
       <footer className="footer">
-        © 2025 Cooper Chen · MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
+        MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
       </footer>
     </>
   );
