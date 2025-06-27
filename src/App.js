@@ -130,14 +130,6 @@ const App = () => {
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
-      // the low-level reason of the disconnection, for example "xhr post error"
-      console.log(details.message);
-
-      // some additional description, for example the status code of the HTTP response
-      console.log(details.description);
-
-      // some additional context, for example the XMLHttpRequest object
-      console.log(details.context);
       if (!socket.current.active) {
         //setServerDown(true);
         setIsLoggedIn(false);
