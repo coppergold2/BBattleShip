@@ -1411,6 +1411,7 @@ io.use((socket, next) => {
         socket.userId = payload.userId;
         next();
     } catch (err) {
+        console.log("token verification error")
         next(new Error("Authentication error"));
     }
 });

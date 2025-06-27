@@ -116,6 +116,7 @@ const App = () => {
     socket.current.on("connect_error", (err) => {
       if (err.message === "Authentication error") {
         alert("Account verification error. Please log in again.");
+        logoutTasks();
       }
     });
 
@@ -123,8 +124,6 @@ const App = () => {
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
-      console.warn("⚠️ Disconnected from server. Reason:", reason);
-
       if (forceDisconnect) {
         //setServerDown(true);
         setIsLoggedIn(false);
