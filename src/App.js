@@ -9,6 +9,7 @@ import axios from 'axios'
 axios.defaults.baseURL = process.env.REACT_APP_API_URL;
 const App = () => {
   const socket = useRef();
+  const [isLoading, setIsLoading] = useState(false);
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
   const [numOnline, setNumOnline] = useState(0);
@@ -119,20 +120,28 @@ const App = () => {
     });
 
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
+      const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
       console.warn("⚠️ Disconnected from server. Reason:", reason);
-      //setServerDown(true);
-      setIsLoggedIn(false);
-      console.log("log in false here 1")
-      document.title = "BattleShip"
-      reset();
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-      document.title = "BattleShip"
+
+      if (forceDisconnect) {
+        //setServerDown(true);
+        setIsLoggedIn(false);
+        console.log("log in false here 1")
+        document.title = "BattleShip"
+        reset();
+        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+        document.title = "BattleShip"
+      }
+      else {
+        setIsLoading(true);
+      }
       clearInterval(heartbeatInterval);
     });
 
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats) => {
+      reset()
       setIsLoggedIn(true);
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
@@ -143,6 +152,7 @@ const App = () => {
       }));
       document.title = `BattleShip - ${userName}`
       console.log("restoreLogin is runned")
+      setIsLoading(false)
     })
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
       setIsLoggedIn(true);
@@ -204,7 +214,7 @@ const App = () => {
           }
         }
         return newCellClass;
-
+        
       })
 
       setPlacedShips(['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer'])
@@ -219,6 +229,7 @@ const App = () => {
         setInfo("Reconnected to the game. Check chat for messages — it's your opponent's turn right now.")
       }
       setTurn(turns)
+      setIsLoading(false)
 
     })
 
@@ -861,6 +872,11 @@ const App = () => {
 
   return (
     <>
+      {isLoading && (
+        <div className="loading-overlay">
+          <img src="./spinner.svg" alt="Loading..." className="spinner" />
+        </div>
+      )}
       <div className="top-most-container">
         <h1 className={`title${!isLoggedIn ? '-login' : ''}`} >
           {`BattleShip ${singlePlayer
