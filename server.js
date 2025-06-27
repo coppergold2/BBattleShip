@@ -1691,25 +1691,27 @@ io.on('connection', async (socket) => {
         socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) })
     })
     socket.on("attack", async (pos) => {
-        const opponent = gameRoom.players[userId].opponent
-        switch (gameRoom.players[opponent].board[pos]) {
-            case 1: {
-                handleHitComm(userId, opponent, pos, gameRoom.roomCode);
-                await handleDestroyComm(userId, opponent, pos, gameRoom.roomCode);
-                break;
-            }
-            case 2:
-            case 3:
-            case 4:
-                socket.emit('alert', "This location is not available to attack")
-                break;
-            case 0: {
-                handleMissComm(userId, opponent, pos, gameRoom.roomCode);
-                if (gameRoom.isSinglePlayer) {
-                    socket.emit("info", "The AI is thinking ...")
-                    setTimeout(async () => { await computerMove(userId, socket, opponent, gameRoom.roomCode) }, 500)
+        if (gameRoom) {
+            const opponent = gameRoom.players[userId].opponent
+            switch (gameRoom.players[opponent].board[pos]) {
+                case 1: {
+                    handleHitComm(userId, opponent, pos, gameRoom.roomCode);
+                    await handleDestroyComm(userId, opponent, pos, gameRoom.roomCode);
+                    break;
                 }
-                break;
+                case 2:
+                case 3:
+                case 4:
+                    socket.emit('alert', "This location is not available to attack")
+                    break;
+                case 0: {
+                    handleMissComm(userId, opponent, pos, gameRoom.roomCode);
+                    if (gameRoom.isSinglePlayer) {
+                        socket.emit("info", "The AI is thinking ...")
+                        setTimeout(async () => { await computerMove(userId, socket, opponent, gameRoom.roomCode) }, 500)
+                    }
+                    break;
+                }
             }
         }
     })
