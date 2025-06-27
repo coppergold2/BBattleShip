@@ -2,6 +2,9 @@ body {
   background-color: #008B8B;
 }
 
+label{
+  color: #fffacd
+}
 .full {
   font-size: 30px;
   color: red;

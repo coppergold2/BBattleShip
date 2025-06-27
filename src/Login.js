@@ -26,6 +26,9 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
       height: '80vh',
       textAlign: 'center'
     }}>
+      <h2 style={{ color: "yellow", marginBottom: '45px' }}>
+        NOTE: Feel free to use any fake email to register, or log in if you already have an account.
+      </h2>
       <form onSubmit={handleSubmit}>
         {register && (
           <div style={{ marginBottom: '10px' }}>

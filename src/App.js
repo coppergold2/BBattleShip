@@ -940,7 +940,7 @@ const App = () => {
       ) : null}
       <hr style={{ marginTop: "5rem", borderColor: "#ccc" }} />
       <footer className="footer">
-        MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
+        MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" style={{ color: "dfff00" }} target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
       </footer>
     </>
   );
