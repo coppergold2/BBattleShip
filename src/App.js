@@ -87,9 +87,11 @@ const App = () => {
   }
 
   function handleRC() {
-    console.log("socket.id in handleRC outside if statement", socket.current.id);
-    console.log("socket.current.connected in handleRC outside if statement", socket.current.connected)
-    console.log("socket.current.disconnected in handleRC outside if statement", socket.current.disconnected)
+    if (socket.current) {
+      console.log("socket.current.id in handleRC outside if statement", socket.current.id);
+      console.log("socket.current.connected in handleRC outside if statement", socket.current.connected)
+      console.log("socket.current.disconnected in handleRC outside if statement", socket.current.disconnected)
+    }
     if (socket.current != null && !socket.current.connected) {
       setIsLoading(true);
       socket.current.io.engine.close();
@@ -116,7 +118,8 @@ const App = () => {
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
-      transports: ['websocket']
+      transports: ['websocket'],
+      reconnectionDelay: 5000
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -149,7 +152,7 @@ const App = () => {
     });
 
     socket.current.on("RC", () => {
-      setIsLoading(true);
+      // setIsLoading(true);
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
