@@ -104,11 +104,15 @@ const App = () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
       console.log("isLoggedInRef in connect event", isLoggedInRef.current)
+      if (socket.current.recovered == false){
+        socket.current.off("RC")
+      }
       if (isLoggedInRef.current == false && socket.current.recovered == false) {
         // console.log("reload is runned in connect")
         // window.location.reload()
         socket.current.emit("restoreLogin")
       }
+    
       heartbeatInterval = setInterval(() => {
         socket.current?.emit("heartbeat");
       }, 30000);
