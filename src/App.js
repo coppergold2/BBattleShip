@@ -86,25 +86,25 @@ const App = () => {
     setChatEnable(true);
   }
 
-  function handleRC() {
-    if (socket.current) {
-      console.log("socket.current.id in handleRC outside if statement", socket.current.id);
-      console.log("socket.current.connected in handleRC outside if statement", socket.current.connected)
-      console.log("socket.current.disconnected in handleRC outside if statement", socket.current.disconnected)
-    }
-    if (socket.current != null && !socket.current.connected) {
-      setIsLoading(true);
-      socket.current.io.engine.close();
-      console.log("manually closed the connection to trigger a reconnection");
-    }
-  }
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      handleRC();
-    }, 5000);
+  // function handleRC() {
+  //   if (socket.current) {
+  //     console.log("socket.current.id in handleRC outside if statement", socket.current.id);
+  //     console.log("socket.current.connected in handleRC outside if statement", socket.current.connected)
+  //     console.log("socket.current.disconnected in handleRC outside if statement", socket.current.disconnected)
+  //   }
+  //   if (socket.current != null && !socket.current.connected) {
+  //     setIsLoading(true);
+  //     socket.current.io.engine.close();
+  //     console.log("manually closed the connection to trigger a reconnection");
+  //   }
+  // }
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     handleRC();
+  //   }, 5000);
 
-    return () => clearInterval(intervalId); // Clean up on unmount
-  }, []);
+  //   return () => clearInterval(intervalId); // Clean up on unmount
+  // }, []);
 
 
   // Call this after login:
@@ -152,7 +152,11 @@ const App = () => {
     });
 
     socket.current.on("RC", () => {
-      // setIsLoading(true);
+      if (socket.current.recovered == true) {
+          socket.current.io.engine.close();
+          setIsLoading(true);
+      }
+       
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
