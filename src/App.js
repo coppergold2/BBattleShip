@@ -89,6 +89,7 @@ const App = () => {
   // Call this after login:
   const connectSocket = (token) => {
     if (socket.current) {
+      socket.current.emit("log", "called disconnect on connectSocket first if Statement")
       socket.current.off();
       socket.current.disconnect();
       socket.current = null;
@@ -563,6 +564,7 @@ const App = () => {
       console.log("useEffect unmounted")
       clearInterval(heartbeatInterval);
       if (socket.current) {
+        socket.current.emit("log", "called disconnect on useEffect cleanup")
         socket.current.disconnect();
         socket.current = null
       }
@@ -788,6 +790,7 @@ const App = () => {
 
     // 2. Disconnect socket if exists
     if (socket.current) {
+      socket.current.emit("log", "called disconnect on logoutTasks function")
       socket.current.disconnect();
       socket.current = null;
     }
@@ -812,6 +815,7 @@ const App = () => {
     setIsLoading(true);
     axios.post('/logout', { id: homeStats.id, socketId: socket.current.id })
       .then(response => {
+        
         logoutTasks();
       })
       .catch(error => {

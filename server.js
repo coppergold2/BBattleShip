@@ -1494,6 +1494,9 @@ io.on('connection', async (socket) => {
             await User.updateOne({ _id: userId }, { $set: { lastSeen: new Date() } });
         }
     });
+    socket.on("log", (msg) => {
+        console.log(msg)
+    })
     socket.on("singleplayer", async () => {
         const canCreateGame = await checkExistingGame(userId);
         console.log("canCreateGame in singlePlayer", canCreateGame)
