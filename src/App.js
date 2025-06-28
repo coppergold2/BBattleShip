@@ -87,10 +87,20 @@ const App = () => {
   }
 
   function handleRC() {
-    setIsLoading(true);
-    socket.current.io.engine.close();
-    console.log("Received RC event on client");
+    if (socket.current != null && !socket.current.connected) {
+      setIsLoading(true);
+      socket.current.io.engine.close();
+      console.log("manually closed the connection to trigger a reconnection");
+    }
   }
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      handleRC();
+    }, 5000);
+
+    return () => clearInterval(intervalId); // Clean up on unmount
+  }, []);
+
 
   // Call this after login:
   const connectSocket = (token) => {
@@ -136,11 +146,7 @@ const App = () => {
     });
 
     socket.current.on("RC", () => {
-      if (socket.current.connected) {
       setIsLoading(true);
-      socket.current.io.engine.close();
-      }
-      console.log("recevied RC event on client")
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
