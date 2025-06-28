@@ -1412,16 +1412,28 @@ app.post('/logout', async (req, res) => {
 
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    console.log("io.use is runned")
+
+    if (!token) {
+        console.log("No token provided");
+        return next(new Error("Authentication error: Token required"));
+    }
+
     try {
         const payload = jwt.verify(token, process.env.JWT_SECRET);
         socket.userId = payload.userId;
         next();
     } catch (err) {
-        console.log("token verification error")
+        if (err.name === "TokenExpiredError") {
+            console.log("Token expired");
+        } else if (err.name === "JsonWebTokenError") {
+            console.log("Invalid token:", err.message);
+        } else {
+            console.log("Token verification error:", err);
+        }
         next(new Error("Authentication error"));
     }
 });
+
 
 io.on('connection', async (socket) => {
     let gameRoom;

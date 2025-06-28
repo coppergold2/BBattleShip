@@ -118,6 +118,12 @@ const App = () => {
       if (err.message === "Authentication error") {
         alert("Account verification error. Please log in again.");
         logoutTasks();
+        setIsLoading(false);
+      }
+      else if (err.message === "Authentication error: Token required") {
+        alert("Token not found, please log in again.");
+        logoutTasks();
+        setIsLoading(false);
       }
     });
 
@@ -815,7 +821,7 @@ const App = () => {
     setIsLoading(true);
     axios.post('/logout', { id: homeStats.id, socketId: socket.current.id })
       .then(response => {
-        
+
         logoutTasks();
       })
       .catch(error => {
