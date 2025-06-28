@@ -1774,7 +1774,7 @@ io.on('connection', async (socket) => {
     socket.on("disconnecting", (reason) => {
         console.log("Disconnected in disconnecting event server side because", reason);
         const forceDisconnect = (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") ? true : false
-        if (forceDisconnect == false) {
+        if (reason != "transport close" && forceDisconnect == false) {
             socket.emit("RC")
         }
     })
