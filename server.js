@@ -1484,7 +1484,7 @@ io.on('connection', async (socket) => {
             const user = await User.findById(userId)
             const games = await findLast10GamesForUser(userId);
             const allGameStats = await calculateWinRate(userId);
-            socket.emit("restoreLogin", userId, user.userName, games, allGameStats)
+            socket.emit("restoreLogin", userId, user.userName, games, allGameStats, "reconnected")
         }
     } else {
         // new or unrecoverable session
@@ -1514,7 +1514,7 @@ io.on('connection', async (socket) => {
         const user = await User.findById(userId)
         const games = await findLast10GamesForUser(userId);
         const allGameStats = await calculateWinRate(userId);
-        socket.emit("restoreLogin", userId, user.userName, games, allGameStats)
+        socket.emit("restoreLogin", userId, user.userName, games, allGameStats, "reconnected new")
     })
     socket.on("singleplayer", async () => {
         const canCreateGame = await checkExistingGame(userId);

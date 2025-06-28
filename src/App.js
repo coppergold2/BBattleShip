@@ -149,7 +149,7 @@ const App = () => {
 
     });
 
-    socket.current.on("restoreLogin", (userId, userName, games, allGameStats) => {
+    socket.current.on("restoreLogin", (userId, userName, games, allGameStats,msg) => {
       reset()
       setIsLoggedIn(true);
       setHomeStats((prevHomeStats) => ({
@@ -159,7 +159,7 @@ const App = () => {
         allGameStats: allGameStats
       }));
       document.title = `BattleShip - ${userName}`
-      setInfo("Reconnected")
+      setInfo(msg)
       console.log("restoreLogin is runned")
       setIsLoading(false)
     })
@@ -558,14 +558,6 @@ const App = () => {
       setNumOnline(count);
     });
   };
-  // useEffect(() => {
-  //   const token = localStorage.getItem('token');
-  //   if (isLoggedIn && token && socket.current == null) {
-  //     console.log("isLoggedIn true useEffect is runned");
-  //     connectSocket(token);
-  //   }
-
-  // }, [isLoggedIn]);
   useEffect(() => {
     // Cleanup function to disconnect when the component unmounts
     return () => {
