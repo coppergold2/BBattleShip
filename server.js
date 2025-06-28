@@ -1876,7 +1876,6 @@ io.on('connection', async (socket) => {
             }
             console.log("userSockets after deleting in disconnect event", userSockets)
         }
-        socket.emit("RC")
 
     })
 
