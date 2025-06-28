@@ -846,7 +846,7 @@ button:not(:active) {
 
 @media (max-width: 795px) {
   .info-container {
-    min-height: 85px
+    min-height: 90px
   }
 }
 

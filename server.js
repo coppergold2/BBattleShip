@@ -22,8 +22,8 @@ const cors = require("cors");
 // app.use(cors({ origin: 'http://your-frontend-domain.com' }));
 
 app.use(cors({
-  origin: allowedOrigin,
-  credentials: true
+    origin: allowedOrigin,
+    credentials: true
 }));
 
 const io = socketIo(server, {
@@ -1508,6 +1508,13 @@ io.on('connection', async (socket) => {
     });
     socket.on("log", (msg) => {
         console.log(msg)
+    })
+    socket.on("restoreLogin", async () => {
+        console.log("emitted restoreLogin event in socket.on")
+        const user = await User.findById(userId)
+        const games = await findLast10GamesForUser(userId);
+        const allGameStats = await calculateWinRate(userId);
+        socket.emit("restoreLogin", userId, user.userName, games, allGameStats)
     })
     socket.on("singleplayer", async () => {
         const canCreateGame = await checkExistingGame(userId);
