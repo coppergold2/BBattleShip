@@ -86,6 +86,12 @@ const App = () => {
     setChatEnable(true);
   }
 
+  function handleRC() {
+    setIsLoading(true);
+    socket.current.io.engine.close();
+    console.log("Received RC event on client");
+  }
+
   // Call this after login:
   const connectSocket = (token) => {
     if (socket.current) {
@@ -104,15 +110,12 @@ const App = () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
       console.log("isLoggedInRef in connect event", isLoggedInRef.current)
-      if (socket.current.recovered == false){
-        socket.current.off("RC")
-      }
       if (isLoggedInRef.current == false && socket.current.recovered == false) {
         // console.log("reload is runned in connect")
         // window.location.reload()
         socket.current.emit("restoreLogin")
       }
-    
+
       heartbeatInterval = setInterval(() => {
         socket.current?.emit("heartbeat");
       }, 30000);
@@ -133,8 +136,10 @@ const App = () => {
     });
 
     socket.current.on("RC", () => {
+      if (socket.current.connected) {
       setIsLoading(true);
       socket.current.io.engine.close();
+      }
       console.log("recevied RC event on client")
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
@@ -157,7 +162,7 @@ const App = () => {
 
     });
 
-    socket.current.on("restoreLogin", (userId, userName, games, allGameStats,msg) => {
+    socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
       reset()
       setIsLoggedIn(true);
       setHomeStats((prevHomeStats) => ({
