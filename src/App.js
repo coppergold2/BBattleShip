@@ -97,7 +97,8 @@ const App = () => {
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
-      transports: ['websocket']
+      transports: ['websocket'],
+      reconnectionDelay: 5000
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {

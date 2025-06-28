@@ -1441,7 +1441,7 @@ io.on('connection', async (socket) => {
     const userName = socket.userName;
     if (socket.recovered) {
         // recovery was successful: socket.id, socket.rooms and socket.data were restored
-        console.log("🔄 Session recovered");
+        console.log("🔄 Session recovered", socket.id);
         console.log("socket room", socket.rooms, "socket data", socket.data)
         if (socket.data.roomCode && gameRooms[socket.data.roomCode]) {
             gameRoom = gameRooms[socket.data.roomCode]
