@@ -98,7 +98,7 @@ const App = () => {
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
       transports: ['websocket'],
-      reconnectionDelay: 2000
+      reconnectionDelay: 5000
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -131,7 +131,8 @@ const App = () => {
 
     socket.current.on("RC", () => {
       setIsLoading(true);
-      socket.io.engine.close();
+      socket.current.connect();
+      console.log("recevied RC event on client")
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
