@@ -87,6 +87,7 @@ const App = () => {
   }
 
   function handleRC() {
+    console.log("socket.id in handleRC outside if statement", socket.current.id)
     if (socket.current != null && !socket.current.connected) {
       setIsLoading(true);
       socket.current.io.engine.close();
@@ -113,7 +114,8 @@ const App = () => {
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
-      transports: ['websocket']
+      transports: ['websocket'],
+      reconnectionDelay: 3000
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
