@@ -98,7 +98,7 @@ const App = () => {
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
       transports: ['websocket'],
-      reconnectionDelay: 5000
+      reconnectionDelay: 2000
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -129,6 +129,10 @@ const App = () => {
       }
     });
 
+    socket.current.on("RC", () => {
+      setIsLoading(true);
+      socket.io.engine.close();
+    })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
@@ -685,7 +689,7 @@ const App = () => {
     const token = localStorage.getItem('token');
     if (token) {
       setIsLoading(true);
-      console.log("runned")
+      console.log("verifyToken useEffect runned")
       axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
         .then(res => {
           setIsLoggedIn(true);

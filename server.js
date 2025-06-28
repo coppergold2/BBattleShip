@@ -1771,6 +1771,13 @@ io.on('connection', async (socket) => {
         gameRoom.messages.push({ [gameRoom.players[userId].userName]: message }); // Save the new message to the session messages
         io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
     });
+    socket.on("disconnecting", (reason) => {
+        console.log("Disconnected in disconnecting event server side because", reason);
+        const forceDisconnect = (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") ? true : false
+        if (forceDisconnect == false) {
+            socket.emit("RC")
+        }
+    })
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log("Disconnected in server side because", reason);
         console.log('Server Disconnect details', details)
