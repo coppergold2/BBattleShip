@@ -213,10 +213,8 @@ const App = () => {
       clearInterval(heartbeatInterval);
       setNumOnline(0);
       setIsLoading(true);
-      if (forceDisconnect == false) {
-        socket.current.io.engine.close();
-      }
-
+      socket.current.disconnect()
+      socket.current.connect();
     });
 
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
