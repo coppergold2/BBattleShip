@@ -1780,7 +1780,7 @@ io.on('connection', async (socket) => {
     })
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log(socket.id, "Disconnected in server side because", reason, "details", details);
-        const forceDisconnect = (reason == "server namespace disconnect" || reason == "server shutting down") ? true : false
+        const forceDisconnect = (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") ? true : false
 
         if (userId != null && gameRoom != null && gameRoom.players[userId] != null) {
             const opponent = gameRoom.players[userId].opponent;
