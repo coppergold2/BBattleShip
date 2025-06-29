@@ -7,12 +7,12 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
   const handleSubmit = (e) => {
     e.preventDefault();
     if (register) {
-      if(form.username.trim() && form.email.trim()){
-      handleRegister(form.username.trim(), form.email.trim(), form.password);
+      if (form.username.trim() && form.email.trim()) {
+        handleRegister(form.username.trim(), form.email.trim(), form.password);
       }
     } else {
-      if(form.email.trim()){
-      handleLogin(form.email.trim(), form.password);
+      if (form.email.trim()) {
+        handleLogin(form.email.trim(), form.password);
       }
     }
   };
@@ -30,6 +30,19 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
         NOTE: Feel free to use any fake email to register, or log in if you already have an account.
       </h2>
       <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '10px' }}>
+          <label htmlFor="email">Email:</label>
+          <input
+            type="email"
+            name="email"
+            id="email"
+            value={form.email}
+            onChange={handleFormChange}
+            placeholder="Enter your email"
+            style={{ marginBottom: '5px', padding: '5px' }}
+            required
+          />
+        </div>
         {register && (
           <div style={{ marginBottom: '10px' }}>
             <label htmlFor="username">Username:</label>
@@ -45,19 +58,6 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
             />
           </div>
         )}
-        <div style={{ marginBottom: '10px' }}>
-          <label htmlFor="email">Email:</label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            value={form.email}
-            onChange={handleFormChange}
-            placeholder="Enter your email"
-            style={{ marginBottom: '5px', padding: '5px' }}
-            required
-          />
-        </div>
         <div style={{ marginBottom: '10px' }}>
           <label htmlFor="password">Password:</label>
           <input

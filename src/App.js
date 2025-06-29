@@ -309,21 +309,10 @@ const App = () => {
 
     })
 
-
-    // socket.current.on('reconnect_failed', () => {
-    //   console.warn("❌ Failed to reconnect after multiple attempts");
-    //   // Optionally show UI or fallback
-    //   setIsLoggedIn(false);
-    //   console.log("log in false here 5")
-    //   document.title = "BattleShip"
-    //   reset();
-    //   setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-    //   document.title = "BattleShip"
-    //   clearInterval(heartbeatInterval);
-    // });
     socket.current.on('logout', () => { // one of the other tabs logouts, so this tab logs out
       alert("you have been logged out")
       logoutTasks()
+      setIsLoading(false);
     })
     socket.current.on('singleplayer', () => {
       setSinglePlayer(true);
@@ -850,12 +839,7 @@ const App = () => {
     setIsLoggedIn(false);
     setNumOnline(0);
     console.log("login false here 3")
-    setHomeStats({
-      id: "",
-      userName: "",
-      lastTenGames: [],
-      allGameStats: {}
-    });
+    setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
 
     document.title = "BattleShip";
   }
@@ -924,6 +908,7 @@ const App = () => {
           ...prevHomeStats,
           id: response.data.id,
           userName: response.data.userName,
+          allGameStats: { ...prevHomeStats.allGameStats }, // Optional, for safety
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form

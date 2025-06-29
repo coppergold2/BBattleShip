@@ -13,8 +13,8 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigin = 'https://bbattleship.onrender.com';
-//const allowedOrigin = 'http://localhost:3000';
+//const allowedOrigin = 'https://bbattleship.onrender.com';
+const allowedOrigin = 'http://localhost:3000';
 // Use cors middleware for Express
 const cors = require("cors");
 // app.use(cors());  // Allow all origins by default
@@ -1326,7 +1326,7 @@ app.post('/register', async (req, res) => {
         // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
+            return res.status(400).json({ message: 'Email already used' });
         }
 
         // Hash the password
