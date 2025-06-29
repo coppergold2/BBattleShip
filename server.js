@@ -13,7 +13,7 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigin = 'https://bbattleship.onrender.com';
+const allowedOrigin = process.env.REACT_APP_API_URL;
 //const allowedOrigin = 'http://localhost:3000';
 // Use cors middleware for Express
 const cors = require("cors");
