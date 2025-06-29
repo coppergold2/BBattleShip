@@ -1443,7 +1443,7 @@ io.on('connection', async (socket) => {
         // recovery was successful: socket.id, socket.rooms and socket.data were restored
         console.log("🔄 Session recovered", socket.id);
         console.log("socket room", socket.rooms, "socket data", socket.data)
-        if (socket.data.roomCode && gameRooms[socket.data.roomCode]) {
+        if (socket.data.roomCode && gameRooms[socket.data.roomCode] && gameRooms[socket.data.roomCode].start) {
             gameRoom = gameRooms[socket.data.roomCode]
             if (gameRoom.isSinglePlayer || gameRoom.allDisconnectTime != null) {
                 gameRoom.allDisconnectTime = null;
