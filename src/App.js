@@ -213,7 +213,9 @@ const App = () => {
       clearInterval(heartbeatInterval);
       setNumOnline(0);
       setIsLoading(true);
-
+      if (forceDisconnect == false) {
+        socket.current.io.engine.close();
+      }
 
     });
 
