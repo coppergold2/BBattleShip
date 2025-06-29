@@ -284,17 +284,6 @@ const App = () => {
 
     })
 
-    socket.current.on('reconnect_attempt', (attempt) => {
-      console.log(`🔁 Reconnection attempt #${attempt}`);
-    });
-
-    socket.current.on('reconnect', () => {
-      console.log("✅ Successfully reconnected");
-      // Optional: re-authenticate or rejoin rooms
-      // if (homeStats.id) {
-      //   socket.current.emit("resyncUser", homeStats.id); // custom event
-      // }
-    });
 
     // socket.current.on('reconnect_failed', () => {
     //   console.warn("❌ Failed to reconnect after multiple attempts");
@@ -599,18 +588,23 @@ const App = () => {
       setNumOnline(count);
     });
   };
-  useEffect(() => {
-    // Cleanup function to disconnect when the component unmounts
-    return () => {
-      console.log("useEffect unmounted")
-      clearInterval(heartbeatInterval);
-      if (socket.current) {
-        socket.current.emit("log", "called disconnect on useEffect cleanup")
-        socket.current.disconnect();
-        socket.current = null
-      }
-    };
-  }, []);
+  // useEffect(() => {
+  //   return () => {
+  //     if (document.visibilityState === 'hidden') {
+  //       console.log("Cleanup skipped due to backgrounding, not a real unmount");
+  //       return;
+  //     }
+
+  //     console.log("Component is really unmounting");
+  //     clearInterval(heartbeatInterval);
+  //     if (socket.current) {
+  //       socket.current.emit("log", "called disconnect on useEffect cleanup");
+  //       socket.current.disconnect();
+  //       socket.current = null;
+  //     }
+  //   };
+  // }, []);
+
 
   const handleSinglePlayerClick = () => {
     socket.current.emit("singleplayer", homeStats.id)
