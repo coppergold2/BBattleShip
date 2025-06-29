@@ -153,10 +153,13 @@ label {
 
 .ship-options {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  height: 200px;
   align-items: center;
   margin-top: 50px;
+  gap: 20px;
+  /* Adds spacing between rows/columns */
+  height: 200px;
 }
 
 .ship-option {
@@ -194,6 +197,33 @@ label {
   width: calc(39px * 3);
   background-color: rgb(154, 61, 61);
 }
+
+.ship-option.flipped {
+  /* transform-origin: left top; */
+  width: 39px !important;
+  /* transform: rotate(90deg); */
+}
+
+.ship-option.destroyer.flipped {
+  height: calc(39px * 2);
+}
+
+.ship-option.submarine.flipped {
+  height: calc(39px * 3);
+}
+
+.ship-option.battleship.flipped {
+  height: calc(39px * 4);
+}
+
+.ship-option.carrier.flipped {
+  height: calc(39px * 5);
+}
+
+.ship-option.cruiser.flipped {
+  height: calc(39px * 3);
+}
+
 
 .cell.destroyer {
   background-color: rgb(7, 88, 77);
@@ -275,11 +305,6 @@ button:active {
 
 button:not(:active) {
   animation: releaseb 0.2s forwards;
-}
-
-.ship-option.flipped {
-  transform: rotate(90deg);
-
 }
 
 .selected {
@@ -907,11 +932,73 @@ button:not(:active) {
 
 }
 
+@media (max-width: 505px) {
+  .ship-options.flipped {
+    flex-wrap: nowrap;
+  }
+}
+
 @media (max-width: 460px) {
   .board-before {
     grid-template-columns: 23px repeat(10, 33px);
     grid-template-rows: 23px repeat(10, 33px);
   }
+
+  .ship-option {
+    height: 33px
+  }
+
+  .ship-option.destroyer {
+    width: calc(33px * 2);
+    background-color: rgb(7, 88, 77);
+  }
+
+  .ship-option.submarine {
+    width: calc(33px * 3);
+    background-color: rgba(119, 47, 187, 0.64);
+  }
+
+  .ship-option.battleship {
+    width: calc(33px * 4);
+    background-color: rgb(94, 83, 83);
+  }
+
+  .ship-option.carrier {
+    width: calc(33px * 5);
+    background-color: rgb(122, 68, 122);
+  }
+
+  .ship-option.cruiser {
+    width: calc(33px * 3);
+    background-color: rgb(154, 61, 61);
+  }
+
+  .ship-option.flipped {
+    /* transform-origin: left top; */
+    width: 33px !important;
+    /* transform: rotate(90deg); */
+  }
+
+  .ship-option.destroyer.flipped {
+    height: calc(33px * 2);
+  }
+
+  .ship-option.submarine.flipped {
+    height: calc(33px * 3);
+  }
+
+  .ship-option.battleship.flipped {
+    height: calc(33px * 4);
+  }
+
+  .ship-option.carrier.flipped {
+    height: calc(33px * 5);
+  }
+
+  .ship-option.cruiser.flipped {
+    height: calc(33px * 3);
+  }
+
 
   .command-input-box {
     width: 250px;
