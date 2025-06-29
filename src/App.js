@@ -161,8 +161,8 @@ const App = () => {
       //     socket.current.io.engine.close();
       //     setIsLoading(true);
       // }
-      console.log("received RC event in client", isLoggedInRef);
-      if (isLoggedInRef == true){
+      console.log("received RC event in client", isLoggedInRef.current);
+      if (isLoggedInRef.current == true){
         setIsLoading(true)
         setIsLoggedIn(false)
         socket.current.io.engine.close();
