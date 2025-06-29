@@ -123,8 +123,7 @@ const App = () => {
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
-      transports: ['websocket'],
-      reconnection: false
+      transports: ['websocket']
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -162,11 +161,15 @@ const App = () => {
       //     setIsLoading(true);
       // }
       console.log("received RC event in client", isLoggedInRef.current);
-      if (isLoggedInRef.current == true){
-        setIsLoading(true)
-        setIsLoggedIn(false)
+      if (isLoggedInRef.current == true) {
+        setIsLoggedIn(false);
+        document.title = "BattleShip"
+        reset();
+        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
+        clearInterval(heartbeatInterval);
+        setNumOnline(0);
+        setIsLoading(true);
         socket.current.io.engine.close();
-        socket.current.connect()
       }
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
@@ -182,9 +185,6 @@ const App = () => {
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       clearInterval(heartbeatInterval);
       setNumOnline(0);
-      if (forceDisconnect == false) {
-        socket.current.connect()
-      }
       setIsLoading(true);
 
 
