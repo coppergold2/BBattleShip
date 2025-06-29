@@ -35,9 +35,14 @@ const App = () => {
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const isLoggedInRef = useRef(isLoggedIn)
+  const isLoadingRef = useRef(isLoading);
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn
   }, [isLoggedIn])
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading
+  }, [isLoading])
   const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
   const [register, setRegister] = useState(false);
   const [form, setForm] = useState({
@@ -119,7 +124,7 @@ const App = () => {
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
       auth: { token },
       transports: ['websocket'],
-      reconnectionDelay: 5000
+      reconnection: false
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -152,11 +157,12 @@ const App = () => {
     });
 
     socket.current.on("RC", () => {
-      if (socket.current.recovered == true) {
-          socket.current.io.engine.close();
-          setIsLoading(true);
-      }
-       
+      // if (socket.current.recovered == true) {
+      //     socket.current.io.engine.close();
+      //     setIsLoading(true);
+      // }
+      setIsLoading(true);
+      socket.current.connect()
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
@@ -171,10 +177,11 @@ const App = () => {
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       clearInterval(heartbeatInterval);
       setNumOnline(0);
-
-      if (socket.current.active) {
-        setIsLoading(true);
+      if (forceDisconnect == false && isLoading == false) {
+        socket.current.connect()
       }
+      setIsLoading(true);
+
 
     });
 
