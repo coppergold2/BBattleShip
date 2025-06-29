@@ -161,8 +161,12 @@ const App = () => {
       //     socket.current.io.engine.close();
       //     setIsLoading(true);
       // }
-      setIsLoading(true);
-      socket.current.connect()
+      if (isLoggedInRef == true){
+        setIsLoading(true)
+        setIsLoggedIn(false)
+        socket.current.io.engine.close();
+        socket.current.connect()
+      }
     })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
@@ -177,7 +181,7 @@ const App = () => {
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       clearInterval(heartbeatInterval);
       setNumOnline(0);
-      if (forceDisconnect == false && isLoading == false) {
+      if (forceDisconnect == false) {
         socket.current.connect()
       }
       setIsLoading(true);
