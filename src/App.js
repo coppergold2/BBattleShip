@@ -16,8 +16,23 @@ const App = () => {
   const [info, setInfo] = useState("Select Your Mode");
   const [turn, setTurn] = useState(null);
   const [start, setStart] = useState(false);
-  const [obCellClass, setObCellClass] = useState(null);
-  const [pbCellClass, setPbCellClass] = useState(null);
+  const [obCellClass, setObCellClass] = useState(
+    Array.from({ length: 100 }, () => ({
+      shipName: null,
+      hit: false,
+      miss: false,
+      destroy: false
+    }))
+  );
+
+  const [pbCellClass, setPbCellClass] = useState(
+    Array.from({ length: 100 }, () => ({
+      shipName: null,
+      ohit: false,
+      omiss: false
+    }))
+  );
+
   //const [multiPlayerGameFull, setGameFull] = useState(false);
   const [chatEnable, setChatEnable] = useState(true);
   const [placedShips, setPlacedShips] = useState([]);
@@ -72,8 +87,20 @@ const App = () => {
     setInfo("Select Your Mode");
     setTurn(null);
     setStart(false);
-    setObCellClass(null);
-    setPbCellClass(null);
+    setObCellClass(Array.from({ length: 100 }, () => (
+      {
+        shipName: null,
+        hit: false,
+        miss: false,
+        destroy: false
+      })));
+    setPbCellClass(
+      Array.from({ length: 100 }, () => (
+        {
+          shipName: null,
+          ohit: false,
+          omiss: false
+        })))
     //setGameFull(false);
     setPlacedShips([]);
     setActiveShip(null);
@@ -303,13 +330,13 @@ const App = () => {
     socket.current.on('singleplayer', () => {
       setSinglePlayer(true);
       setInfo("Please Place your ships")
-      setPbCellClass(
-        Array.from({ length: 100 }, () => (
-          {
-            shipName: null,
-            ohit: false,
-            omiss: false
-          })))
+      // setPbCellClass(
+      //   Array.from({ length: 100 }, () => (
+      //     {
+      //       shipName: null,
+      //       ohit: false,
+      //       omiss: false
+      //     })))
     })
     socket.current.on("oquit", (msg, games, allGameStats) => {
 
@@ -434,13 +461,6 @@ const App = () => {
     socket.current.on("multiplayer", () => {
       setMultiPlayer(true);
       setInfo("Please Place your ships")
-      setPbCellClass(
-        Array.from({ length: 100 }, () => (
-          {
-            shipName: null,
-            ohit: false,
-            omiss: false
-          })))
     })
     socket.current.on("not enough ship", (msg) => {
       setInfo(msg)
@@ -588,22 +608,17 @@ const App = () => {
       setNumOnline(count);
     });
   };
-  // useEffect(() => {
-  //   return () => {
-  //     if (document.visibilityState === 'hidden') {
-  //       console.log("Cleanup skipped due to backgrounding, not a real unmount");
-  //       return;
-  //     }
-
-  //     console.log("Component is really unmounting");
-  //     clearInterval(heartbeatInterval);
-  //     if (socket.current) {
-  //       socket.current.emit("log", "called disconnect on useEffect cleanup");
-  //       socket.current.disconnect();
-  //       socket.current = null;
-  //     }
-  //   };
-  // }, []);
+  useEffect(() => {
+    return () => {
+      console.log("Component is really unmounting");
+      clearInterval(heartbeatInterval);
+      if (socket.current) {
+        socket.current.emit("log", "called disconnect on useEffect cleanup");
+        socket.current.disconnect();
+        socket.current = null;
+      }
+    };
+  }, []);
 
 
   const handleSinglePlayerClick = () => {
