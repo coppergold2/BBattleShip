@@ -1804,8 +1804,10 @@ io.on('connection', async (socket) => {
                 delete gameRooms[gameRoom.roomCode];
             }
             else if (gameRoom.isSinglePlayer && forceDisconnect == false && gameRoom.start == true) {
-                gameRoom.players[userId].connected = false;
-                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                if (gameRoom.players[userId].connected == true) {
+                    gameRoom.players[userId].connected = false;
+                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                }
                 gameRoom.allDisconnectTime = Date.now();
             }
             else if (gameRoom.isSinglePlayer == false && forceDisconnect == true && gameRoom.start == true) {
@@ -1856,16 +1858,18 @@ io.on('connection', async (socket) => {
 
             }
             else if (gameRoom.isSinglePlayer == false && forceDisconnect == false && gameRoom.start == true) {
-                gameRoom.players[userId].connected = false;
-                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
-                if (gameRoom.players[opponent].connected == true) {
-                    const message = `Your opponent, ${gameRoom.players[userId].userName}, has been disconnected. You can wait up to two minutes for them to return, or you can quit now and claim the win.`;
-                    io.to(gameRoom.players[opponent].socketId).emit("info", message)
-                    io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-                }
-                else {
-                    gameRoom.allDisconnectTime = Date.now()
-                    gameRoom.firstDisconnect = opponent;
+                if (gameRoom.players[userId].connected == true) {
+                    gameRoom.players[userId].connected = false;
+                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                    if (gameRoom.players[opponent].connected == true) {
+                        const message = `Your opponent, ${gameRoom.players[userId].userName}, has been disconnected. You can wait up to two minutes for them to return, or you can quit now and claim the win.`;
+                        io.to(gameRoom.players[opponent].socketId).emit("info", message)
+                        io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                    }
+                    else {
+                        gameRoom.allDisconnectTime = Date.now()
+                        gameRoom.firstDisconnect = opponent;
+                    }
                 }
             }
         }
