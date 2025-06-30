@@ -1443,7 +1443,7 @@ io.on('connection', async (socket) => {
         // recovery was successful: socket.id, socket.rooms and socket.data were restored
         console.log("🔄 Session recovered", socket.id);
         console.log("socket room", socket.rooms, "socket data", socket.data)
-        if (socket.data.roomCode && gameRooms[socket.data.roomCode] && gameRooms[socket.data.roomCode].start) {
+        if (socket.data.roomCode && gameRooms[socket.data.roomCode] && gameRooms[socket.data.roomCode].start == true) {
             gameRoom = gameRooms[socket.data.roomCode]
             if (gameRoom.isSinglePlayer || gameRoom.allDisconnectTime != null) {
                 gameRoom.allDisconnectTime = null;
@@ -1480,6 +1480,9 @@ io.on('connection', async (socket) => {
             console.log("gameRoom.turn in reconnect", gameRoom.turn)
         }
         else {
+            if (socket.data.roomCode) {
+                socket.leave(socket.data.roomCode);
+            }
             console.log("emitted restoreLogin event in socket.recovered")
             const user = await User.findById(userId)
             const games = await findLast10GamesForUser(userId);
@@ -1488,7 +1491,7 @@ io.on('connection', async (socket) => {
         }
     } else {
         // new or unrecoverable session
-        console.log("🆕 New connection");
+        console.log("🆕 New connection", socket.id);
     }
 
     if (userSockets.has(userId)) {
@@ -1780,6 +1783,7 @@ io.on('connection', async (socket) => {
     })
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log(socket.id, "Disconnected in server side because", reason, "details", details);
+        console.log("in socket.on disconnect: socket.rooms", socket.rooms, "socket.data.roomCode", socket.data.roomCode)
         const forceDisconnect = (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") ? true : false
 
         if (userId != null && gameRoom != null && gameRoom.players[userId] != null) {
