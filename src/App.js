@@ -837,7 +837,7 @@ const App = () => {
   const handleLogout = () => {
     setIsLoading(true);
 
-    axios.post('/logout', {}, {
+    axios.post('/logout', {socketId: socket.current.id}, {
       withCredentials: true // Include the HttpOnly cookie
     })
       .then(() => {
@@ -869,7 +869,7 @@ const App = () => {
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
-        //connectSocket(response.data.token);
+        connectSocket();
       })
       .catch(error => {
         if (error.response) {

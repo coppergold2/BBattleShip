@@ -1414,7 +1414,9 @@ app.post('/logout', async (req, res) => {
         const sockets = userSockets.get(userId);
         if (sockets) {
             for (const socketId of sockets) {
-                io.to(socketId).emit("logout");
+                if (socketId != req.body.socketId) {
+                    io.to(socketId).emit("logout");
+                }
             }
         }
 
