@@ -140,7 +140,7 @@ const App = () => {
 
 
   // Call this after login:
-  const connectSocket = (token) => {
+  const connectSocket = () => {
     if (socket.current) {
       socket.current.emit("log", "called disconnect on connectSocket first if Statement")
       socket.current.off();
@@ -149,8 +149,8 @@ const App = () => {
       console.log("disconnected previous socket in connect socket");
     }
     socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
-      auth: { token },
-      transports: ['websocket']
+      transports: ['websocket'],
+      withCredentials: true // important!
     });
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
@@ -719,35 +719,28 @@ const App = () => {
   // }, [isLoggedIn]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      setIsLoading(true);
-      console.log("verifyToken useEffect runned")
-      axios.get('/api/verifyToken', { headers: { Authorization: `Bearer ${token}` } })
-        .then(res => {
-          setIsLoggedIn(true);
-          localStorage.setItem('token', res.data.token); // ✅ Replace old token
-          setHomeStats((prevHomeStats) => ({
-            ...prevHomeStats,
-            id: res.data.id,
-            userName: res.data.userName,
-            lastTenGames: res.data.games,
-            allGameStats: res.data.allGameStats
-          }));
-          document.title = `BattleShip - ${res.data.userName}`
-          connectSocket(token);
-        })
-        .catch(() => {
-          console.log("something is wrong in /api/verifyToken in client side")
-          localStorage.removeItem('token');
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    }
-    else {
-      console.log("token is null in useEffect verifyToken")
-    }
+    setIsLoading(true);
+    console.log("verifyToken useEffect runned");
+
+    axios.get('/api/verifyToken', { withCredentials: true })
+      .then(res => {
+        setIsLoggedIn(true);
+        setHomeStats(prevHomeStats => ({
+          ...prevHomeStats,
+          id: res.data.id,
+          userName: res.data.userName,
+          lastTenGames: res.data.games,
+          allGameStats: res.data.allGameStats
+        }));
+        document.title = `BattleShip - ${res.data.userName}`;
+        connectSocket(); // ⬅️ No token needed anymore
+      })
+      .catch(() => {
+        console.log("something is wrong in /api/verifyToken in client side");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, []);
 
   const handleCellClick = (id) => {
@@ -833,8 +826,6 @@ const App = () => {
     }
 
     // 3. Clear token and state
-    console.log("token is removed in logoutTasks function")
-    localStorage.removeItem('token');
     reset();
     setIsLoggedIn(false);
     setNumOnline(0);
@@ -845,10 +836,12 @@ const App = () => {
   }
   const handleLogout = () => {
     setIsLoading(true);
-    axios.post('/logout', { id: homeStats.id, socketId: socket.current.id })
-      .then(response => {
 
-        logoutTasks();
+    axios.post('/logout', {}, {
+      withCredentials: true // Include the HttpOnly cookie
+    })
+      .then(() => {
+        logoutTasks(); // ⬅️ Clean up local state and UI
       })
       .catch(error => {
         alert('Logout error: ' + (error.response ? error.response.data.message : error.message));
@@ -860,12 +853,12 @@ const App = () => {
 
 
 
+
   const handleLogin = (email, password) => {
     setIsLoading(true);
-    axios.post('/login', { email, password })
+    axios.post('/login', { email, password }, { withCredentials: true })
       .then(response => {
         console.log('Login successful:', response.data);
-        localStorage.setItem('token', response.data.token);
         setIsLoggedIn(true);
         setHomeStats((prevHomeStats) => ({
           ...prevHomeStats,
@@ -876,7 +869,7 @@ const App = () => {
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
-        connectSocket(response.data.token);
+        //connectSocket(response.data.token);
       })
       .catch(error => {
         if (error.response) {
@@ -899,21 +892,26 @@ const App = () => {
 
   const handleRegister = (username, email, password) => {
     setIsLoading(true);
-    axios.post('/register', { userName: username, email, password })
+
+    axios.post('/register', { userName: username, email, password }, {
+      withCredentials: true // ⬅️ Important to receive HttpOnly cookie
+    })
       .then(response => {
         console.log('Registration successful:', response.data);
-        localStorage.setItem('token', response.data.token);
+
         setIsLoggedIn(true);
-        setHomeStats((prevHomeStats) => ({
-          ...prevHomeStats,
+        setHomeStats(prev => ({
+          ...prev,
           id: response.data.id,
           userName: response.data.userName,
-          allGameStats: { ...prevHomeStats.allGameStats }, // Optional, for safety
+          allGameStats: { ...prev.allGameStats },
         }));
-        document.title = `BattleShip - ${response.data.userName}`
-        resetForm(); // Reset the form
+        document.title = `BattleShip - ${response.data.userName}`;
+        resetForm();
         handleBackClick();
-        connectSocket(response.data.token);
+
+        // ⬇️ Start socket connection (cookie-based auth now)
+        connectSocket();
       })
       .catch(error => {
         if (error.response) {
@@ -928,6 +926,8 @@ const App = () => {
         setIsLoading(false);
       });
   };
+
+
   const handleBackClick = () => {
     setRegister(false);
     resetForm()

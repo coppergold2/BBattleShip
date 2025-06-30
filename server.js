@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
-
+const cookie = require('cookie');
 const app = express();
 const server = http.createServer(app);
 
@@ -1263,6 +1263,12 @@ app.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production', // Only over HTTPS in prod
+            sameSite: 'Lax', // 'Strict' or 'Lax' to mitigate CSRF
+            maxAge: 3600000 // 1 hour in milliseconds
+        });
 
         // Update user's isLoggedIn status and lastSeen
         user.isLoggedIn = true;
@@ -1273,7 +1279,6 @@ app.post('/login', async (req, res) => {
         const allGameStats = await calculateWinRate(user._id);
         res.json({
             message: 'Login successful',
-            token,
             id: user._id,
             userName: user.userName,
             games: games,
@@ -1286,54 +1291,65 @@ app.post('/login', async (req, res) => {
 });
 
 app.get('/api/verifyToken', async (req, res) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    try {
+        const cookies = req.headers.cookie;
+        if (!cookies) return res.sendStatus(401);
 
-    if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
-        if (err) return res.sendStatus(403);
-        const curUser = await User.findById(user.userId)
-        curUser.lastSeen = new Date();
-        curUser.isLoggedIn = true;
-        await curUser.save();
-        // console.log("curUser", curUser)
-        const games = await findLast10GamesForUser(user.userId);
-        const allGameStats = await calculateWinRate(user.userId);
-        // ✅ Issue new token
-        const newToken = jwt.sign(
-            {
-                userId: curUser._id,
-                userName: curUser.userName
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
+        const parsedCookies = cookie.parse(cookies);
+        const token = parsedCookies.token;
 
-        res.json({
-            token: newToken,
-            id: curUser._id,
-            userName: curUser.userName,
-            games,
-            allGameStats
+        if (!token) return res.sendStatus(401);
+
+        jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
+            if (err) return res.sendStatus(403);
+
+            const curUser = await User.findById(user.userId);
+            curUser.lastSeen = new Date();
+            curUser.isLoggedIn = true;
+            await curUser.save();
+
+            const games = await findLast10GamesForUser(user.userId);
+            const allGameStats = await calculateWinRate(user.userId);
+
+            // Issue a new token and reset the cookie
+            const newToken = jwt.sign(
+                { userId: curUser._id, userName: curUser.userName },
+                process.env.JWT_SECRET,
+                { expiresIn: '1h' }
+            );
+
+            res.cookie('token', newToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'Lax',
+                maxAge: 3600000
+            });
+
+            res.json({
+                id: curUser._id,
+                userName: curUser.userName,
+                games,
+                allGameStats
+            });
         });
-    });
+    } catch (error) {
+        console.error('verifyToken error:', error);
+        res.sendStatus(500);
+    }
 });
 
 app.post('/register', async (req, res) => {
     try {
         const { userName, email, password } = req.body;
 
-        // Check if user already exists
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'Email already used' });
         }
 
-        // Hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create new user
         const newUser = new User({
             userName,
             email,
@@ -1342,10 +1358,8 @@ app.post('/register', async (req, res) => {
             lastSeen: new Date()
         });
 
-        // Save user to database
         await newUser.save();
 
-        // Create and sign a JWT
         const token = jwt.sign(
             {
                 userId: newUser._id,
@@ -1355,54 +1369,67 @@ app.post('/register', async (req, res) => {
             { expiresIn: '1h' }
         );
 
-        // Respond with success message, token, and user ID
+        // ✅ Set JWT in HttpOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+            maxAge: 3600000 // 1 hour
+        });
+
+        // ✅ Send only needed data
         res.status(201).json({
             message: 'User registered successfully',
-            token,
-            id: newUser._id, userName: newUser.userName
+            id: newUser._id,
+            userName: newUser.userName
         });
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
+
+
 app.post('/logout', async (req, res) => {
     try {
-        const curPlayer = req.body.id;
-        // Find the user by the curPlayer ID
-        const user = await User.findById(curPlayer);
+        const cookies = req.headers.cookie;
+        if (!cookies) return res.sendStatus(401);
+
+        const { token } = cookie.parse(cookies);
+        if (!token) return res.sendStatus(401);
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.userId;
+
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Update user's isLoggedIn status and lastSeen
         user.isLoggedIn = false;
         user.lastSeen = new Date();
         await user.save();
 
-        // logout all logged in front-end
-
-        const sockets = userSockets.get(curPlayer);
+        // Invalidate session on all sockets
+        const sockets = userSockets.get(userId);
         if (sockets) {
             for (const socketId of sockets) {
-                if (socketId != req.body.socketId) {
-                    io.to(socketId).emit("logout");
-                }
+                io.to(socketId).emit("logout");
             }
         }
 
-        if (userSockets.has(curPlayer)) {
-            userSockets.delete(curPlayer);
-            io.emit("userCountUpdate", userSockets.size)
-            console.log("userSockets after delete in logout", userSockets)
-        }
-        // Clear the curPlayer variable
-        if (players[curPlayer] != null) {
-            delete players[curPlayer];
-        }
+        userSockets.delete(userId);
+        delete players[userId];
 
+        io.emit("userCountUpdate", userSockets.size);
 
-        // Respond with success message
+        // Clear cookie (expires immediately)
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+        });
+
         res.json({ message: 'Logout successful' });
     } catch (error) {
         console.error('Logout error:', error);
@@ -1411,26 +1438,28 @@ app.post('/logout', async (req, res) => {
 });
 
 io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
+    const cookies = socket.request.headers.cookie;
+    if (!cookies) {
+        console.log("No cookies found in socket handshake");
+        return next(new Error("Authentication error: No cookies"));
+    }
+
+    const parsedCookies = cookie.parse(cookies);
+    const token = parsedCookies.token;
 
     if (!token) {
-        console.log("No token provided");
-        return next(new Error("Authentication error: Token required"));
+        console.log("No token cookie found");
+        return next(new Error("Authentication error: Token cookie missing"));
     }
 
     try {
         const payload = jwt.verify(token, process.env.JWT_SECRET);
         socket.userId = payload.userId;
+        socket.userName = payload.userName;
         next();
     } catch (err) {
-        if (err.name === "TokenExpiredError") {
-            console.log("Token expired");
-        } else if (err.name === "JsonWebTokenError") {
-            console.log("Invalid token:", err.message);
-        } else {
-            console.log("Token verification error:", err);
-        }
-        next(new Error("Authentication error"));
+        console.log("JWT error in socket:", err.message);
+        return next(new Error("Authentication error: Invalid token"));
     }
 });
 
