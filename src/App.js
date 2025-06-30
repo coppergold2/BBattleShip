@@ -118,27 +118,6 @@ const App = () => {
     setChatEnable(true);
   }
 
-  // function handleRC() {
-  //   if (socket.current) {
-  //     console.log("socket.current.id in handleRC outside if statement", socket.current.id);
-  //     console.log("socket.current.connected in handleRC outside if statement", socket.current.connected)
-  //     console.log("socket.current.disconnected in handleRC outside if statement", socket.current.disconnected)
-  //   }
-  //   if (socket.current != null && !socket.current.connected) {
-  //     setIsLoading(true);
-  //     socket.current.io.engine.close();
-  //     console.log("manually closed the connection to trigger a reconnection");
-  //   }
-  // }
-  // useEffect(() => {
-  //   const intervalId = setInterval(() => {
-  //     handleRC();
-  //   }, 5000);
-
-  //   return () => clearInterval(intervalId); // Clean up on unmount
-  // }, []);
-
-
   // Call this after login:
   const connectSocket = () => {
     if (socket.current) {
@@ -170,15 +149,14 @@ const App = () => {
     });
 
     socket.current.on("connect_error", (err) => {
-      if (err.message === "Authentication error") {
-        alert("Account verification error. Please log in again.");
+      if (err.message === "Authentication error: No cookies" ||
+        err.message === "Authentication error: Token cookie missing" ||
+        err.message === "Authentication error: Invalid token") {
+        alert(err.message + ". Please login again");
         logoutTasks();
         setIsLoading(false);
-      }
-      else if (err.message === "Authentication error: Token required") {
-        alert("Token not found, please log in again.");
-        logoutTasks();
-        setIsLoading(false);
+      } else {
+        alert("Socket connect error: " + err.message);
       }
     });
 
@@ -837,7 +815,7 @@ const App = () => {
   const handleLogout = () => {
     setIsLoading(true);
 
-    axios.post('/logout', {socketId: socket.current.id}, {
+    axios.post('/logout', { socketId: socket.current.id }, {
       withCredentials: true // Include the HttpOnly cookie
     })
       .then(() => {
