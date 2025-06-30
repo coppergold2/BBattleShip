@@ -17,4 +17,8 @@ sudo service mongod start
 
 Example command format for placing saving ship position: {"destroyer":[7,8],"submarine":[30,40,50],"cruiser":[69,79,89],"battleship":[1,2,3,4],"carrier":[90,91,92,93,94]}
 
-Currently, the game is hosted on https://bbattleship.onrender.com/
+The game is hosted on https://bbattleship.onrender.com/
+
+Multiple tabs can be logged in using the same account, but only one game can be played at a time per account. It is not possible to play two games simultaneously using the same account.
+
+The website is primarily designed for desktop screens but is also optimized for mobile and smaller screens. However, the disconnect-to-reconnect logic on mobile devices is not very stable.
