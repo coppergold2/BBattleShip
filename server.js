@@ -12,20 +12,19 @@ const { v4: uuidv4 } = require('uuid');
 const cookie = require('cookie');
 const app = express();
 const server = http.createServer(app);
+const helmet = require("helmet");
+
 
 const allowedOrigin = process.env.REACT_APP_API_URL;
 //const allowedOrigin = 'http://localhost:3000';
 // Use cors middleware for Express
 const cors = require("cors");
-// app.use(cors());  // Allow all origins by default
-// Optionally, you can configure specific origins
-// app.use(cors({ origin: 'http://your-frontend-domain.com' }));
 
 app.use(cors({
     origin: allowedOrigin,
     credentials: true
 }));
-
+app.use(helmet());
 const io = socketIo(server, {
     cors: {
         origin: allowedOrigin,
