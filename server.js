@@ -15,8 +15,8 @@ const server = http.createServer(app);
 const helmet = require("helmet");
 
 
-const allowedOrigin = process.env.REACT_APP_API_URL;
-//const allowedOrigin = 'http://localhost:3000';
+//const allowedOrigin = process.env.REACT_APP_API_URL;
+const allowedOrigin = 'http://localhost:3000';
 // Use cors middleware for Express
 const cors = require("cors");
 
@@ -50,10 +50,8 @@ const uri = process.env.MONGO_URI;
 
 // Mongoose connection options
 const mongooseOptions = {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
-    socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
+  serverSelectionTimeoutMS: 30000, // 30 seconds
+  socketTimeoutMS: 45000,          // 45 seconds
 };
 
 mongoose.connect(uri, mongooseOptions)
