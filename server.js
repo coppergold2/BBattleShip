@@ -15,8 +15,8 @@ const server = http.createServer(app);
 const helmet = require("helmet");
 
 
-//const allowedOrigin = process.env.REACT_APP_API_URL;
-const allowedOrigin = 'http://localhost:3000';
+const allowedOrigin =
+  process.env.REACT_APP_API_URL || 'http://localhost:3000';
 // Use cors middleware for Express
 const cors = require("cors");
 
