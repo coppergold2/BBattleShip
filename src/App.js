@@ -141,6 +141,7 @@ const App = () => {
       onumMisses: 0,
     });
     setChatEnable(true);
+    setHomeConfirmation(null);
   }
 
   // Call this after login:
@@ -427,6 +428,30 @@ const App = () => {
       setStart(true)
       setInfo("You started the game, it's your turn to attack")
     })
+    socket.current.on("restartGame", () => {
+      setObCellClass(Array.from({ length: 100 }, () => ({
+        shipName: null,
+        hit: false,
+        miss: false,
+        destroy: false
+      })));
+      setPbCellClass((oldCells) => oldCells.map((cell) => ({
+        ...cell,
+        ohit: false,
+        omiss: false,
+        possHitLocation: false
+      })));
+      setStats({ numHits: 0, numMisses: 0, onumHits: 0, onumMisses: 0 });
+      setMessages([]);
+      setInput('');
+      setActiveShip(null);
+      setShipLocHover(null);
+      setTurn(null);
+      setStart(false);
+      setGameFinished(false);
+      setHomeConfirmation(null);
+      setInfo("Your ships are ready. Start the new game when you're ready.");
+    });
     socket.current.on('ostart', () => {
       socket.current.emit("ostart");
       setObCellClass(
@@ -574,6 +599,7 @@ const App = () => {
 
     socket.current.on("owin", (unHitShip, games, allGameStats) => {
       setGameFinished(true);
+      setTurn(false);
       setInfo("Your opponent has won, you loss")
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
@@ -647,6 +673,13 @@ const confirmHomeReturn = () => {
   setHomeConfirmation(null);
   setIsLoading(true);
   socket.current.emit("home");
+};
+const confirmSinglePlayerRestart = () => {
+  setHomeConfirmation(null);
+  socket.current.emit("restartSinglePlayer");
+};
+const handleRestartClick = () => {
+  setHomeConfirmation(gameFinished ? 'replay' : 'restart');
 };
   const handleRandomPlacement = () => {
     socket.current.emit("random")
@@ -972,29 +1005,73 @@ const confirmHomeReturn = () => {
             <div className="home-confirmation-mark" aria-hidden="true">!</div>
             <div>
               <p className="home-confirmation-kicker">
-                {homeConfirmation === 'active' ? 'Active match' : 'Game session'}
+                {homeConfirmation === 'active' || homeConfirmation === 'restart'
+                  ? 'Active match'
+                  : homeConfirmation === 'replay'
+                    ? 'Match complete'
+                    : 'Game session'}
               </p>
               <h2 id="home-confirmation-title">
-                {homeConfirmation === 'active' ? 'Leave this match?' : 'Return to Home?'}
+                {homeConfirmation === 'active'
+                  ? 'Leave this match?'
+                  : homeConfirmation === 'restart'
+                    ? 'Restart this game?'
+                    : homeConfirmation === 'replay'
+                      ? 'Play another round?'
+                      : 'Return to Home?'}
               </h2>
               <p id="home-confirmation-description" className="home-confirmation-description">
                 {homeConfirmation === 'active'
                   ? 'Leaving now will count as a loss. Your current board and progress will be discarded.'
-                  : 'Leaving will discard this game session'}
+                  : homeConfirmation === 'restart'
+                    ? 'Your current round will be discarded. Your ship layout will stay in place for the new round.'
+                    : homeConfirmation === 'replay'
+                      ? 'Your completed result is saved. Ready to start a fresh round?'
+                      : 'Leaving will discard this game session'}
               </p>
             </div>
           </div>
           <div className="home-confirmation-actions">
-            <button
-              ref={cancelHomeRef}
-              className="home-confirmation-stay"
-              onClick={() => setHomeConfirmation(null)}
-            >
-              Stay in game
-            </button>
-            <button className="home-confirmation-leave" onClick={confirmHomeReturn}>
-              Return Home
-            </button>
+            {homeConfirmation === 'replay' ? (
+              <>
+                <button
+                  ref={cancelHomeRef}
+                  className="home-confirmation-stay"
+                  onClick={() => setHomeConfirmation(null)}
+                >
+                  Not now
+                </button>
+                <button className="home-confirmation-leave" onClick={confirmSinglePlayerRestart}>
+                  Play again
+                </button>
+              </>
+            ) : homeConfirmation === 'restart' ? (
+              <>
+                <button
+                  ref={cancelHomeRef}
+                  className="home-confirmation-stay"
+                  onClick={() => setHomeConfirmation(null)}
+                >
+                  Keep playing
+                </button>
+                <button className="home-confirmation-leave" onClick={confirmSinglePlayerRestart}>
+                  Restart game
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  ref={cancelHomeRef}
+                  className="home-confirmation-stay"
+                  onClick={() => setHomeConfirmation(null)}
+                >
+                  Stay in game
+                </button>
+                <button className="home-confirmation-leave" onClick={confirmHomeReturn}>
+                  Return Home
+                </button>
+              </>
+            )}
           </div>
         </dialog>
       )}
@@ -1029,6 +1106,7 @@ const confirmHomeReturn = () => {
                 userName={homeStats.userName}
                 multiPlayer={multiPlayer}
                 start={start}
+                gameFinished={gameFinished}
                 turn={turn}
                 pbCellClass={pbCellClass}
                 obCellClass={obCellClass}
@@ -1054,6 +1132,7 @@ const confirmHomeReturn = () => {
                 handleCellHoverOut={handleCellHoverOut}
                 handleHomeClick={handleHomeClick}
                 handleStartClick={handleStartClick}
+                handleRestartClick={handleRestartClick}
               /> :
               <p className='full'>Sorry, the game room is currently full. Please try again later.</p>
           }

@@ -9,6 +9,7 @@ const Game = ({
   userName,
   multiPlayer,
   start,
+  gameFinished,
   turn,
   activeShip,
   pbCellClass,
@@ -32,7 +33,8 @@ const Game = ({
   handleInputChange,
   handleCellHover,
   handleCellHoverOut,
-  handleStartClick
+  handleStartClick,
+  handleRestartClick
 }) => {
 
   return (
@@ -55,6 +57,13 @@ const Game = ({
         {start == false && <Command handleInputChange = {handleInputChange} input = {input} sendMessage = {sendMessage}/>}  
         {start && <Chat messages={messages} input={input} sendMessage={sendMessage} handleInputChange={handleInputChange} multiPlayer={multiPlayer} userName = {userName} />}
       </div>
+      {!multiPlayer && start && (
+        <div className="single-player-actions">
+          <button className="single-player-restart" onClick={handleRestartClick}>
+            {gameFinished ? 'Play again' : 'Restart game'}
+          </button>
+        </div>
+      )}
       {start == false &&
         (<><ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick={handleShipOptionClick} />
           <Buttons start={start} handleRandomPlacement={handleRandomPlacement} handleFlipBoat={handleFlipBoat} isFlipped={isFlipped} handleStartClick={handleStartClick} /></>)}

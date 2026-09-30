@@ -1786,6 +1786,42 @@ io.on('connection', async (socket) => {
         // gameRoom.players[userId].displayGrid()
         //gameStartTime = new Date();
     })
+    socket.on("restartSinglePlayer", () => {
+        if (!gameRoom || !gameRoom.isSinglePlayer || !gameRoom.players[userId]) {
+            return;
+        }
+
+        const player = gameRoom.players[userId];
+        for (const playerId of Object.keys(gameRoom.players)) {
+            if (playerId !== userId) {
+                delete gameRoom.players[playerId];
+            }
+        }
+
+        player.board = Array(100).fill(0);
+        for (const shipPositions of Object.values(player.shipLoc)) {
+            shipPositions.forEach((position) => {
+                player.board[position] = 1;
+            });
+        }
+        player.numDestroyShip = 0;
+        player.numHits = 0;
+        player.numMisses = 0;
+        player.allHitLocations = [];
+        player.activeShip = null;
+        player.numPlaceShip = 5;
+
+        player.opponent = null;
+        gameRoom.start = false;
+        gameRoom.status = 'waiting';
+        gameRoom.turn = userId;
+        gameRoom.messages = [];
+        gameRoom.gameStartTime = null;
+        AIFirstTimeHitNewShip = false;
+
+        socket.emit("restartGame");
+        socket.emit("message", { [player.userName]: JSON.stringify(player.shipLoc) });
+    });
     socket.on("ostart", () => {
         //gameRoom.players[userId].messages.push({ [gameRoom.players[userId].userName] :  JSON.stringify(gameRoom.players[userId].shipLoc) });
         socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) })
