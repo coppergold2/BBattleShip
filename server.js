@@ -15,27 +15,45 @@ const server = http.createServer(app);
 const helmet = require("helmet");
 
 
-const allowedOrigin =
-  process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const allowedOrigins = [
+  'http://localhost:3000',
+   process.env.REACT_APP_API_URL
+];
+
 // Use cors middleware for Express
 const cors = require("cors");
 
-app.use(cors({
-    origin: allowedOrigin,
-    credentials: true
-}));
-app.use(helmet());
-const io = socketIo(server, {
-    cors: {
-        origin: allowedOrigin,
-        methods: ['GET', 'POST'],
-        credentials: true
-    },
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
-        //maxDisconnectionDuration: 5 * 1000, // 5 seconds
-        skipMiddlewares: false
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
+  },
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+app.use(helmet());
+
+const io = socketIo(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: false
+  }
 });
 
 // Server setup
@@ -109,7 +127,7 @@ function createGameSession({ isSinglePlayer = false, playerId, socketId, userNam
             [playerId]: new Player(playerId, userName, socketId),
         },
         isSinglePlayer,
-        status: isSinglePlayer ? 'in_progress' : 'waiting',
+        status: 'waiting',
         start: false,
         turn: playerId,
         messages: [
@@ -1025,6 +1043,7 @@ const handleDestroyComm = async (hitter, receiver, pos, roomCode) => {
             //     // need to reset hitter and receiver or should I do it when they press home ? 
             // }
             gameRoom.start = false;
+            gameRoom.status = 'finished';
         }
         else if (gameRoom.players[hitter] instanceof Computer) {
             handleAIDestroy(hitter, result, roomCode)
@@ -1062,6 +1081,7 @@ const checkExistingGame = async (userId) => {
                         else if (gameRoom.players[opponent].connected == true) {
                             await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
                             gameRoom.start = false;
+                            gameRoom.status = 'finished';
                             gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
                             io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
                             io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`)
@@ -1706,6 +1726,7 @@ io.on('connection', async (socket) => {
                 gameRoom.turn = userId;
                 randomBoatPlacement(gameRoom.roomCode, opponent);
                 gameRoom.start = true;
+                gameRoom.status = 'in_progress';
                 socket.emit("start");
                 socket.emit("turn");
                 socket.emit("message", {
@@ -1851,6 +1872,7 @@ io.on('connection', async (socket) => {
                     gameRoom.players[opponent].opponent = null;
                     delete gameRoom.players[userId]
                     gameRoom.start = false;
+                    gameRoom.status = 'finished';
                 }
                 else {
                     if (gameRoom.players[userId].numHits >= gameRoom.players[opponent].numHits) {
@@ -1937,6 +1959,8 @@ io.on('connection', async (socket) => {
                                 `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`,
                                 await findLast10GamesForUser(opponent),
                                 await calculateWinRate(opponent));
+                                gameRoom.start = false;
+                                gameRoom.status = 'finished';
                         } else if (gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
                             io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[opponent].userName} left`);
                             if (gameRoom.status == "in_progress") { // if game has started and is over
@@ -1945,8 +1969,7 @@ io.on('connection', async (socket) => {
                             }
                         }
                         gameRoom.players[opponent].opponent = null
-                        delete gameRoom.players[userId]
-                        gameRoom.start = false;
+                        delete gameRoom.players[userId]                        
                     }
                     else {
                         delete gameRooms[gameRoom.roomCode]

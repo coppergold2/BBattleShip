@@ -51,6 +51,8 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const isLoggedInRef = useRef(isLoggedIn)
   const isLoadingRef = useRef(isLoading);
+  const [gameFinished, setGameFinished] = useState(false);
+
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn
   }, [isLoggedIn])
@@ -87,6 +89,7 @@ const App = () => {
     setInfo("Select Your Mode");
     setTurn(null);
     setStart(false);
+    setGameFinished(false);
     setObCellClass(Array.from({ length: 100 }, () => (
       {
         shipName: null,
@@ -304,11 +307,11 @@ const App = () => {
       //     })))
     })
     socket.current.on("oquit", (msg, games, allGameStats) => {
-
       if (msg != null) {
         setInfo(msg);
       }
       if (games != null) {
+        setGameFinished(true);
         setTurn(false);
         setHomeStats((prevHomeStats) => ({
           ...prevHomeStats,
@@ -503,6 +506,7 @@ const App = () => {
       if (msg != null) {
         setInfo(msg)
         setTurn(false)
+        setGameFinished(true);
       }
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
@@ -547,6 +551,7 @@ const App = () => {
     })
 
     socket.current.on("owin", (unHitShip, games, allGameStats) => {
+      setGameFinished(true);
       setInfo("Your opponent has won, you loss")
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
@@ -605,11 +610,24 @@ const App = () => {
   const handleStartClick = () => {
     socket.current.emit("start")
   }
-  const handleHomeClick = () => {
-    setIsLoading(true);
-    socket.current.emit("home")
+const handleHomeClick = () => {
+  const isInGameMode = singlePlayer || multiPlayer;
 
+  if (isInGameMode && start && !gameFinished) {
+    const shouldQuit = window.confirm(
+      "Are you sure you want to leave the active game? You will lose the match."
+    );
+    if (!shouldQuit) return;
+  } else if (isInGameMode && (!start || gameFinished)) {
+    const shouldReturnHome = window.confirm(
+      "Are you sure you want to return Home? Your game session data, will be discarded."
+    );
+    if (!shouldReturnHome) return;
   }
+
+  setIsLoading(true);
+  socket.current.emit("home");
+};
   const handleRandomPlacement = () => {
     socket.current.emit("random")
     setActiveShip(null);
