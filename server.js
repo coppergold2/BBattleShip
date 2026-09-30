@@ -911,9 +911,9 @@ const checkShip = (opponent, pos, roomCode) => {
 // Search for a room waiting for a second player
 function findOpenRoom() {
     for (const roomCode in gameRooms) {
-        const game = gameRooms[roomCode];
-        if (!game.isSinglePlayer && Object.keys(game.players).length === 1 && game.status === 'waiting') {
-            return { roomCode, gameId: game.gameId };
+        const gameRoom = gameRooms[roomCode];
+        if (!gameRoom.isSinglePlayer && Object.keys(gameRoom.players).length === 1 && gameRoom.status === 'waiting') {
+            return { roomCode, gameId: gameRoom.gameId };
         }
     }
     return null;
