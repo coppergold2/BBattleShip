@@ -18,69 +18,70 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '80vh',
-      textAlign: 'center'
-    }}>
-      <h2 style={{ color: "yellow", marginBottom: '45px' }}>
-        NOTE: Feel free to use any fake email to register, or log in if you already have an account.
-      </h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '10px' }}>
-          <label htmlFor="email">Email:</label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            value={form.email}
-            onChange={handleFormChange}
-            placeholder="Enter your email"
-            style={{ marginBottom: '5px', padding: '5px' }}
-            required
-          />
-        </div>
+    <main className="auth-page">
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <h2 className="auth-form-title">{register ? 'Create account' : 'Welcome back'}</h2>
+        <p className="auth-form-subtitle">{register ? 'Join the fleet' : 'Sign in to continue'}</p>
+        <p className="auth-note">
+          <strong>NOTE:</strong> Feel free to use any fake email to register, or log in if you already have an account.
+        </p>
+
+        <div className="auth-fields">
         {register && (
-          <div style={{ marginBottom: '10px' }}>
-            <label htmlFor="username">Username:</label>
+            <label className="auth-field" htmlFor="username">
+              <span>Username</span>
             <input
               type="text"
               name="username"
               id="username"
               value={form.username}
               onChange={handleFormChange}
-              placeholder="Enter your username"
-              style={{ marginBottom: '5px', padding: '5px' }}
+                placeholder="Choose a username"
+                autoComplete="username"
               required
             />
-          </div>
+            </label>
         )}
-        <div style={{ marginBottom: '10px' }}>
-          <label htmlFor="password">Password:</label>
+          <label className="auth-field" htmlFor="email">
+            <span>Email address</span>
+            <input
+              type="email"
+              name="email"
+              id="email"
+              value={form.email}
+              onChange={handleFormChange}
+              placeholder="name@example.com"
+              autoComplete="email"
+              required
+            />
+          </label>
+          <label className="auth-field" htmlFor="password">
+            <span>Password</span>
           <input
             type="password"
             name="password"
             id="password"
             value={form.password}
             onChange={handleFormChange}
-            placeholder="Enter your password"
-            style={{ marginBottom: '5px', padding: '5px' }}
+              placeholder="Enter your password"
+              autoComplete={register ? 'new-password' : 'current-password'}
             required
           />
+          </label>
         </div>
-        <button type="submit" style={{ marginBottom: '5px' }}>
-          {register ? 'Register' : 'Login'}
+        <button className="auth-submit" type="submit">
+          {register ? 'Create account' : 'Sign in'}
         </button>
       </form>
-      {register ? (
-        <button onClick={handleBackClick}>Back to Login</button>
-      ) : (
-        <button onClick={handleNewUserClick}>New User</button>
-      )}
-    </div>
+      <div className="auth-switch">
+        <span>{register ? 'Already have an account?' : 'New to Battleship?'}</span>
+        {register ? (
+          <button className="auth-secondary" type="button" onClick={handleBackClick}>Sign in</button>
+        ) : (
+          <button className="auth-secondary" type="button" onClick={handleNewUserClick}>Create account</button>
+        )}
+      </div>
+    </main>
   );
 };
 

@@ -9,6 +9,8 @@ import axios from 'axios'
 axios.defaults.baseURL = process.env.REACT_APP_API_URL;
 const App = () => {
   const socket = useRef();
+  const homeDialogRef = useRef(null);
+  const cancelHomeRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
@@ -52,6 +54,26 @@ const App = () => {
   const isLoggedInRef = useRef(isLoggedIn)
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
+  const [homeConfirmation, setHomeConfirmation] = useState(null);
+
+  useEffect(() => {
+    const dialog = homeDialogRef.current;
+    if (homeConfirmation === null || dialog === null) return;
+
+    dialog.showModal();
+    cancelHomeRef.current?.focus();
+
+    const handleDialogCancel = (event) => {
+      event.preventDefault();
+      setHomeConfirmation(null);
+    };
+
+    dialog.addEventListener('cancel', handleDialogCancel);
+    return () => {
+      dialog.removeEventListener('cancel', handleDialogCancel);
+      if (dialog.open) dialog.close();
+    };
+  }, [homeConfirmation]);
 
   useEffect(() => {
     isLoggedInRef.current = isLoggedIn
@@ -613,18 +635,16 @@ const App = () => {
 const handleHomeClick = () => {
   const isInGameMode = singlePlayer || multiPlayer;
 
-  if (isInGameMode && start && !gameFinished) {
-    const shouldQuit = window.confirm(
-      "Are you sure you want to leave the active game? You will lose the match."
-    );
-    if (!shouldQuit) return;
-  } else if (isInGameMode && (!start || gameFinished)) {
-    const shouldReturnHome = window.confirm(
-      "Are you sure you want to return Home? Your game session data, will be discarded."
-    );
-    if (!shouldReturnHome) return;
+  if (isInGameMode) {
+    setHomeConfirmation(start && !gameFinished ? 'active' : 'session');
+    return;
   }
 
+  setIsLoading(true);
+  socket.current.emit("home");
+};
+const confirmHomeReturn = () => {
+  setHomeConfirmation(null);
   setIsLoading(true);
   socket.current.emit("home");
 };
@@ -935,6 +955,48 @@ const handleHomeClick = () => {
         <div className="loading-overlay">
           <img src="./spinner.svg" alt="Loading..." className="spinner" />
         </div>
+      )}
+      {homeConfirmation !== null && (
+        <dialog
+          ref={homeDialogRef}
+          className="home-confirmation-dialog"
+          aria-labelledby="home-confirmation-title"
+          aria-describedby="home-confirmation-description"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setHomeConfirmation(null);
+            }
+          }}
+        >
+          <div className="home-confirmation-content">
+            <div className="home-confirmation-mark" aria-hidden="true">!</div>
+            <div>
+              <p className="home-confirmation-kicker">
+                {homeConfirmation === 'active' ? 'Active match' : 'Game session'}
+              </p>
+              <h2 id="home-confirmation-title">
+                {homeConfirmation === 'active' ? 'Leave this match?' : 'Return to Home?'}
+              </h2>
+              <p id="home-confirmation-description" className="home-confirmation-description">
+                {homeConfirmation === 'active'
+                  ? 'Leaving now will count as a loss. Your current board and progress will be discarded.'
+                  : 'Leaving will discard this game session'}
+              </p>
+            </div>
+          </div>
+          <div className="home-confirmation-actions">
+            <button
+              ref={cancelHomeRef}
+              className="home-confirmation-stay"
+              onClick={() => setHomeConfirmation(null)}
+            >
+              Stay in game
+            </button>
+            <button className="home-confirmation-leave" onClick={confirmHomeReturn}>
+              Return Home
+            </button>
+          </div>
+        </dialog>
       )}
       <div className="top-most-container">
         <h1 className={`title${!isLoggedIn ? '-login' : ''}`} >
