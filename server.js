@@ -15,19 +15,37 @@ const server = http.createServer(app);
 const helmet = require("helmet");
 
 
-const allowedOrigins = [
-  'http://localhost:3000',
-   process.env.REACT_APP_API_URL
-];
+const normalizeOrigin = (value) => {
+    try {
+        return new URL(value.trim()).origin;
+    } catch {
+        return null;
+    }
+};
+
+const allowedOrigins = new Set([
+    'http://localhost:3000',
+    'https://bbattleship.onrender.com',
+    process.env.REACT_APP_API_URL,
+    process.env.CLIENT_ORIGIN,
+    ...(process.env.CLIENT_ORIGINS || '').split(','),
+].map(normalizeOrigin).filter(Boolean));
+
+const isAllowedOrigin = (origin) => {
+    if (!origin) return true;
+    const normalizedOrigin = normalizeOrigin(origin);
+    return normalizedOrigin !== null && allowedOrigins.has(normalizedOrigin);
+};
 
 // Use cors middleware for Express
 const cors = require("cors");
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+        if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
+            console.warn(`Blocked CORS origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -41,9 +59,10 @@ app.use(helmet());
 const io = socketIo(server, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+            if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
+                console.warn(`Blocked Socket.IO CORS origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
