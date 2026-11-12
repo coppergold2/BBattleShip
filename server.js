@@ -2121,6 +2121,7 @@ const path = require('path');
 // Serve static files from React
 app.use(express.static(path.join(__dirname, 'build')));
 
-app.get(/^(?!\/api).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+// Serve React app for any route not handled by API
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
