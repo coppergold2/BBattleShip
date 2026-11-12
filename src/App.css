@@ -1066,25 +1066,17 @@ button:not(:active) {
   outline-offset: 3px;
 }
 
-@media (max-width: 480px) {
-  .auth-page {
-    min-height: 62vh;
-    padding-right: 18px;
-    padding-left: 18px;
-  }
-
-  .auth-form {
-    padding: 25px 20px;
-  }
-
-  .auth-form-title {
-    font-size: 25px;
-  }
-}
-
-.command-input-box {
-  width: 300px;
-  height: 50px;
+.auth-error {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  background: rgba(255, 91, 91, 0.12);
+  border: 1px solid rgba(255, 145, 145, 0.7);
+  border-left: 4px solid #ffb3b3;
+  border-radius: 4px;
+  color: #fff3f3;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 @media (max-width: 1755px) {

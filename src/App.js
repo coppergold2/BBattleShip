@@ -84,6 +84,7 @@ const App = () => {
   }, [isLoading])
   const [homeStats, setHomeStats] = useState({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
   const [register, setRegister] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -96,6 +97,7 @@ const App = () => {
       email: "",
       password: ""
     });
+    setAuthError("");
   };
   const ships = {
     'carrier': 5, //length of ship 
@@ -850,6 +852,7 @@ const handleRestartClick = () => {
   }
 
   const handleFormChange = (e) => {
+    setAuthError("");
     setForm({
       ...form,
       [e.target.name]: e.target.value
@@ -902,9 +905,9 @@ const handleRestartClick = () => {
 
 
 
-
   const handleLogin = (email, password) => {
     setIsLoading(true);
+    setAuthError("");
     axios.post('/login', { email, password }, { withCredentials: true })
       .then(response => {
         console.log('Login successful:', response.data);
@@ -922,15 +925,11 @@ const handleRestartClick = () => {
       })
       .catch(error => {
         if (error.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
-          alert('Login error: ' + error.response.data.message);
+          setAuthError(error.response.data.message || 'Login failed. Please try again.');
         } else if (error.request) {
-          // The request was made but no response was received
-          alert('Login error: No response received from server');
+          setAuthError('No response received from the server. Please try again.');
         } else {
-          // Something happened in setting up the request that triggered an Error
-          alert('Login error: ' + error.message);
+          setAuthError(error.message || 'Login failed. Please try again.');
         }
       })
       .finally(() => {
@@ -941,6 +940,7 @@ const handleRestartClick = () => {
 
   const handleRegister = (username, email, password) => {
     setIsLoading(true);
+    setAuthError("");
 
     axios.post('/register', { userName: username, email, password }, {
       withCredentials: true // ⬅️ Important to receive HttpOnly cookie
@@ -964,11 +964,11 @@ const handleRestartClick = () => {
       })
       .catch(error => {
         if (error.response) {
-          alert('Registration error: ' + error.response.data.message);
+          setAuthError(error.response.data.message || 'Registration failed. Please try again.');
         } else if (error.request) {
-          alert('Registration error: No response received from server');
+          setAuthError('No response received from the server. Please try again.');
         } else {
-          alert('Registration error: ' + error.message);
+          setAuthError(error.message || 'Registration failed. Please try again.');
         }
       })
       .finally(() => {
@@ -979,6 +979,7 @@ const handleRestartClick = () => {
 
   const handleBackClick = () => {
     setRegister(false);
+    setAuthError("");
     resetForm()
   };
 
@@ -1148,6 +1149,7 @@ const handleRestartClick = () => {
           setRegister={setRegister}
           form={form}
           register={register}
+          authError={authError}
         />)
       } {isLoggedIn ? (
         <div className="user-count">

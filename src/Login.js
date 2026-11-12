@@ -1,7 +1,7 @@
 // Login.js
 import React from "react";
 
-const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserClick, form, register, handleBackClick }) => {
+const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserClick, form, register, handleBackClick, authError }) => {
 
 
   const handleSubmit = (e) => {
@@ -25,6 +25,12 @@ const Login = ({ handleFormChange, handleLogin, handleRegister, handleNewUserCli
         <p className="auth-note">
           <strong>NOTE:</strong> Feel free to use any fake email to register, or log in if you already have an account.
         </p>
+
+        {authError && (
+          <div className="auth-error" role="alert" aria-live="polite">
+            {authError}
+          </div>
+        )}
 
         <div className="auth-fields">
         {register && (
