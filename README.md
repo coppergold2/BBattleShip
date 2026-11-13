@@ -1,18 +1,22 @@
 Built with React and Node JS, Express, socket.io and Mongo DB
 Pre. need to install mongoDB
-1. 'npm install' to install required packages
-2. 'node server.js' to run the backend server
-3. 'npm start' to run the frontend game
+1. Run `npm install` to install required packages.
+2. Start MongoDB.
+3. Run `npm start` to start the React frontend and backend together.
+
+To run only the backend (for example, when the frontend is hosted separately), use `npm run start:server`. The backend serves the production frontend from `build/` when that directory is present.
 4.  Aimed to store and manage all the game state in the server side and the AI should be good, if not AGI
 
-Have a .env file with the following, adjust appropriately if hosted online instead of locally
-MONGO_URI=mongodb://localhost:27017/battleship.
+Create a `.env` file with the following local-development values. Keep secrets server-side and configure origins/URLs for deployment:
+MONGO_URI=mongodb://localhost:27017/battleship
 
 JWT_SECRET=generate your own JWT secret key
 
+CLIENT_ORIGIN=http://localhost:3000
+
 REACT_APP_API_URL=http://localhost:3001
 
-REACT_APP_SOCKET_URL=http://localhost:3001
+For local development, the React development server proxies API and Socket.IO requests to `http://localhost:3001`; the `REACT_APP_API_URL` value can therefore be omitted. For a separately hosted frontend, set `REACT_APP_API_URL` and `REACT_APP_SOCKET_URL` to the backend's public origin and configure `CLIENT_ORIGIN` (or comma-separated `CLIENT_ORIGINS`) on the backend to the frontend origin(s). These `REACT_APP_*` variables are public build-time URLs and must not contain secrets.
 
 Linux user run this to start mongoDB
 sudo service mongod start

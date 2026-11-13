@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import socketIOClient from "socket.io-client";
 import './App.css'
 import Game from './Game'
 import Home from './Home'
 import Login from './Login'
-import axios from 'axios'
-
-axios.defaults.baseURL = process.env.REACT_APP_API_URL;
+import api from './services/api';
+import { createSocket } from './services/socket';
 const App = () => {
   const socket = useRef();
+  const heartbeatInterval = useRef(null);
   const homeDialogRef = useRef(null);
   const cancelHomeRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,7 +89,6 @@ const App = () => {
     email: "",
     password: ""
   })
-  let heartbeatInterval;
   const resetForm = () => {
     setForm({
       username: "",
@@ -148,6 +146,8 @@ const App = () => {
 
   // Call this after login:
   const connectSocket = () => {
+    clearInterval(heartbeatInterval.current);
+    heartbeatInterval.current = null;
     if (socket.current) {
       socket.current.emit("log", "called disconnect on connectSocket first if Statement")
       socket.current.off();
@@ -155,10 +155,7 @@ const App = () => {
       socket.current = null;
       console.log("disconnected previous socket in connect socket");
     }
-    socket.current = socketIOClient(process.env.REACT_APP_SOCKET_URL, {
-      transports: ['websocket'],
-      withCredentials: true // important!
-    });
+    socket.current = createSocket();
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
@@ -170,8 +167,11 @@ const App = () => {
         socket.current.emit("restoreLogin")
       }
 
-      heartbeatInterval = setInterval(() => {
-        socket.current?.emit("heartbeat");
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = setInterval(() => {
+        if (socket.current?.connected) {
+          socket.current.emit("heartbeat");
+        }
       }, 30000);
 
     });
@@ -199,7 +199,8 @@ const App = () => {
         document.title = "BattleShip"
         reset();
         setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-        clearInterval(heartbeatInterval);
+        clearInterval(heartbeatInterval.current);
+        heartbeatInterval.current = null;
         setNumOnline(0);
         setIsLoading(true);
         socket.current.io.engine.close();
@@ -216,7 +217,8 @@ const App = () => {
       document.title = "BattleShip"
       reset();
       setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-      clearInterval(heartbeatInterval);
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = null;
       setNumOnline(0);
       setIsLoading(true);
     });
@@ -631,7 +633,8 @@ const App = () => {
   useEffect(() => {
     return () => {
       console.log("Component is really unmounting");
-      clearInterval(heartbeatInterval);
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = null;
       if (socket.current) {
         socket.current.emit("log", "called disconnect on useEffect cleanup");
         socket.current.disconnect();
@@ -773,7 +776,7 @@ const handleRestartClick = () => {
     setIsLoading(true);
     console.log("verifyToken useEffect runned");
 
-    axios.get('/api/verifyToken', { withCredentials: true })
+    api.get('/api/auth/session')
       .then(res => {
         setIsLoggedIn(true);
         setHomeStats(prevHomeStats => ({
@@ -787,7 +790,7 @@ const handleRestartClick = () => {
         connectSocket(); // ⬅️ No token needed anymore
       })
       .catch(() => {
-        console.log("something is wrong in /api/verifyToken in client side");
+        console.log("No active session was restored");
       })
       .finally(() => {
         setIsLoading(false);
@@ -866,9 +869,8 @@ const handleRestartClick = () => {
   }
   const logoutTasks = () => {
     // 1. Clear heartbeat interval (if you're storing it somewhere)
-    if (heartbeatInterval) {
-      clearInterval(heartbeatInterval);
-    }
+    clearInterval(heartbeatInterval.current);
+    heartbeatInterval.current = null;
 
     // 2. Disconnect socket if exists
     if (socket.current) {
@@ -889,9 +891,7 @@ const handleRestartClick = () => {
   const handleLogout = () => {
     setIsLoading(true);
 
-    axios.post('/logout', { socketId: socket.current.id }, {
-      withCredentials: true // Include the HttpOnly cookie
-    })
+    api.post('/api/auth/logout', { socketId: socket.current?.id || null })
       .then(() => {
         logoutTasks(); // ⬅️ Clean up local state and UI
       })
@@ -908,7 +908,7 @@ const handleRestartClick = () => {
   const handleLogin = (email, password) => {
     setIsLoading(true);
     setAuthError("");
-    axios.post('/login', { email, password }, { withCredentials: true })
+    api.post('/api/auth/login', { email, password })
       .then(response => {
         console.log('Login successful:', response.data);
         setIsLoggedIn(true);
@@ -942,9 +942,7 @@ const handleRestartClick = () => {
     setIsLoading(true);
     setAuthError("");
 
-    axios.post('/register', { userName: username, email, password }, {
-      withCredentials: true // ⬅️ Important to receive HttpOnly cookie
-    })
+    api.post('/api/auth/register', { userName: username, email, password })
       .then(response => {
         console.log('Registration successful:', response.data);
 
@@ -953,7 +951,8 @@ const handleRestartClick = () => {
           ...prev,
           id: response.data.id,
           userName: response.data.userName,
-          allGameStats: { ...prev.allGameStats },
+          lastTenGames: response.data.games,
+          allGameStats: response.data.allGameStats,
         }));
         document.title = `BattleShip - ${response.data.userName}`;
         resetForm();
