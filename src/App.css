@@ -489,7 +489,12 @@ button:not(:active) {
   margin: 5px 0;
   border-radius: 5px;
   color: #000000;
+  user-select: none;
   /* Ensure text is readable */
+}
+
+.chat-message-content {
+  user-select: text;
 }
 
 .chat-message-player {

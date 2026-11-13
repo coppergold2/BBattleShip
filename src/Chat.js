@@ -25,7 +25,8 @@ const Chat = ({ messages, input, sendMessage, handleInputChange, multiPlayer, us
 
           return (
             <div key={index} className={`chat-message chat-message-${owner}`}>
-              <strong>{key}</strong>: {value}
+              <strong>{key}:</strong>{' '}
+              <span className="chat-message-content">{value}</span>
             </div>
           );
         })}
