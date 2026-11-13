@@ -2,6 +2,7 @@
   "name": "battleship",
   "version": "0.1.0",
   "private": true,
+  "proxy": "http://localhost:3001",
   "dependencies": {
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -10,6 +11,7 @@
     "bcrypt": "^6.0.0",
     "cookie": "^1.0.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
     "dotenv-expand": "^11.0.6",
     "express": "^4.22.3",
     "helmet": "^8.1.0",
@@ -23,10 +25,12 @@
     "react-scripts": "5.0.1",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.7.5",
+    "uuid": "^8.3.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "concurrently \"cross-env BROWSER=none react-scripts start\" \"node server.js\"",
+    "start:server": "node server.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

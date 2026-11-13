@@ -26,7 +26,6 @@ const normalizeOrigin = (value) => {
 const allowedOrigins = new Set([
     'http://localhost:3000',
     'https://bbattleship.onrender.com',
-    process.env.REACT_APP_API_URL,
     process.env.CLIENT_ORIGIN,
     ...(process.env.CLIENT_ORIGINS || '').split(','),
 ].map(normalizeOrigin).filter(Boolean));
@@ -80,10 +79,12 @@ const width = 10;
 let AIFirstTimeHitNewShip = false;
 //let gameStartTime;
 const userSockets = new Map();
-app.use(express.json());
+app.use(express.json({ limit: '16kb' }));
 
 // MongoDB connection URI
 const uri = process.env.MONGO_URI;
+const PORT = process.env.PORT || 3001;
+const backgroundIntervals = [];
 
 // Mongoose connection options
 const mongooseOptions = {
@@ -91,36 +92,13 @@ const mongooseOptions = {
   socketTimeoutMS: 45000,          // 45 seconds
 };
 
-mongoose.connect(uri, mongooseOptions)
-    .then(async () => {
-        console.log('MongoDB connected');
-        await logoutAllPlayers();
-    })
-    .catch(err => {
-        console.error('Error connecting to MongoDB', err);
-    });
-
 async function logoutAllPlayers() {
     console.log('Updating isLoggedIn status for all players to log off...');
-    try {
-        await User.updateMany({ isLoggedIn: true }, { $set: { isLoggedIn: false } });
-        io.emit("userCountUpdate", 0)
-        io.emit("logout");
-
-        console.log('All players have been logged out.');
-    } catch (err) {
-        console.error('Error logging out players:', err);
-    }
+    await User.updateMany({ isLoggedIn: true }, { $set: { isLoggedIn: false } });
+    io.emit("userCountUpdate", 0)
+    io.emit("logout");
+    console.log('All players have been logged out.');
 }
-
-process.on('SIGINT', async () => {
-    console.log('Shutting down server...');
-
-    await logoutAllPlayers();
-
-    // Gracefully close the server
-    process.exit();
-});
 
 function generateRoomCode(length = 6) {
     const chars = 'ABCDEFGHJ KLMNPQRSTUVWXYZ23456789'; // no I/O/1/0
@@ -1269,12 +1247,15 @@ function isValidShipPlacement(command) {
     return true;
 }
 
-app.post('/login', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body || {};
+        if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
 
         // Find user by email
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.trim() });
         if (!user) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
@@ -1299,20 +1280,18 @@ app.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '1h' }
         );
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', // Only over HTTPS in prod
-            sameSite: 'Lax', // 'Strict' or 'Lax' to mitigate CSRF
-            maxAge: 3600000 // 1 hour in milliseconds
-        });
-
         // Update user's isLoggedIn status and lastSeen
         user.isLoggedIn = true;
         user.lastSeen = new Date();
         await user.save();
-        console.log("user.isLoggedIn", user.isLoggedIn);
         const games = await findLast10GamesForUser(user._id);
         const allGameStats = await calculateWinRate(user._id);
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+            maxAge: 3600000
+        });
         res.json({
             message: 'Login successful',
             id: user._id,
@@ -1326,69 +1305,83 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.get('/api/verifyToken', async (req, res) => {
+app.get('/api/auth/session', async (req, res) => {
     try {
-        const cookies = req.headers.cookie;
-        if (!cookies) return res.sendStatus(401);
+        const { token } = cookie.parse(req.headers.cookie || '');
+        if (!token) return res.status(401).json({ message: 'Authentication required' });
 
-        const parsedCookies = cookie.parse(cookies);
-        const token = parsedCookies.token;
+        let payload;
+        try {
+            payload = jwt.verify(token, process.env.JWT_SECRET);
+        } catch {
+            return res.status(401).json({ message: 'Invalid or expired session' });
+        }
 
-        if (!token) return res.sendStatus(401);
-
-        jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
-            if (err) return res.sendStatus(403);
-
-            const curUser = await User.findById(user.userId);
-            curUser.lastSeen = new Date();
-            curUser.isLoggedIn = true;
-            await curUser.save();
-
-            const games = await findLast10GamesForUser(user.userId);
-            const allGameStats = await calculateWinRate(user.userId);
-
-            // Issue a new token and reset the cookie
-            const newToken = jwt.sign(
-                { userId: curUser._id, userName: curUser.userName },
-                process.env.JWT_SECRET,
-                { expiresIn: '1h' }
-            );
-
-            res.cookie('token', newToken, {
+        const curUser = await User.findById(payload.userId);
+        if (!curUser) {
+            res.clearCookie('token', {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'Lax',
-                maxAge: 3600000
             });
+            return res.status(401).json({ message: 'Invalid or expired session' });
+        }
 
-            res.json({
-                id: curUser._id,
-                userName: curUser.userName,
-                games,
-                allGameStats
-            });
+        curUser.lastSeen = new Date();
+        curUser.isLoggedIn = true;
+        await curUser.save();
+
+        const games = await findLast10GamesForUser(curUser._id);
+        const allGameStats = await calculateWinRate(curUser._id);
+        const newToken = jwt.sign(
+            { userId: curUser._id, userName: curUser.userName },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+        res.cookie('token', newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax',
+            maxAge: 3600000
+        });
+
+        res.json({
+            id: curUser._id,
+            userName: curUser.userName,
+            games,
+            allGameStats
         });
     } catch (error) {
         console.error('verifyToken error:', error);
-        res.sendStatus(500);
+        res.status(500).json({ message: 'Server error while verifying session' });
     }
 });
 
-app.post('/register', async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
     try {
-        const { userName, email, password } = req.body;
+        const { userName, email, password } = req.body || {};
+        if (
+            typeof userName !== 'string' || !userName.trim() ||
+            typeof email !== 'string' || !email.trim() ||
+            typeof password !== 'string' || !password
+        ) {
+            return res.status(400).json({ message: 'Username, email, and password are required' });
+        }
 
-        const existingUser = await User.findOne({ email });
+        const normalizedEmail = email.trim();
+        const normalizedUserName = userName.trim();
+        const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
-            return res.status(400).json({ message: 'Email already used' });
+            return res.status(409).json({ message: 'Email already used' });
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const newUser = new User({
-            userName,
-            email,
+            userName: normalizedUserName,
+            email: normalizedEmail,
             password: hashedPassword,
             isLoggedIn: true,
             lastSeen: new Date()
@@ -1405,36 +1398,42 @@ app.post('/register', async (req, res) => {
             { expiresIn: '1h' }
         );
 
-        // ✅ Set JWT in HttpOnly cookie
+        const games = await findLast10GamesForUser(newUser._id);
+        const allGameStats = await calculateWinRate(newUser._id);
         res.cookie('token', token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Lax',
-            maxAge: 3600000 // 1 hour
+            maxAge: 3600000
         });
-
-        // ✅ Send only needed data
         res.status(201).json({
             message: 'User registered successfully',
             id: newUser._id,
-            userName: newUser.userName
+            userName: newUser.userName,
+            games,
+            allGameStats
         });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ message: 'Username or email is already in use' });
+        }
         console.error('Registration error:', error);
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
 
 
-app.post('/logout', async (req, res) => {
+app.post('/api/auth/logout', async (req, res) => {
     try {
-        const cookies = req.headers.cookie;
-        if (!cookies) return res.sendStatus(401);
+        const { token } = cookie.parse(req.headers.cookie || '');
+        if (!token) return res.status(401).json({ message: 'Authentication required' });
 
-        const { token } = cookie.parse(cookies);
-        if (!token) return res.sendStatus(401);
-
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch {
+            return res.status(401).json({ message: 'Invalid or expired session' });
+        }
         const userId = decoded.userId;
 
         const user = await User.findById(userId);
@@ -1450,7 +1449,7 @@ app.post('/logout', async (req, res) => {
         const sockets = userSockets.get(userId);
         if (sockets) {
             for (const socketId of sockets) {
-                if (socketId != req.body.socketId) {
+                if (socketId !== (req.body && req.body.socketId)) {
                     io.to(socketId).emit("logout");
                 }
             }
@@ -2056,72 +2055,118 @@ io.on('connection', async (socket) => {
     //     })
 });
 
-setInterval(async () => {
-    const timeout = 600 * 1000; // 60 seconds timeout for example
-    const inactiveSince = new Date(Date.now() - timeout);
+function startBackgroundTasks() {
+    backgroundIntervals.push(setInterval(async () => {
+        const timeout = 600 * 1000;
+        const inactiveSince = new Date(Date.now() - timeout);
 
-    try {
-        await User.updateMany(
-            { lastSeen: { $lt: inactiveSince }, isLoggedIn: true },
-            { $set: { isLoggedIn: false } }
-        );
-    } catch (err) {
-        console.error('Error logging out inactive users:', err);
-    }
-}, 500000); // Check every 30 seconds
+        try {
+            await User.updateMany(
+                { lastSeen: { $lt: inactiveSince }, isLoggedIn: true },
+                { $set: { isLoggedIn: false } }
+            );
+        } catch (err) {
+            console.error('Error logging out inactive users:', err);
+        }
+    }, 500000));
 
-setInterval(async () => {
-    console.log("gameRooms in setInterval", gameRooms);
+    backgroundIntervals.push(setInterval(async () => {
+        for (const gameRoom of Object.values(gameRooms)) {
+            if (gameRoom.allDisconnectTime != null && Date.now() - gameRoom.allDisconnectTime > 5 * 60 * 1000) {
+                console.log("gameRooms", gameRoom.roomCode, "is deleted due to inactivity");
 
-    for (const gameRoom of Object.values(gameRooms)) {
-        if (gameRoom.allDisconnectTime != null && Date.now() - gameRoom.allDisconnectTime > 5 * 60 * 1000) {
-            console.log("gameRooms", gameRoom.roomCode, "is deleted due to inactivity");
+                if (gameRoom.start === true) {
+                    let winner;
+                    let loser;
 
-            if (gameRoom.start === true) {
-                let winner;
-                let loser;
-
-                if (gameRoom.isSinglePlayer) {
-                    for (let playerId in gameRoom.players) {
-                        if (gameRoom.players.hasOwnProperty(playerId)) {
-                            if (gameRoom.players[playerId] instanceof Computer) {
-                                winner = playerId;
-                            } else {
+                    if (gameRoom.isSinglePlayer) {
+                        for (let playerId in gameRoom.players) {
+                            if (gameRoom.players.hasOwnProperty(playerId)) {
+                                if (gameRoom.players[playerId] instanceof Computer) {
+                                    winner = playerId;
+                                } else {
+                                    loser = playerId;
+                                }
+                            }
+                        }
+                    } else {
+                        for (let playerId in gameRoom.players) {
+                            if (playerId === gameRoom.firstDisconnect) {
                                 loser = playerId;
+                            } else {
+                                winner = playerId;
                             }
                         }
                     }
-                } else {
-                    for (let playerId in gameRoom.players) {
-                        if (playerId === gameRoom.firstDisconnect) {
-                            loser = playerId;
-                        } else {
-                            winner = playerId;
-                        }
-                    }
+
+                    await handleGameEndDB(winner, loser, "Quit", gameRoom.roomCode);
                 }
 
-                await handleGameEndDB(winner, loser, "Quit", gameRoom.roomCode);
+                delete gameRooms[gameRoom.roomCode];
             }
-
-            delete gameRooms[gameRoom.roomCode];
         }
-    }
-}, 2 * 60 * 1000); // Run cleanup every 2 minutes
-
-
-
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
-});
+    }, 2 * 60 * 1000));
+}
 
 const path = require('path');
 
 // Serve static files from React
 app.use(express.static(path.join(__dirname, 'build')));
 
+app.use('/api', (req, res) => {
+    res.status(404).json({ message: 'API route not found' });
+});
+
 // Serve React app for any route not handled by API
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'build', 'index.html'));
+});
+
+async function startServer() {
+    if (!uri) throw new Error('MONGO_URI must be configured');
+    if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET must be configured');
+
+    await mongoose.connect(uri, mongooseOptions);
+    console.log('MongoDB connected');
+    await logoutAllPlayers();
+    startBackgroundTasks();
+    server.listen(PORT, () => {
+        console.log(`Server is listening on port ${PORT}`);
+    });
+}
+
+let isShuttingDown = false;
+async function shutdown(signal) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log(`Shutting down server after ${signal}...`);
+    backgroundIntervals.forEach(clearInterval);
+
+    try {
+        await logoutAllPlayers();
+    } catch (error) {
+        console.error('Error logging out players during shutdown:', error);
+        process.exitCode = 1;
+    }
+
+    await new Promise((resolve) => io.close(resolve));
+    try {
+        await mongoose.disconnect();
+    } catch (error) {
+        console.error('Error disconnecting MongoDB during shutdown:', error);
+        process.exitCode = 1;
+    }
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+startServer().catch(async (error) => {
+    console.error('Server startup failed:', error);
+    try {
+        await mongoose.disconnect();
+    } catch (disconnectError) {
+        console.error('Error disconnecting MongoDB after startup failure:', disconnectError);
+    }
+    process.exitCode = 1;
 });
