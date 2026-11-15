@@ -50,6 +50,7 @@ const App = () => {
     onumMisses: 0,
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const isLoggedInRef = useRef(isLoggedIn)
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
@@ -184,6 +185,7 @@ const App = () => {
   const connectSocket = () => {
     clearInterval(heartbeatInterval.current);
     heartbeatInterval.current = null;
+    setConnectionStatus('connecting');
     if (socket.current) {
       socket.current.emit("log", "called disconnect on connectSocket first if Statement")
       socket.current.off();
@@ -194,6 +196,7 @@ const App = () => {
     socket.current = createSocket();
     console.log("connectSocket function global scope is runned")
     socket.current.on("connect", () => {
+      setConnectionStatus('connected');
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
       console.log("isLoggedInRef in connect event", isLoggedInRef.current)
@@ -216,29 +219,40 @@ const App = () => {
       if (err.message === "Authentication error: No cookies" ||
         err.message === "Authentication error: Token cookie missing" ||
         err.message === "Authentication error: Invalid token") {
+        setConnectionStatus('disconnected');
         alert(err.message + ". Please login again");
         logoutTasks();
         setIsLoading(false);
       } else {
-        alert("Socket connect error: " + err.message);
+        setConnectionStatus('reconnecting');
       }
     });
 
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
-      const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
       console.log('Client Disconnect details', details)
 
-      //setServerDown(true);        
-      console.log("log in false here 1")
-      setIsLoggedIn(false);
-      document.title = "BattleShip"
-      reset();
-      setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
       setNumOnline(0);
-      setIsLoading(true);
+
+      if (reason === "io client disconnect") {
+        setConnectionStatus('disconnected');
+        return;
+      }
+
+      if (reason === "io server disconnect") {
+        setConnectionStatus('disconnected');
+        setIsLoggedIn(false);
+        document.title = "BattleShip";
+        reset();
+        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } });
+        setIsLoading(false);
+        return;
+      }
+
+      setConnectionStatus('reconnecting');
+      setIsLoading(false);
     });
 
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
@@ -886,6 +900,7 @@ const App = () => {
     setHoveredCell(null);
   }
   const logoutTasks = () => {
+    setConnectionStatus('disconnected');
     // 1. Clear heartbeat interval (if you're storing it somewhere)
     clearInterval(heartbeatInterval.current);
     heartbeatInterval.current = null;
@@ -1000,11 +1015,22 @@ const App = () => {
     resetForm()
   };
 
+  const isReconnecting = connectionStatus === 'reconnecting';
+
   return (
     <>
-      {isLoading && (
-        <div className="loading-overlay">
-          <img src="./spinner.svg" alt="Loading..." className="spinner" />
+      {(isLoading || isReconnecting) && (
+        <div className="loading-overlay" role="status" aria-live="polite">
+          <div className="loading-content">
+            <img
+              src="./spinner.svg"
+              alt={isReconnecting ? "" : "Loading..."}
+              className="spinner"
+            />
+            {isReconnecting && (
+              <p className="loading-message">Connection lost. Reconnecting...</p>
+            )}
+          </div>
         </div>
       )}
       {homeConfirmation !== null && (
