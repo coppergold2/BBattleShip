@@ -54,7 +54,43 @@ const App = () => {
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
   const [homeConfirmation, setHomeConfirmation] = useState(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
 
+    const disconnectForReconnectTest = () => {
+      const currentSocket = socket.current;
+      if (!currentSocket || !currentSocket.connected) {
+        throw new Error('Reconnect test requires an active socket connection.');
+      }
+
+      currentSocket.io.reconnection(false);
+      currentSocket.io.engine.close();
+      console.info('Reconnect test: disconnected; automatic retries are paused.');
+    };
+
+    const reconnectForTest = () => {
+      const currentSocket = socket.current;
+      if (!currentSocket) {
+        throw new Error('Reconnect test socket is not initialized.');
+      }
+      if (currentSocket.connected) {
+        throw new Error('Reconnect test socket is already connected.');
+      }
+
+      currentSocket.io.reconnection(true);
+      currentSocket.connect();
+      console.info('Reconnect test: reconnecting; automatic retries are enabled.');
+    };
+
+    window.__battleShipReconnectTest = {
+      disconnect: disconnectForReconnectTest,
+      reconnect: reconnectForTest,
+    };
+
+    return () => {
+      delete window.__battleShipReconnectTest;
+    };
+  }, []);
   useEffect(() => {
     const dialog = homeDialogRef.current;
     if (homeConfirmation === null || dialog === null) return;
@@ -188,24 +224,6 @@ const App = () => {
       }
     });
 
-    socket.current.on("RC", () => {
-      // if (socket.current.recovered == true) {
-      //     socket.current.io.engine.close();
-      //     setIsLoading(true);
-      // }
-      console.log("received RC event in client", isLoggedInRef.current);
-      if (isLoggedInRef.current == true) {
-        setIsLoggedIn(false);
-        document.title = "BattleShip"
-        reset();
-        setHomeStats({ id: "", userName: "", lastTenGames: [], allGameStats: { wins: 0, losses: 0, winRate: 0 } })
-        clearInterval(heartbeatInterval.current);
-        heartbeatInterval.current = null;
-        setNumOnline(0);
-        setIsLoading(true);
-        socket.current.io.engine.close();
-      }
-    })
     socket.current.on('disconnect', (reason, details) => { // might need to prepare for reconnection
       const forceDisconnect = (reason == "io server disconnect" || reason == "io client disconnect") ? true : false
       console.log('Disconnected in client side because:', reason, "and the socketId is", socket.current.id);
@@ -663,29 +681,29 @@ const App = () => {
   const handleStartClick = () => {
     socket.current.emit("start")
   }
-const handleHomeClick = () => {
-  const isInGameMode = singlePlayer || multiPlayer;
+  const handleHomeClick = () => {
+    const isInGameMode = singlePlayer || multiPlayer;
 
-  if (isInGameMode) {
-    setHomeConfirmation(start && !gameFinished ? 'active' : 'session');
-    return;
-  }
+    if (isInGameMode) {
+      setHomeConfirmation(start && !gameFinished ? 'active' : 'session');
+      return;
+    }
 
-  setIsLoading(true);
-  socket.current.emit("home");
-};
-const confirmHomeReturn = () => {
-  setHomeConfirmation(null);
-  setIsLoading(true);
-  socket.current.emit("home");
-};
-const confirmSinglePlayerRestart = () => {
-  setHomeConfirmation(null);
-  socket.current.emit("restartSinglePlayer");
-};
-const handleRestartClick = () => {
-  setHomeConfirmation(gameFinished ? 'replay' : 'restart');
-};
+    setIsLoading(true);
+    socket.current.emit("home");
+  };
+  const confirmHomeReturn = () => {
+    setHomeConfirmation(null);
+    setIsLoading(true);
+    socket.current.emit("home");
+  };
+  const confirmSinglePlayerRestart = () => {
+    setHomeConfirmation(null);
+    socket.current.emit("restartSinglePlayer");
+  };
+  const handleRestartClick = () => {
+    setHomeConfirmation(gameFinished ? 'replay' : 'restart');
+  };
   const handleRandomPlacement = () => {
     socket.current.emit("random")
     setActiveShip(null);
