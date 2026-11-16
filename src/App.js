@@ -51,7 +51,6 @@ const App = () => {
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const isLoggedInRef = useRef(isLoggedIn)
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
   const [homeConfirmation, setHomeConfirmation] = useState(null);
@@ -110,10 +109,6 @@ const App = () => {
       if (dialog.open) dialog.close();
     };
   }, [homeConfirmation]);
-
-  useEffect(() => {
-    isLoggedInRef.current = isLoggedIn
-  }, [isLoggedIn])
 
   useEffect(() => {
     isLoadingRef.current = isLoading
@@ -195,16 +190,14 @@ const App = () => {
     }
     socket.current = createSocket();
     console.log("connectSocket function global scope is runned")
+    let hasConnected = false;
     socket.current.on("connect", () => {
-      setConnectionStatus('connected');
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
-      console.log("isLoggedInRef in connect event", isLoggedInRef.current)
-      if (isLoggedInRef.current == false && socket.current.recovered == false) {
-        // console.log("reload is runned in connect")
-        // window.location.reload()
-        socket.current.emit("restoreLogin")
+      if (!socket.current.recovered) {
+        socket.current.emit("restoreLogin", { wasReconnect: hasConnected });
       }
+      hasConnected = true;
 
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = setInterval(() => {
@@ -258,6 +251,7 @@ const App = () => {
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
       reset()
       setIsLoggedIn(true);
+      setConnectionStatus('connected');
       setHomeStats((prevHomeStats) => ({
         id: userId,
         userName: userName,
@@ -272,6 +266,7 @@ const App = () => {
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
       reset()
       setIsLoggedIn(true);
+      setConnectionStatus('connected');
       setHomeStats((prevHomeStats) => ({
         ...prevHomeStats,
         id: player.id,
@@ -348,6 +343,45 @@ const App = () => {
       setIsLoading(false)
 
     })
+
+    socket.current.on("restoreWaitingRoom", ({ player, isSinglePlayer, messages, opponentConnected, opponentUserName }) => {
+      reset();
+      setIsLoggedIn(true);
+      setConnectionStatus('connected');
+      setHomeStats((prevHomeStats) => ({
+        ...prevHomeStats,
+        id: player.id,
+        userName: player.userName,
+      }));
+      document.title = `BattleShip - ${player.userName}`;
+      setSinglePlayer(isSinglePlayer);
+      setMultiPlayer(!isSinglePlayer);
+      setPbCellClass(() => {
+        const newCellClass = Array.from({ length: 100 }, () => ({
+          shipName: null,
+          ohit: false,
+          omiss: false,
+        }));
+        Object.entries(player.shipLoc).forEach(([ship, locations]) => {
+          locations.forEach((location) => {
+            newCellClass[location].shipName = ship;
+          });
+        });
+        return newCellClass;
+      });
+      setPlacedShips(Object.keys(player.shipLoc).filter((ship) => player.shipLoc[ship].length > 0));
+      setActiveShip(player.activeShip);
+      setIsFlipped(player.isFlipped);
+      setMessages(messages);
+      setInfo(
+        isSinglePlayer
+          ? "Your ship placement was restored."
+          : opponentConnected
+            ? `Your game room with ${opponentUserName} was restored.`
+            : "Your game room was restored. Waiting for another player."
+      );
+      setIsLoading(false);
+    });
 
     socket.current.on('logout', () => { // one of the other tabs logouts, so this tab logs out
       alert("you have been logged out")

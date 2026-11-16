@@ -108,3 +108,46 @@ test('shows a blocking reconnect overlay instead of alerting on transient socket
   expect(screen.getByRole('status')).toHaveClass('loading-overlay');
   expect(screen.getByRole('status')).toHaveTextContent('Connection lost. Reconnecting...');
 });
+
+test('requests session reconciliation when the socket connects without recovery', async () => {
+  const socketInstance = {
+    id: 'socket-id',
+    recovered: false,
+    on: jest.fn().mockReturnThis(),
+    emit: jest.fn(),
+    off: jest.fn(),
+    disconnect: jest.fn(),
+  };
+  createSocket.mockReturnValue(socketInstance);
+  api.post.mockResolvedValue({
+    data: {
+      id: 'user-id',
+      userName: 'Player',
+      games: [],
+      allGameStats: { wins: 0, losses: 0, winRate: 0 },
+    },
+  });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Welcome back' });
+  await userEvent.type(screen.getByLabelText('Email address'), 'player@example.com');
+  await userEvent.type(screen.getByLabelText('Password'), 'secret');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await waitFor(() => {
+    expect(createSocket).toHaveBeenCalled();
+  });
+
+  const connectHandler = socketInstance.on.mock.calls
+    .find(([event]) => event === 'connect')[1];
+  act(() => {
+    connectHandler();
+  });
+
+  expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin', { wasReconnect: false });
+
+  act(() => {
+    connectHandler();
+  });
+
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', { wasReconnect: true });
+});

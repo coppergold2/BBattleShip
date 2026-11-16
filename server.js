@@ -55,6 +55,8 @@ app.use(cors(corsOptions));
 
 app.use(helmet());
 
+const RECONNECT_GRACE_PERIOD_MS = 5 * 60 * 1000;
+
 const io = socketIo(server, {
   cors: {
     origin: (origin, callback) => {
@@ -69,7 +71,7 @@ const io = socketIo(server, {
     credentials: true
   },
   connectionStateRecovery: {
-    maxDisconnectionDuration: 2 * 60 * 1000,
+    maxDisconnectionDuration: RECONNECT_GRACE_PERIOD_MS,
     skipMiddlewares: false
   }
 });
@@ -156,6 +158,7 @@ class Player {
         this.opponent = null;
         //this.gameStartTime = null;
         this.connected = true;
+        this.disconnectedAt = null;
 
     }
     displayGrid() {
@@ -909,7 +912,8 @@ const checkShip = (opponent, pos, roomCode) => {
 function findOpenRoom() {
     for (const roomCode in gameRooms) {
         const gameRoom = gameRooms[roomCode];
-        if (!gameRoom.isSinglePlayer && Object.keys(gameRoom.players).length === 1 && gameRoom.status === 'waiting') {
+        const [player] = Object.values(gameRoom.players);
+        if (!gameRoom.isSinglePlayer && Object.keys(gameRoom.players).length === 1 && gameRoom.status === 'waiting' && player.connected) {
             return { roomCode, gameId: gameRoom.gameId };
         }
     }
@@ -1504,59 +1508,131 @@ io.use((socket, next) => {
 io.on('connection', async (socket) => {
     let gameRoom;
     const userId = socket.userId; // from middleware
-    const userName = socket.userName;
+
+    const emitLoginRestore = async (message = "Select Your Mode") => {
+        const user = await User.findById(userId);
+        if (!user) {
+            socket.emit("logout");
+            return;
+        }
+        const games = await findLast10GamesForUser(userId);
+        const allGameStats = await calculateWinRate(userId);
+        socket.emit("restoreLogin", userId, user.userName, games, allGameStats, message);
+    };
+
+    const restoreCurrentRoom = async () => {
+        const user = await User.findById(userId);
+        if (!user) {
+            return false;
+        }
+
+        const recoveredRoomCode = socket.data.roomCode && gameRooms[socket.data.roomCode]
+            ? socket.data.roomCode
+            : null;
+        const roomCode = recoveredRoomCode || user.currGameRoom;
+        const currentRoom = roomCode && gameRooms[roomCode];
+        const player = currentRoom && currentRoom.players[userId];
+        if (!player) {
+            return false;
+        }
+
+        if (!socket.recovered) {
+            const previousSocketIsConnected = player.socketId && io.sockets.sockets.has(player.socketId);
+            if (previousSocketIsConnected) {
+                return false;
+            }
+            if (player.connected || player.disconnectedAt == null) {
+                player.connected = false;
+                player.disconnectedAt = Date.now();
+            }
+            if (Date.now() - player.disconnectedAt > RECONNECT_GRACE_PERIOD_MS) {
+                return false;
+            }
+        }
+
+        const isInProgress = currentRoom.start && currentRoom.status === 'in_progress';
+        const isWaiting = !currentRoom.start && currentRoom.status === 'waiting';
+        const opponent = player.opponent && currentRoom.players[player.opponent];
+        if ((!isInProgress && !isWaiting) || (isInProgress && !opponent)) {
+            return false;
+        }
+
+        gameRoom = currentRoom;
+        socket.data.roomCode = roomCode;
+        socket.join(roomCode);
+        player.socketId = socket.id;
+        player.connected = true;
+        player.disconnectedAt = null;
+        currentRoom.allDisconnectTime = null;
+        currentRoom.firstDisconnect = null;
+
+        if (isWaiting) {
+            const opponentConnected = Boolean(opponent && opponent.connected);
+            const reconnectMessage = { admin: `Player ${player.userName} reconnected` };
+            currentRoom.messages.push(reconnectMessage);
+            if (opponentConnected && opponent.socketId) {
+                io.to(opponent.socketId).emit("message", reconnectMessage);
+                io.to(opponent.socketId).emit("info", `Your opponent ${player.userName} reconnected`);
+            }
+            socket.emit("restoreWaitingRoom", {
+                player,
+                isSinglePlayer: currentRoom.isSinglePlayer,
+                messages: currentRoom.messages,
+                opponentConnected,
+                opponentUserName: opponent ? opponent.userName : null
+            });
+            return true;
+        }
+
+        const allMissLocations = [];
+        const destroyedShips = {};
+        for (let index = 0; index < opponent.board.length; index++) {
+            if (opponent.board[index] === 3) {
+                allMissLocations.push(index);
+            }
+        }
+        for (const ship in ships) {
+            const shipPosition = opponent.shipLoc[ship];
+            if (shipPosition.length > 0 && opponent.board[shipPosition[0]] === 4) {
+                destroyedShips[ship] = shipPosition;
+            }
+        }
+        const turn = currentRoom.turn === userId;
+        const reconnectMessage = { admin: `Player ${player.userName} reconnected` };
+        currentRoom.messages.push(reconnectMessage);
+        if (!currentRoom.isSinglePlayer && opponent.connected && opponent.socketId) {
+            io.to(opponent.socketId).emit("message", reconnectMessage);
+            io.to(opponent.socketId).emit("info", `Your opponent ${player.userName} reconnected`);
+        }
+        socket.emit(
+            "restoreGame",
+            player,
+            currentRoom.isSinglePlayer,
+            currentRoom.messages,
+            opponent.numHits,
+            opponent.numMisses,
+            allMissLocations,
+            destroyedShips,
+            turn
+        );
+        socket.emit("message", { [player.userName]: JSON.stringify(player.shipLoc) });
+        if (currentRoom.isSinglePlayer) {
+            socket.emit("updatePossHitLocation", [...opponent.maxPossHitLocations]);
+        }
+        console.log("gameRoom.turn in reconnect", currentRoom.turn);
+        return true;
+    };
+
     if (socket.recovered) {
-        // recovery was successful: socket.id, socket.rooms and socket.data were restored
         console.log("🔄 Session recovered", socket.id);
         console.log("socket room", socket.rooms, "socket data", socket.data)
-        if (socket.data.roomCode && gameRooms[socket.data.roomCode] && gameRooms[socket.data.roomCode].start == true) {
-            gameRoom = gameRooms[socket.data.roomCode]
-            if (gameRoom.isSinglePlayer || gameRoom.allDisconnectTime != null) {
-                gameRoom.allDisconnectTime = null;
-                if (gameRoom.isSinglePlayer == false) {
-                    gameRoom.firstDisconnect = null;
-                }
-            }
-            const opponent = gameRoom.players[userId].opponent;
-            const allMissLocations = [];
-            const destroyedShips = {};
-            for (let index = 0; index < gameRoom.players[opponent].board.length; index++) {
-                if (gameRoom.players[opponent].board[index] == 3) {
-                    allMissLocations.push(index);
-                }
-            }
-            for (let ship in ships) {
-                const shipPosition = gameRoom.players[opponent].shipLoc[ship]
-                if (gameRoom.players[opponent].board[shipPosition[0]] == 4) {
-                    destroyedShips[ship] = shipPosition
-                }
-            }
-            const turn = gameRoom.turn == userId ? true : false
-            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} reconnected` });
-            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-            socket.emit("restoreGame", gameRoom.players[userId], gameRoom.isSinglePlayer, gameRoom.messages, gameRoom.players[opponent].numHits, gameRoom.players[opponent].numMisses, allMissLocations, destroyedShips, turn)
-            socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) })
-            if (gameRoom.isSinglePlayer) {
-                socket.emit("updatePossHitLocation", [...gameRoom.players[opponent].maxPossHitLocations]);
-            }
-            else {
-                io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[userId].userName} reconnected`)
-            }
-            gameRoom.players[userId].connected = true;
-            console.log("gameRoom.turn in reconnect", gameRoom.turn)
-        }
-        else {
+        if (!(await restoreCurrentRoom())) {
             if (socket.data.roomCode) {
                 socket.leave(socket.data.roomCode);
             }
-            console.log("emitted restoreLogin event in socket.recovered")
-            const user = await User.findById(userId)
-            const games = await findLast10GamesForUser(userId);
-            const allGameStats = await calculateWinRate(userId);
-            socket.emit("restoreLogin", userId, user.userName, games, allGameStats, "reconnected")
+            await emitLoginRestore("Reconnected");
         }
     } else {
-        // new or unrecoverable session
         console.log("🆕 New connection", socket.id);
     }
 
@@ -1578,12 +1654,11 @@ io.on('connection', async (socket) => {
     socket.on("log", (msg) => {
         console.log(msg)
     })
-    socket.on("restoreLogin", async () => {
-        console.log("emitted restoreLogin event in socket.on")
-        const user = await User.findById(userId)
-        const games = await findLast10GamesForUser(userId);
-        const allGameStats = await calculateWinRate(userId);
-        socket.emit("restoreLogin", userId, user.userName, games, allGameStats, "reconnected new")
+    socket.on("restoreLogin", async ({ wasReconnect } = {}) => {
+        console.log("Restoring user session for socket", socket.id);
+        if (!(await restoreCurrentRoom())) {
+            await emitLoginRestore(wasReconnect === true ? "Reconnected" : "Select Your Mode");
+        }
     })
     socket.on("singleplayer", async () => {
         const canCreateGame = await checkExistingGame(userId);
@@ -1891,17 +1966,22 @@ io.on('connection', async (socket) => {
                 await user.save();
                 delete gameRooms[gameRoom.roomCode];
             }
-            else if (gameRoom.isSinglePlayer && gameRoom.start == false) {  // includes both forceDisconnect false and true
-                socket.leave(gameRoom.roomCode)
-                socket.data.roomCode = null;
-                const user = await User.findById(userId)
-                user.currGameRoom = null;
-                await user.save();
-                delete gameRooms[gameRoom.roomCode];
+            else if (gameRoom.isSinglePlayer && gameRoom.start == false) {
+                if (forceDisconnect) {
+                    const user = await User.findById(userId)
+                    user.currGameRoom = null;
+                    await user.save();
+                    delete gameRooms[gameRoom.roomCode];
+                } else {
+                    gameRoom.players[userId].connected = false;
+                    gameRoom.players[userId].disconnectedAt = Date.now();
+                    gameRoom.allDisconnectTime = Date.now();
+                }
             }
             else if (gameRoom.isSinglePlayer && forceDisconnect == false && gameRoom.start == true) {
                 if (gameRoom.players[userId].connected == true) {
                     gameRoom.players[userId].connected = false;
+                    gameRoom.players[userId].disconnectedAt = Date.now();
                     gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
                 }
                 gameRoom.allDisconnectTime = Date.now();
@@ -1934,32 +2014,44 @@ io.on('connection', async (socket) => {
                 user.currGameRoom = null;
                 await user.save();
             }
-            else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) { // includes both forceDisconnect false and true
-                socket.leave(gameRoom.roomCode)
-                socket.data.roomCode = null;
-                if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
-                    gameRoom.players[opponent].opponent = null;
-                    const message = `Your opponent ${gameRoom.players[userId].userName} has left`
-                    io.to(gameRoom.players[opponent].socketId).emit("info", message)
-                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
-                    io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-                    delete gameRoom.players[userId]
-
+            else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) {
+                if (forceDisconnect) {
+                    if (opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
+                        gameRoom.players[opponent].opponent = null;
+                        const message = `Your opponent ${gameRoom.players[userId].userName} has left`
+                        io.to(gameRoom.players[opponent].socketId).emit("info", message)
+                        gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
+                        io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                        delete gameRoom.players[userId]
+                    } else {
+                        delete gameRooms[gameRoom.roomCode]
+                    }
+                    const user = await User.findById(userId)
+                    user.currGameRoom = null;
+                    await user.save();
                 }
                 else {
-                    delete gameRooms[gameRoom.roomCode]
+                    gameRoom.players[userId].connected = false;
+                    gameRoom.players[userId].disconnectedAt = Date.now();
+                    const anotherPlayerConnected = Object.values(gameRoom.players)
+                        .some((player) => player.id !== userId && player.connected);
+                    if (!anotherPlayerConnected) {
+                        gameRoom.allDisconnectTime = Date.now();
+                    } else if (opponent && gameRoom.players[opponent].socketId) {
+                        const message = { admin: `Player ${gameRoom.players[userId].userName} disconnected` };
+                        gameRoom.messages.push(message);
+                        io.to(gameRoom.players[opponent].socketId).emit("info", "Your opponent disconnected while the room was waiting.");
+                        io.to(gameRoom.players[opponent].socketId).emit("message", message);
+                    }
                 }
-                const user = await User.findById(userId)
-                user.currGameRoom = null;
-                await user.save();
-
             }
             else if (gameRoom.isSinglePlayer == false && forceDisconnect == false && gameRoom.start == true) {
                 if (gameRoom.players[userId].connected == true) {
                     gameRoom.players[userId].connected = false;
+                    gameRoom.players[userId].disconnectedAt = Date.now();
                     gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
                     if (gameRoom.players[opponent].connected == true) {
-                        const message = `Your opponent, ${gameRoom.players[userId].userName}, has been disconnected. You can wait up to two minutes for them to return, or you can quit now and claim the win.`;
+                        const message = `Your opponent, ${gameRoom.players[userId].userName}, has been disconnected. You can wait up to five minutes for them to return, or you can quit now and claim the win.`;
                         io.to(gameRoom.players[opponent].socketId).emit("info", message)
                         io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
                     }
@@ -2065,7 +2157,7 @@ function startBackgroundTasks() {
 
     backgroundIntervals.push(setInterval(async () => {
         for (const gameRoom of Object.values(gameRooms)) {
-            if (gameRoom.allDisconnectTime != null && Date.now() - gameRoom.allDisconnectTime > 5 * 60 * 1000) {
+            if (gameRoom.allDisconnectTime != null && Date.now() - gameRoom.allDisconnectTime > RECONNECT_GRACE_PERIOD_MS) {
                 console.log("gameRooms", gameRoom.roomCode, "is deleted due to inactivity");
 
                 if (gameRoom.start === true) {

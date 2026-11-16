@@ -27,4 +27,4 @@ The game is hosted on https://bbattleship.onrender.com/
 
 Multiple tabs can be logged in using the same account, but only one game can be played at a time per account. It is not possible to play two games simultaneously using the same account.
 
-The website is primarily designed for desktop screens but is also optimized for mobile and smaller screens. However, the disconnect-to-reconnect logic on mobile devices is not very stable.
+The website is primarily designed for desktop screens but is also optimized for mobile and smaller screens. After a temporary disconnect, the app can restore an active game for up to five minutes, including when a mobile browser resumes with a new socket connection. Game state is held in server memory, so an active game cannot be restored after the server process restarts.
