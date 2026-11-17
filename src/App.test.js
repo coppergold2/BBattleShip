@@ -22,6 +22,7 @@ jest.mock('./services/socket', () => ({
 }));
 
 beforeEach(() => {
+  sessionStorage.clear();
   api.get.mockRejectedValue({ response: { status: 401 } });
   api.post.mockReset();
   createSocket.mockReset();
@@ -34,6 +35,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.useRealTimers();
   jest.restoreAllMocks();
 });
 
@@ -150,4 +152,106 @@ test('requests session reconciliation when the socket connects without recovery'
   });
 
   expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', { wasReconnect: true });
+});
+
+test('retries room restoration after the previous socket disconnects', async () => {
+  sessionStorage.setItem('battleShipSocketConnected:user-id', 'true');
+  const socketInstance = {
+    id: 'socket-id',
+    recovered: false,
+    connected: true,
+    on: jest.fn().mockReturnThis(),
+    emit: jest.fn(),
+    off: jest.fn(),
+    disconnect: jest.fn(),
+  };
+  createSocket.mockReturnValue(socketInstance);
+  api.post.mockResolvedValue({
+    data: {
+      id: 'user-id',
+      userName: 'Player',
+      games: [],
+      allGameStats: { wins: 0, losses: 0, winRate: 0 },
+    },
+  });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Welcome back' });
+  await userEvent.type(screen.getByLabelText('Email address'), 'player@example.com');
+  await userEvent.type(screen.getByLabelText('Password'), 'secret');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await waitFor(() => {
+    expect(createSocket).toHaveBeenCalled();
+  });
+
+  const handlerFor = (event) => socketInstance.on.mock.calls
+    .find(([registeredEvent]) => registeredEvent === event)[1];
+
+  act(() => {
+    handlerFor('connect')();
+  });
+  expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin', { wasReconnect: true });
+
+  act(() => {
+    handlerFor('restorePending')();
+  });
+  expect(screen.getByRole('status')).toHaveTextContent('Connection lost. Reconnecting...');
+
+  act(() => {
+    handlerFor('retryRoomRestore')();
+  });
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', { wasReconnect: true });
+
+  jest.useFakeTimers();
+  act(() => {
+    handlerFor('restorePending')();
+  });
+  act(() => {
+    jest.advanceTimersByTime(50000);
+  });
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', {
+    wasReconnect: true,
+    skipRoomRestore: true,
+  });
+});
+
+test('keeps the last online count visible during a transient disconnect', async () => {
+  const socketInstance = {
+    id: 'socket-id',
+    recovered: false,
+    on: jest.fn().mockReturnThis(),
+    emit: jest.fn(),
+    off: jest.fn(),
+    disconnect: jest.fn(),
+  };
+  createSocket.mockReturnValue(socketInstance);
+  api.post.mockResolvedValue({
+    data: {
+      id: 'user-id',
+      userName: 'Player',
+      games: [],
+      allGameStats: { wins: 0, losses: 0, winRate: 0 },
+    },
+  });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Welcome back' });
+  await userEvent.type(screen.getByLabelText('Email address'), 'player@example.com');
+  await userEvent.type(screen.getByLabelText('Password'), 'secret');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await waitFor(() => {
+    expect(createSocket).toHaveBeenCalled();
+  });
+
+  const handlerFor = (event) => socketInstance.on.mock.calls
+    .find(([registeredEvent]) => registeredEvent === event)[1];
+
+  act(() => {
+    handlerFor('userCountUpdate')(6);
+  });
+  act(() => {
+    handlerFor('disconnect')('transport close');
+  });
+
+  expect(document.querySelector('.user-count')).toHaveTextContent('6 users online');
 });

@@ -1520,10 +1520,10 @@ io.on('connection', async (socket) => {
         socket.emit("restoreLogin", userId, user.userName, games, allGameStats, message);
     };
 
-    const restoreCurrentRoom = async () => {
+    const restoreCurrentRoom = async (allowPendingRestore = false) => {
         const user = await User.findById(userId);
         if (!user) {
-            return false;
+            return { restored: false };
         }
 
         const recoveredRoomCode = socket.data.roomCode && gameRooms[socket.data.roomCode]
@@ -1533,20 +1533,23 @@ io.on('connection', async (socket) => {
         const currentRoom = roomCode && gameRooms[roomCode];
         const player = currentRoom && currentRoom.players[userId];
         if (!player) {
-            return false;
+            return { restored: false };
         }
 
         if (!socket.recovered) {
             const previousSocketIsConnected = player.socketId && io.sockets.sockets.has(player.socketId);
             if (previousSocketIsConnected) {
-                return false;
+                return {
+                    restored: false,
+                    pendingSocketId: allowPendingRestore ? player.socketId : null
+                };
             }
             if (player.connected || player.disconnectedAt == null) {
                 player.connected = false;
                 player.disconnectedAt = Date.now();
             }
             if (Date.now() - player.disconnectedAt > RECONNECT_GRACE_PERIOD_MS) {
-                return false;
+                return { restored: false };
             }
         }
 
@@ -1554,7 +1557,7 @@ io.on('connection', async (socket) => {
         const isWaiting = !currentRoom.start && currentRoom.status === 'waiting';
         const opponent = player.opponent && currentRoom.players[player.opponent];
         if ((!isInProgress && !isWaiting) || (isInProgress && !opponent)) {
-            return false;
+            return { restored: false };
         }
 
         gameRoom = currentRoom;
@@ -1581,7 +1584,7 @@ io.on('connection', async (socket) => {
                 opponentConnected,
                 opponentUserName: opponent ? opponent.userName : null
             });
-            return true;
+            return { restored: true };
         }
 
         const allMissLocations = [];
@@ -1620,13 +1623,14 @@ io.on('connection', async (socket) => {
             socket.emit("updatePossHitLocation", [...opponent.maxPossHitLocations]);
         }
         console.log("gameRoom.turn in reconnect", currentRoom.turn);
-        return true;
+        return { restored: true };
     };
 
     if (socket.recovered) {
         console.log("🔄 Session recovered", socket.id);
         console.log("socket room", socket.rooms, "socket data", socket.data)
-        if (!(await restoreCurrentRoom())) {
+        const restoreResult = await restoreCurrentRoom();
+        if (!restoreResult.restored) {
             if (socket.data.roomCode) {
                 socket.leave(socket.data.roomCode);
             }
@@ -1654,9 +1658,23 @@ io.on('connection', async (socket) => {
     socket.on("log", (msg) => {
         console.log(msg)
     })
-    socket.on("restoreLogin", async ({ wasReconnect } = {}) => {
+    socket.on("restoreLogin", async ({ wasReconnect, skipRoomRestore } = {}) => {
         console.log("Restoring user session for socket", socket.id);
-        if (!(await restoreCurrentRoom())) {
+        if (skipRoomRestore === true) {
+            socket.data.pendingRoomRestoreFor = null;
+            await emitLoginRestore(wasReconnect === true ? "Reconnected" : "Select Your Mode");
+            return;
+        }
+
+        const restoreResult = await restoreCurrentRoom(wasReconnect === true);
+        if (restoreResult.pendingSocketId) {
+            socket.data.pendingRoomRestoreFor = restoreResult.pendingSocketId;
+            socket.emit("restorePending");
+            return;
+        }
+
+        socket.data.pendingRoomRestoreFor = null;
+        if (!restoreResult.restored) {
             await emitLoginRestore(wasReconnect === true ? "Reconnected" : "Select Your Mode");
         }
     })
@@ -2060,6 +2078,12 @@ io.on('connection', async (socket) => {
                         gameRoom.firstDisconnect = opponent;
                     }
                 }
+            }
+        }
+        for (const candidate of io.sockets.sockets.values()) {
+            if (candidate.userId === userId && candidate.data.pendingRoomRestoreFor === socket.id) {
+                candidate.data.pendingRoomRestoreFor = null;
+                candidate.emit("retryRoomRestore");
             }
         }
         const sockets = userSockets.get(userId);

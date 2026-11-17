@@ -5,9 +5,14 @@ import Home from './Home'
 import Login from './Login'
 import api from './services/api';
 import { createSocket } from './services/socket';
+
+const ROOM_RESTORE_PENDING_TIMEOUT_MS = 50 * 1000;
+
 const App = () => {
   const socket = useRef();
   const heartbeatInterval = useRef(null);
+  const roomRestoreTimeout = useRef(null);
+  const reconnectStorageKey = useRef(null);
   const homeDialogRef = useRef(null);
   const cancelHomeRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -177,9 +182,15 @@ const App = () => {
   }
 
   // Call this after login:
-  const connectSocket = () => {
+  const clearRoomRestoreTimeout = () => {
+    clearTimeout(roomRestoreTimeout.current);
+    roomRestoreTimeout.current = null;
+  };
+
+  const connectSocket = (userId) => {
     clearInterval(heartbeatInterval.current);
     heartbeatInterval.current = null;
+    clearRoomRestoreTimeout();
     setConnectionStatus('connecting');
     if (socket.current) {
       socket.current.emit("log", "called disconnect on connectSocket first if Statement")
@@ -190,7 +201,12 @@ const App = () => {
     }
     socket.current = createSocket();
     console.log("connectSocket function global scope is runned")
-    let hasConnected = false;
+    const storageKey = `battleShipSocketConnected:${userId}`;
+    if (reconnectStorageKey.current && reconnectStorageKey.current !== storageKey) {
+      sessionStorage.removeItem(reconnectStorageKey.current);
+    }
+    reconnectStorageKey.current = storageKey;
+    let hasConnected = sessionStorage.getItem(storageKey) === 'true';
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
@@ -198,6 +214,7 @@ const App = () => {
         socket.current.emit("restoreLogin", { wasReconnect: hasConnected });
       }
       hasConnected = true;
+      sessionStorage.setItem(storageKey, 'true');
 
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = setInterval(() => {
@@ -227,7 +244,6 @@ const App = () => {
 
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
-      setNumOnline(0);
 
       if (reason === "io client disconnect") {
         setConnectionStatus('disconnected');
@@ -248,7 +264,29 @@ const App = () => {
       setIsLoading(false);
     });
 
+    socket.current.on("restorePending", () => {
+      setConnectionStatus('reconnecting');
+      clearRoomRestoreTimeout();
+      roomRestoreTimeout.current = setTimeout(() => {
+        roomRestoreTimeout.current = null;
+        if (socket.current?.connected) {
+          socket.current.emit("restoreLogin", {
+            wasReconnect: true,
+            skipRoomRestore: true,
+          });
+        }
+      }, ROOM_RESTORE_PENDING_TIMEOUT_MS);
+    });
+
+    socket.current.on("retryRoomRestore", () => {
+      clearRoomRestoreTimeout();
+      if (socket.current?.connected) {
+        socket.current.emit("restoreLogin", { wasReconnect: true });
+      }
+    });
+
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
+      clearRoomRestoreTimeout();
       reset()
       setIsLoggedIn(true);
       setConnectionStatus('connected');
@@ -264,6 +302,7 @@ const App = () => {
       setIsLoading(false)
     })
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
+      clearRoomRestoreTimeout();
       reset()
       setIsLoggedIn(true);
       setConnectionStatus('connected');
@@ -345,6 +384,7 @@ const App = () => {
     })
 
     socket.current.on("restoreWaitingRoom", ({ player, isSinglePlayer, messages, opponentConnected, opponentUserName }) => {
+      clearRoomRestoreTimeout();
       reset();
       setIsLoggedIn(true);
       setConnectionStatus('connected');
@@ -701,6 +741,7 @@ const App = () => {
       console.log("Component is really unmounting");
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
+      clearRoomRestoreTimeout();
       if (socket.current) {
         socket.current.emit("log", "called disconnect on useEffect cleanup");
         socket.current.disconnect();
@@ -853,7 +894,7 @@ const App = () => {
           allGameStats: res.data.allGameStats
         }));
         document.title = `BattleShip - ${res.data.userName}`;
-        connectSocket(); // ⬅️ No token needed anymore
+        connectSocket(res.data.id); // ⬅️ No token needed anymore
       })
       .catch(() => {
         console.log("No active session was restored");
@@ -935,6 +976,11 @@ const App = () => {
   }
   const logoutTasks = () => {
     setConnectionStatus('disconnected');
+    clearRoomRestoreTimeout();
+    if (reconnectStorageKey.current) {
+      sessionStorage.removeItem(reconnectStorageKey.current);
+      reconnectStorageKey.current = null;
+    }
     // 1. Clear heartbeat interval (if you're storing it somewhere)
     clearInterval(heartbeatInterval.current);
     heartbeatInterval.current = null;
@@ -988,7 +1034,7 @@ const App = () => {
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
-        connectSocket();
+        connectSocket(response.data.id);
       })
       .catch(error => {
         if (error.response) {
@@ -1026,7 +1072,7 @@ const App = () => {
         handleBackClick();
 
         // ⬇️ Start socket connection (cookie-based auth now)
-        connectSocket();
+        connectSocket(response.data.id);
       })
       .catch(error => {
         if (error.response) {
