@@ -6,13 +6,9 @@ import Login from './Login'
 import api from './services/api';
 import { createSocket } from './services/socket';
 
-const ROOM_RESTORE_PENDING_TIMEOUT_MS = 50 * 1000;
-
 const App = () => {
   const socket = useRef();
   const heartbeatInterval = useRef(null);
-  const roomRestoreTimeout = useRef(null);
-  const reconnectStorageKey = useRef(null);
   const homeDialogRef = useRef(null);
   const cancelHomeRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +52,7 @@ const App = () => {
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [reconnectAvailable, setReconnectAvailable] = useState(false);
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
   const [homeConfirmation, setHomeConfirmation] = useState(null);
@@ -179,18 +176,13 @@ const App = () => {
     });
     setChatEnable(true);
     setHomeConfirmation(null);
+    setReconnectAvailable(false);
   }
 
   // Call this after login:
-  const clearRoomRestoreTimeout = () => {
-    clearTimeout(roomRestoreTimeout.current);
-    roomRestoreTimeout.current = null;
-  };
-
-  const connectSocket = (userId) => {
+  const connectSocket = () => {
     clearInterval(heartbeatInterval.current);
     heartbeatInterval.current = null;
-    clearRoomRestoreTimeout();
     setConnectionStatus('connecting');
     if (socket.current) {
       socket.current.emit("log", "called disconnect on connectSocket first if Statement")
@@ -201,20 +193,12 @@ const App = () => {
     }
     socket.current = createSocket();
     console.log("connectSocket function global scope is runned")
-    const storageKey = `battleShipSocketConnected:${userId}`;
-    if (reconnectStorageKey.current && reconnectStorageKey.current !== storageKey) {
-      sessionStorage.removeItem(reconnectStorageKey.current);
-    }
-    reconnectStorageKey.current = storageKey;
-    let hasConnected = sessionStorage.getItem(storageKey) === 'true';
     socket.current.on("connect", () => {
       console.log("✅ Socket connected:", socket.current.id);
       console.log("🔁 Was session recovered?", socket.current.recovered);
       if (!socket.current.recovered) {
-        socket.current.emit("restoreLogin", { wasReconnect: hasConnected });
+        socket.current.emit("restoreLogin");
       }
-      hasConnected = true;
-      sessionStorage.setItem(storageKey, 'true');
 
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = setInterval(() => {
@@ -244,6 +228,7 @@ const App = () => {
 
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
+      setReconnectAvailable(false);
 
       if (reason === "io client disconnect") {
         setConnectionStatus('disconnected');
@@ -264,29 +249,25 @@ const App = () => {
       setIsLoading(false);
     });
 
-    socket.current.on("restorePending", () => {
-      setConnectionStatus('reconnecting');
-      clearRoomRestoreTimeout();
-      roomRestoreTimeout.current = setTimeout(() => {
-        roomRestoreTimeout.current = null;
-        if (socket.current?.connected) {
-          socket.current.emit("restoreLogin", {
-            wasReconnect: true,
-            skipRoomRestore: true,
-          });
-        }
-      }, ROOM_RESTORE_PENDING_TIMEOUT_MS);
+    socket.current.on("reconnectAvailable", () => {
+      setConnectionStatus('connected');
+      setReconnectAvailable(true);
+      setInfo("A disconnected game is available to reconnect.");
     });
 
-    socket.current.on("retryRoomRestore", () => {
-      clearRoomRestoreTimeout();
-      if (socket.current?.connected) {
-        socket.current.emit("restoreLogin", { wasReconnect: true });
-      }
+    socket.current.on("reconnectClaimed", () => {
+      setConnectionStatus('connected');
+      setReconnectAvailable(false);
+      setInfo("The game was reconnected in another tab.");
+    });
+
+    socket.current.on("reconnectUnavailable", (msg) => {
+      setConnectionStatus('connected');
+      setReconnectAvailable(false);
+      setInfo(msg);
     });
 
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
-      clearRoomRestoreTimeout();
       reset()
       setIsLoggedIn(true);
       setConnectionStatus('connected');
@@ -302,7 +283,6 @@ const App = () => {
       setIsLoading(false)
     })
     socket.current.on("restoreGame", (player, isSinglePlayer, messages, onumHits, onumMisses, allMissLocations, destroyedShips, turns) => {
-      clearRoomRestoreTimeout();
       reset()
       setIsLoggedIn(true);
       setConnectionStatus('connected');
@@ -384,7 +364,6 @@ const App = () => {
     })
 
     socket.current.on("restoreWaitingRoom", ({ player, isSinglePlayer, messages, opponentConnected, opponentUserName }) => {
-      clearRoomRestoreTimeout();
       reset();
       setIsLoggedIn(true);
       setConnectionStatus('connected');
@@ -741,7 +720,6 @@ const App = () => {
       console.log("Component is really unmounting");
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
-      clearRoomRestoreTimeout();
       if (socket.current) {
         socket.current.emit("log", "called disconnect on useEffect cleanup");
         socket.current.disconnect();
@@ -765,6 +743,13 @@ const App = () => {
   }
   const handleMultiPlayerClick = () => {
     socket.current.emit("multiplayer", homeStats.id)
+  }
+  const handleReconnectGame = () => {
+    if (!socket.current?.connected) return;
+    setReconnectAvailable(false);
+    setConnectionStatus('reconnecting');
+    setInfo("Reconnecting to your game...");
+    socket.current.emit("reconnectGame");
   }
 
   const handleStartClick = () => {
@@ -894,7 +879,7 @@ const App = () => {
           allGameStats: res.data.allGameStats
         }));
         document.title = `BattleShip - ${res.data.userName}`;
-        connectSocket(res.data.id); // ⬅️ No token needed anymore
+        connectSocket(); // ⬅️ No token needed anymore
       })
       .catch(() => {
         console.log("No active session was restored");
@@ -976,11 +961,6 @@ const App = () => {
   }
   const logoutTasks = () => {
     setConnectionStatus('disconnected');
-    clearRoomRestoreTimeout();
-    if (reconnectStorageKey.current) {
-      sessionStorage.removeItem(reconnectStorageKey.current);
-      reconnectStorageKey.current = null;
-    }
     // 1. Clear heartbeat interval (if you're storing it somewhere)
     clearInterval(heartbeatInterval.current);
     heartbeatInterval.current = null;
@@ -1034,7 +1014,7 @@ const App = () => {
         }));
         document.title = `BattleShip - ${response.data.userName}`
         resetForm(); // Reset the form
-        connectSocket(response.data.id);
+        connectSocket();
       })
       .catch(error => {
         if (error.response) {
@@ -1072,7 +1052,7 @@ const App = () => {
         handleBackClick();
 
         // ⬇️ Start socket connection (cookie-based auth now)
-        connectSocket(response.data.id);
+        connectSocket();
       })
       .catch(error => {
         if (error.response) {
@@ -1220,6 +1200,26 @@ const App = () => {
               Logout
             </button>) : null}
       </div>
+      {isLoggedIn && reconnectAvailable && (
+        <section className="reconnect-banner" aria-labelledby="reconnect-banner-title">
+          <div className="reconnect-banner-copy">
+            <p className="reconnect-banner-label">Game disconnected</p>
+            <h2 id="reconnect-banner-title">Your game is ready to resume</h2>
+            <p id="reconnect-banner-description" className="reconnect-banner-description" role="status">
+              Reconnect to continue your current game. This option is available for five minutes after disconnection.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="reconnect-button"
+            aria-describedby="reconnect-banner-description"
+            onClick={handleReconnectGame}
+            disabled={connectionStatus !== 'connected'}
+          >
+            Reconnect to game
+          </button>
+        </section>
+      )}
       {isLoggedIn ? (
         <>
           <h2 className="info-container">Info: {info}</h2>

@@ -159,6 +159,7 @@ class Player {
         //this.gameStartTime = null;
         this.connected = true;
         this.disconnectedAt = null;
+        this.disconnecting = false;
 
     }
     displayGrid() {
@@ -1509,7 +1510,15 @@ io.on('connection', async (socket) => {
     let gameRoom;
     const userId = socket.userId; // from middleware
 
-    const emitLoginRestore = async (message = "Select Your Mode") => {
+    const notifyOtherSocketsGameClaimed = () => {
+        for (const candidate of io.sockets.sockets.values()) {
+            if (candidate.userId === userId && candidate.id !== socket.id) {
+                candidate.emit("reconnectClaimed");
+            }
+        }
+    };
+
+    const emitLoginRestore = async (message = "Select Your Mode", shouldEmit = () => true) => {
         const user = await User.findById(userId);
         if (!user) {
             socket.emit("logout");
@@ -1517,10 +1526,12 @@ io.on('connection', async (socket) => {
         }
         const games = await findLast10GamesForUser(userId);
         const allGameStats = await calculateWinRate(userId);
-        socket.emit("restoreLogin", userId, user.userName, games, allGameStats, message);
+        if (shouldEmit()) {
+            socket.emit("restoreLogin", userId, user.userName, games, allGameStats, message);
+        }
     };
 
-    const restoreCurrentRoom = async (allowPendingRestore = false) => {
+    const restoreCurrentRoom = async ({ claim = true } = {}) => {
         const user = await User.findById(userId);
         if (!user) {
             return { restored: false };
@@ -1535,13 +1546,17 @@ io.on('connection', async (socket) => {
         if (!player) {
             return { restored: false };
         }
+        if (player.disconnecting) {
+            return { restored: false };
+        }
 
         if (!socket.recovered) {
             const previousSocketIsConnected = player.socketId && io.sockets.sockets.has(player.socketId);
             if (previousSocketIsConnected) {
                 return {
                     restored: false,
-                    pendingSocketId: allowPendingRestore ? player.socketId : null
+                    pendingSocketId: player.socketId,
+                    roomCode
                 };
             }
             if (player.connected || player.disconnectedAt == null) {
@@ -1560,6 +1575,10 @@ io.on('connection', async (socket) => {
             return { restored: false };
         }
 
+        if (!claim) {
+            return { restored: false, available: true, roomCode };
+        }
+
         gameRoom = currentRoom;
         socket.data.roomCode = roomCode;
         socket.join(roomCode);
@@ -1568,6 +1587,7 @@ io.on('connection', async (socket) => {
         player.disconnectedAt = null;
         currentRoom.allDisconnectTime = null;
         currentRoom.firstDisconnect = null;
+        notifyOtherSocketsGameClaimed();
 
         if (isWaiting) {
             const opponentConnected = Boolean(opponent && opponent.connected);
@@ -1658,24 +1678,52 @@ io.on('connection', async (socket) => {
     socket.on("log", (msg) => {
         console.log(msg)
     })
-    socket.on("restoreLogin", async ({ wasReconnect, skipRoomRestore } = {}) => {
+    socket.on("restoreLogin", async () => {
         console.log("Restoring user session for socket", socket.id);
-        if (skipRoomRestore === true) {
-            socket.data.pendingRoomRestoreFor = null;
-            await emitLoginRestore(wasReconnect === true ? "Reconnected" : "Select Your Mode");
-            return;
-        }
-
-        const restoreResult = await restoreCurrentRoom(wasReconnect === true);
+        const restoreResult = await restoreCurrentRoom({ claim: false });
         if (restoreResult.pendingSocketId) {
-            socket.data.pendingRoomRestoreFor = restoreResult.pendingSocketId;
-            socket.emit("restorePending");
+            await emitLoginRestore(
+                "Select Your Mode",
+                () => {
+                    const currentRoom = gameRooms[restoreResult.roomCode];
+                    const player = currentRoom && currentRoom.players[userId];
+                    return Boolean(player && player.connected &&
+                        player.socketId === restoreResult.pendingSocketId);
+                }
+            );
             return;
         }
 
-        socket.data.pendingRoomRestoreFor = null;
+        if (restoreResult.available) {
+            const isStillAvailable = () => {
+                const currentRoom = gameRooms[restoreResult.roomCode];
+                const player = currentRoom && currentRoom.players[userId];
+                const opponent = player && player.opponent && currentRoom.players[player.opponent];
+                const isWaiting = currentRoom && !currentRoom.start && currentRoom.status === 'waiting';
+                const isInProgress = currentRoom && currentRoom.start &&
+                    currentRoom.status === 'in_progress' && opponent;
+                return Boolean(player && !player.connected &&
+                    player.disconnectedAt != null &&
+                    Date.now() - player.disconnectedAt <= RECONNECT_GRACE_PERIOD_MS &&
+                    (isWaiting || isInProgress));
+            };
+            await emitLoginRestore("Select Your Mode", isStillAvailable);
+            if (isStillAvailable()) {
+                socket.emit("reconnectAvailable");
+            }
+            return;
+        }
         if (!restoreResult.restored) {
-            await emitLoginRestore(wasReconnect === true ? "Reconnected" : "Select Your Mode");
+            await emitLoginRestore("Select Your Mode");
+        }
+    })
+    socket.on("reconnectGame", async () => {
+        const restoreResult = await restoreCurrentRoom();
+        if (!restoreResult.restored) {
+            const message = restoreResult.pendingSocketId
+                ? "This game is still active in another tab."
+                : "This game is no longer available to reconnect.";
+            socket.emit("reconnectUnavailable", message);
         }
     })
     socket.on("singleplayer", async () => {
@@ -1975,7 +2023,14 @@ io.on('connection', async (socket) => {
         console.log("in socket.on disconnect: socket.rooms", socket.rooms, "socket.data.roomCode", socket.data.roomCode)
         const forceDisconnect = (reason == "server namespace disconnect" || reason == "client namespace disconnect" || reason == "server shutting down") ? true : false
 
-        if (userId != null && gameRoom != null && gameRoom.players[userId] != null) {
+        const ownsGameRoomSocket = userId != null && gameRoom != null &&
+            gameRooms[gameRoom.roomCode] === gameRoom &&
+            gameRoom.players[userId] != null &&
+            gameRoom.players[userId].socketId === socket.id;
+        if (ownsGameRoomSocket) {
+            if (forceDisconnect) {
+                gameRoom.players[userId].disconnecting = true;
+            }
             const opponent = gameRoom.players[userId].opponent;
             if (gameRoom.isSinglePlayer && forceDisconnect && gameRoom.start == true) {
                 await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
@@ -2080,10 +2135,19 @@ io.on('connection', async (socket) => {
                 }
             }
         }
-        for (const candidate of io.sockets.sockets.values()) {
-            if (candidate.userId === userId && candidate.data.pendingRoomRestoreFor === socket.id) {
-                candidate.data.pendingRoomRestoreFor = null;
-                candidate.emit("retryRoomRestore");
+        const remainingRoom = gameRoom && gameRooms[gameRoom.roomCode];
+        const disconnectedPlayer = remainingRoom && remainingRoom.players[userId];
+        const isWaitingRoom = remainingRoom && !remainingRoom.start && remainingRoom.status === 'waiting';
+        const isInProgress = remainingRoom && remainingRoom.start &&
+            remainingRoom.status === 'in_progress' && disconnectedPlayer && disconnectedPlayer.opponent;
+        if (ownsGameRoomSocket && !forceDisconnect && disconnectedPlayer && !disconnectedPlayer.connected &&
+            disconnectedPlayer.disconnectedAt != null &&
+            Date.now() - disconnectedPlayer.disconnectedAt <= RECONNECT_GRACE_PERIOD_MS &&
+            (isWaitingRoom || isInProgress)) {
+            for (const candidate of io.sockets.sockets.values()) {
+                if (candidate.userId === userId && candidate.id !== socket.id) {
+                    candidate.emit("reconnectAvailable");
+                }
             }
         }
         const sockets = userSockets.get(userId);

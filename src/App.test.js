@@ -22,7 +22,6 @@ jest.mock('./services/socket', () => ({
 }));
 
 beforeEach(() => {
-  sessionStorage.clear();
   api.get.mockRejectedValue({ response: { status: 401 } });
   api.post.mockReset();
   createSocket.mockReset();
@@ -115,6 +114,7 @@ test('requests session reconciliation when the socket connects without recovery'
   const socketInstance = {
     id: 'socket-id',
     recovered: false,
+    connected: true,
     on: jest.fn().mockReturnThis(),
     emit: jest.fn(),
     off: jest.fn(),
@@ -145,17 +145,17 @@ test('requests session reconciliation when the socket connects without recovery'
     connectHandler();
   });
 
-  expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin', { wasReconnect: false });
+  expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin');
 
   act(() => {
     connectHandler();
   });
 
-  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', { wasReconnect: true });
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin');
+
 });
 
-test('retries room restoration after the previous socket disconnects', async () => {
-  sessionStorage.setItem('battleShipSocketConnected:user-id', 'true');
+test('offers a reconnect action when a disconnected game is available', async () => {
   const socketInstance = {
     id: 'socket-id',
     recovered: false,
@@ -190,29 +190,27 @@ test('retries room restoration after the previous socket disconnects', async () 
   act(() => {
     handlerFor('connect')();
   });
-  expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin', { wasReconnect: true });
+  expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin');
 
   act(() => {
-    handlerFor('restorePending')();
+    handlerFor('reconnectAvailable')();
   });
-  expect(screen.getByRole('status')).toHaveTextContent('Connection lost. Reconnecting...');
+  expect(screen.getByRole('region', { name: 'Your game is ready to resume' })).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Reconnect to continue your current game. This option is available for five minutes after disconnection.'
+  );
+  expect(screen.getByRole('button', { name: 'Reconnect to game' })).toBeInTheDocument();
 
   act(() => {
-    handlerFor('retryRoomRestore')();
+    handlerFor('reconnectClaimed')();
   });
-  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', { wasReconnect: true });
+  expect(screen.queryByRole('button', { name: 'Reconnect to game' })).not.toBeInTheDocument();
 
-  jest.useFakeTimers();
   act(() => {
-    handlerFor('restorePending')();
+    handlerFor('reconnectAvailable')();
   });
-  act(() => {
-    jest.advanceTimersByTime(50000);
-  });
-  expect(socketInstance.emit).toHaveBeenLastCalledWith('restoreLogin', {
-    wasReconnect: true,
-    skipRoomRestore: true,
-  });
+  await userEvent.click(screen.getByRole('button', { name: 'Reconnect to game' }));
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('reconnectGame');
 });
 
 test('keeps the last online count visible during a transient disconnect', async () => {
