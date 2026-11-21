@@ -53,6 +53,7 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [reconnectAvailable, setReconnectAvailable] = useState(false);
+  const [reconnectInAnotherTab, setReconnectInAnotherTab] = useState(false);
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
   const [homeConfirmation, setHomeConfirmation] = useState(null);
@@ -177,6 +178,7 @@ const App = () => {
     setChatEnable(true);
     setHomeConfirmation(null);
     setReconnectAvailable(false);
+    setReconnectInAnotherTab(false);
   }
 
   // Call this after login:
@@ -229,6 +231,7 @@ const App = () => {
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
       setReconnectAvailable(false);
+      setReconnectInAnotherTab(false);
 
       if (reason === "io client disconnect") {
         setConnectionStatus('disconnected');
@@ -249,21 +252,27 @@ const App = () => {
       setIsLoading(false);
     });
 
-    socket.current.on("reconnectAvailable", () => {
+    socket.current.on("reconnectAvailable", (availability = {}) => {
+      const activeElsewhere = Boolean(availability && availability.activeElsewhere);
       setConnectionStatus('connected');
       setReconnectAvailable(true);
-      setInfo("A disconnected game is available to reconnect.");
+      setReconnectInAnotherTab(activeElsewhere);
+      setInfo(activeElsewhere
+        ? "Your game is active in another tab."
+        : "A disconnected game is available to reconnect.");
     });
 
     socket.current.on("reconnectClaimed", () => {
       setConnectionStatus('connected');
       setReconnectAvailable(false);
+      setReconnectInAnotherTab(false);
       setInfo("The game was reconnected in another tab.");
     });
 
     socket.current.on("reconnectUnavailable", (msg) => {
       setConnectionStatus('connected');
       setReconnectAvailable(false);
+      setReconnectInAnotherTab(false);
       setInfo(msg);
     });
 
@@ -1203,10 +1212,16 @@ const App = () => {
       {isLoggedIn && reconnectAvailable && (
         <section className="reconnect-banner" aria-labelledby="reconnect-banner-title">
           <div className="reconnect-banner-copy">
-            <p className="reconnect-banner-label">Game disconnected</p>
-            <h2 id="reconnect-banner-title">Your game is ready to resume</h2>
+            <p className="reconnect-banner-label">
+              {reconnectInAnotherTab ? "Game active in another tab" : "Game disconnected"}
+            </p>
+            <h2 id="reconnect-banner-title">
+              {reconnectInAnotherTab ? "Your game is open in another tab" : "Your game is ready to resume"}
+            </h2>
             <p id="reconnect-banner-description" className="reconnect-banner-description" role="status">
-              Reconnect to continue your current game. This option is available for five minutes after disconnection.
+              {reconnectInAnotherTab
+                ? "Reconnect here to move the game to this tab. The other tab will be disconnected."
+                : "Reconnect to continue your current game. This option is available for five minutes after disconnection."}
             </p>
           </div>
           <button
@@ -1216,7 +1231,7 @@ const App = () => {
             onClick={handleReconnectGame}
             disabled={connectionStatus !== 'connected'}
           >
-            Reconnect to game
+            {reconnectInAnotherTab ? "Reconnect in this tab" : "Reconnect to game"}
           </button>
         </section>
       )}

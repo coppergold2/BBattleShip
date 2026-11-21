@@ -193,6 +193,15 @@ test('offers a reconnect action when a disconnected game is available', async ()
   expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin');
 
   act(() => {
+    handlerFor('reconnectAvailable')({ activeElsewhere: true });
+  });
+  expect(screen.getByRole('region', { name: 'Your game is open in another tab' })).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent(
+    'Reconnect here to move the game to this tab. The other tab will be disconnected.'
+  );
+  expect(screen.getByRole('button', { name: 'Reconnect in this tab' })).toBeInTheDocument();
+
+  act(() => {
     handlerFor('reconnectAvailable')();
   });
   expect(screen.getByRole('region', { name: 'Your game is ready to resume' })).toBeInTheDocument();

@@ -1531,7 +1531,7 @@ io.on('connection', async (socket) => {
         }
     };
 
-    const restoreCurrentRoom = async ({ claim = true } = {}) => {
+    const restoreCurrentRoom = async ({ claim = true, allowTakeover = false } = {}) => {
         const user = await User.findById(userId);
         if (!user) {
             return { restored: false };
@@ -1550,15 +1550,21 @@ io.on('connection', async (socket) => {
             return { restored: false };
         }
 
-        if (!socket.recovered) {
-            const previousSocketIsConnected = player.socketId && io.sockets.sockets.has(player.socketId);
-            if (previousSocketIsConnected) {
-                return {
-                    restored: false,
-                    pendingSocketId: player.socketId,
-                    roomCode
-                };
-            }
+        const previousSocket = player.socketId
+            ? io.sockets.sockets.get(player.socketId)
+            : null;
+        const previousSocketIsConnected = player.connected &&
+            previousSocket &&
+            previousSocket.id !== socket.id;
+        if (previousSocketIsConnected && !allowTakeover) {
+            return {
+                restored: false,
+                pendingSocketId: player.socketId,
+                roomCode
+            };
+        }
+
+        if (!socket.recovered && !previousSocketIsConnected) {
             if (player.connected || player.disconnectedAt == null) {
                 player.connected = false;
                 player.disconnectedAt = Date.now();
@@ -1582,11 +1588,15 @@ io.on('connection', async (socket) => {
         gameRoom = currentRoom;
         socket.data.roomCode = roomCode;
         socket.join(roomCode);
+        const previousSocketId = player.socketId;
         player.socketId = socket.id;
         player.connected = true;
         player.disconnectedAt = null;
         currentRoom.allDisconnectTime = null;
         currentRoom.firstDisconnect = null;
+        if (previousSocketIsConnected && previousSocketId !== socket.id) {
+            previousSocket.disconnect(true);
+        }
         notifyOtherSocketsGameClaimed();
 
         if (isWaiting) {
@@ -1682,15 +1692,20 @@ io.on('connection', async (socket) => {
         console.log("Restoring user session for socket", socket.id);
         const restoreResult = await restoreCurrentRoom({ claim: false });
         if (restoreResult.pendingSocketId) {
+            const isStillOwnedByOtherTab = () => {
+                const currentRoom = gameRooms[restoreResult.roomCode];
+                const player = currentRoom && currentRoom.players[userId];
+                return Boolean(player && !player.disconnecting && player.connected &&
+                    player.socketId === restoreResult.pendingSocketId &&
+                    io.sockets.sockets.has(restoreResult.pendingSocketId));
+            };
             await emitLoginRestore(
                 "Select Your Mode",
-                () => {
-                    const currentRoom = gameRooms[restoreResult.roomCode];
-                    const player = currentRoom && currentRoom.players[userId];
-                    return Boolean(player && player.connected &&
-                        player.socketId === restoreResult.pendingSocketId);
-                }
+                isStillOwnedByOtherTab
             );
+            if (isStillOwnedByOtherTab()) {
+                socket.emit("reconnectAvailable", { activeElsewhere: true });
+            }
             return;
         }
 
@@ -1709,7 +1724,7 @@ io.on('connection', async (socket) => {
             };
             await emitLoginRestore("Select Your Mode", isStillAvailable);
             if (isStillAvailable()) {
-                socket.emit("reconnectAvailable");
+                socket.emit("reconnectAvailable", { activeElsewhere: false });
             }
             return;
         }
@@ -1718,7 +1733,7 @@ io.on('connection', async (socket) => {
         }
     })
     socket.on("reconnectGame", async () => {
-        const restoreResult = await restoreCurrentRoom();
+        const restoreResult = await restoreCurrentRoom({ allowTakeover: true });
         if (!restoreResult.restored) {
             const message = restoreResult.pendingSocketId
                 ? "This game is still active in another tab."
@@ -2146,7 +2161,7 @@ io.on('connection', async (socket) => {
             (isWaitingRoom || isInProgress)) {
             for (const candidate of io.sockets.sockets.values()) {
                 if (candidate.userId === userId && candidate.id !== socket.id) {
-                    candidate.emit("reconnectAvailable");
+                    candidate.emit("reconnectAvailable", { activeElsewhere: false });
                 }
             }
         }
