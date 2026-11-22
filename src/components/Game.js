@@ -1,7 +1,7 @@
 import React from 'react';
 import Board from './Board';
 import ShipOptions from './ShipOption';
-import './App.css'
+import '../App.css'
 import Buttons from './Buttons'
 import Chat from './Chat'
 import Command from './Command'

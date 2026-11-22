@@ -29,10 +29,11 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "concurrently \"cross-env BROWSER=none react-scripts start\" \"node server.js\"",
-    "start:server": "node server.js",
+    "start": "concurrently \"cross-env BROWSER=none react-scripts start\" \"node server/index.js\"",
+    "start:server": "node server/index.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:server": "node --test server/services/reconnectExpiryPolicy.test.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

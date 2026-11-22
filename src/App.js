@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './App.css'
-import Game from './Game'
-import Home from './Home'
-import Login from './Login'
+import Game from './components/Game'
+import Home from './components/Home'
+import Login from './components/Login'
 import api from './services/api';
 import { createSocket } from './services/socket';
 

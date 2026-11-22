@@ -1,10 +1,12 @@
-require('dotenv').config();
+const path = require('path');
+const projectRoot = path.resolve(__dirname, '..');
+require('dotenv').config({ path: path.join(projectRoot, '.env') });
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
-const User = require('./db/UserSchema');  // Import the User model
-const Game = require('./db/GameSchema');
+const User = require('./models/User');
+const Game = require('./models/Game');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -13,7 +15,7 @@ const cookie = require('cookie');
 const {
     getReconnectExpiryAt,
     selectExpiredPlayer
-} = require('./server/reconnectExpiryPolicy');
+} = require('./services/reconnectExpiryPolicy');
 const app = express();
 const server = http.createServer(app);
 const helmet = require("helmet");
@@ -2581,10 +2583,9 @@ function startBackgroundTasks() {
 
 }
 
-const path = require('path');
-
 // Serve static files from React
-app.use(express.static(path.join(__dirname, 'build')));
+const buildDirectory = path.join(projectRoot, 'build');
+app.use(express.static(buildDirectory));
 
 app.use('/api', (req, res) => {
     res.status(404).json({ message: 'API route not found' });
@@ -2592,7 +2593,7 @@ app.use('/api', (req, res) => {
 
 // Serve React app for any route not handled by API
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'build', 'index.html'));
+    res.sendFile(path.join(buildDirectory, 'index.html'));
 });
 
 async function startServer() {

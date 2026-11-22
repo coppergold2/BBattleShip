@@ -4,7 +4,7 @@ Pre. need to install mongoDB
 2. Start MongoDB.
 3. Run `npm start` to start the React frontend and backend together.
 
-To run only the backend (for example, when the frontend is hosted separately), use `npm run start:server`. The backend serves the production frontend from `build/` when that directory is present.
+To run only the backend (for example, when the frontend is hosted separately), use `npm run start:server`. The backend serves the production frontend from the root `build/` directory when that directory is present.
 4.  Aimed to store and manage all the game state in the server side and the AI should be good, if not AGI
 
 Create a `.env` file with the following local-development values. Keep secrets server-side and configure origins/URLs for deployment:
@@ -28,3 +28,14 @@ The game is hosted on https://bbattleship.onrender.com/
 Multiple tabs can be logged in using the same account, but only one game can be played at a time per account. It is not possible to play two games simultaneously using the same account.
 
 The website is primarily designed for desktop screens but is also optimized for mobile and smaller screens. After a temporary disconnect, an active game can be restored for up to five minutes. Socket.IO can automatically recover the same connection. If another tab still owns the game, a new tab can explicitly take it over; the previous socket is disconnected and the new tab becomes the sole owner. Otherwise, the app offers a "Reconnect to game" button when the server confirms the game is available. If the disconnected player does not return within five minutes, the server ends the match as a forfeit (or expires that player's unstarted waiting-room session) and clears the reconnect banner from that player's tabs. Other signed-in tabs are notified when a game starts or ownership changes; the reconnect banner remains available in other tabs and can be minimized and restored. Starting a different game while a previous session exists requires confirmation; abandoning an in-progress match can record a forfeit or loss. Game state is held in server memory, so an active game cannot be restored after the server process restarts.
+
+## Project layout
+
+- `src/` contains the Create React App entry point, app-level styles, tests, and API/socket clients.
+- `src/components/` contains reusable game and account UI components.
+- `server/index.js` is the Express and Socket.IO backend entry point.
+- `server/models/` contains the Mongoose models; `server/services/` contains backend helpers.
+- `public/` contains static frontend files; `docs/` contains project notes and reference screenshots.
+
+Use npm as the package manager; `package-lock.json` is the canonical dependency lockfile.
+Run frontend tests with `npm test` and backend service tests with `npm run test:server`.
