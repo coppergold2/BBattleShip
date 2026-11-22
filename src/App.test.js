@@ -22,6 +22,16 @@ jest.mock('./services/socket', () => ({
 }));
 
 beforeEach(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function showModal() {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function close() {
+      this.removeAttribute('open');
+    };
+  }
   api.get.mockRejectedValue({ response: { status: 401 } });
   api.post.mockReset();
   createSocket.mockReset();
@@ -193,33 +203,78 @@ test('offers a reconnect action when a disconnected game is available', async ()
   expect(socketInstance.emit).toHaveBeenCalledWith('restoreLogin');
 
   act(() => {
-    handlerFor('reconnectAvailable')({ activeElsewhere: true });
+    handlerFor('reconnectAvailable')({ activeElsewhere: true, roomCode: 'active-room' });
   });
   expect(screen.getByRole('region', { name: 'Your game is open in another tab' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Info: Your game is active in another tab.' })).not.toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent(
     'Reconnect here to move the game to this tab. The other tab will be disconnected.'
   );
   expect(screen.getByRole('button', { name: 'Reconnect in this tab' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Minimize' }));
+  expect(screen.getByRole('region', { name: 'Reconnect banner minimized' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Show reconnect options' })).toHaveAttribute('aria-expanded', 'false');
+  await userEvent.click(screen.getByRole('button', { name: 'Show reconnect options' }));
+  expect(screen.getByRole('region', { name: 'Your game is open in another tab' })).toBeInTheDocument();
 
   act(() => {
-    handlerFor('reconnectAvailable')();
+    handlerFor('reconnectDismissed')({ roomCode: 'different-room' });
+  });
+  expect(screen.getByRole('button', { name: 'Reconnect in this tab' })).toBeInTheDocument();
+
+  act(() => {
+    handlerFor('reconnectDismissed')({ roomCode: 'active-room' });
+  });
+  expect(screen.queryByRole('button', { name: 'Reconnect in this tab' })).not.toBeInTheDocument();
+
+  act(() => {
+    handlerFor('reconnectAvailable')({ roomCode: 'disconnected-room' });
   });
   expect(screen.getByRole('region', { name: 'Your game is ready to resume' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Info: A disconnected game is available to reconnect.' })).not.toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent(
     'Reconnect to continue your current game. This option is available for five minutes after disconnection.'
   );
   expect(screen.getByRole('button', { name: 'Reconnect to game' })).toBeInTheDocument();
 
   act(() => {
-    handlerFor('reconnectClaimed')();
+    handlerFor('reconnectClaimed')({ roomCode: 'disconnected-room' });
   });
   expect(screen.queryByRole('button', { name: 'Reconnect to game' })).not.toBeInTheDocument();
+  expect(screen.getByRole('region', { name: 'Your game is open in another tab' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Reconnect in this tab' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Info: The game was reconnected in another tab.' })).not.toBeInTheDocument();
+
+  act(() => {
+    handlerFor('reconnectDismissed')({ roomCode: 'disconnected-room' });
+  });
+  expect(screen.queryByRole('button', { name: 'Reconnect in this tab' })).not.toBeInTheDocument();
 
   act(() => {
     handlerFor('reconnectAvailable')();
   });
   await userEvent.click(screen.getByRole('button', { name: 'Reconnect to game' }));
   expect(socketInstance.emit).toHaveBeenLastCalledWith('reconnectGame');
+
+  await userEvent.click(screen.getByRole('button', { name: 'Single Player vs Computer' }));
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('requestGameStart', 'singleplayer');
+
+  socketInstance.connected = true;
+  act(() => {
+    handlerFor('gameStartConfirmationRequired')({
+      mode: 'singleplayer',
+      roomCode: 'previous-room',
+      activeElsewhere: true,
+      inProgress: true,
+    });
+  });
+  expect(screen.getByRole('dialog')).toHaveTextContent('Your game is still active in another tab.');
+  expect(screen.getByRole('button', { name: 'Keep previous game' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Abandon & start single-player' }));
+  expect(socketInstance.emit).toHaveBeenLastCalledWith('abandonGameAndStart', {
+    mode: 'singleplayer',
+    roomCode: 'previous-room',
+  });
 });
 
 test('keeps the last online count visible during a transient disconnect', async () => {

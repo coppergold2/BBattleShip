@@ -81,6 +81,7 @@ const width = 10;
 let AIFirstTimeHitNewShip = false;
 //let gameStartTime;
 const userSockets = new Map();
+const gameStartOperations = new Set();
 app.use(express.json({ limit: '16kb' }));
 
 // MongoDB connection URI
@@ -268,6 +269,14 @@ const ships = {
 
 const players = {};
 const gameRooms = {}; // roomCode => game session
+const notifyReconnectDismissed = (userIds, roomCode) => {
+    const userIdSet = new Set(userIds.map(String));
+    for (const candidate of io.sockets.sockets.values()) {
+        if (userIdSet.has(String(candidate.userId))) {
+            candidate.emit("reconnectDismissed", { roomCode });
+        }
+    }
+};
 const hitMessage = (col, row, userName) => {
     return { [userName]: `hit at row ${row} column ${col}.` }
 }
@@ -1054,67 +1063,6 @@ const handleDestroyComm = async (hitter, receiver, pos, roomCode) => {
 
 }
 
-const checkExistingGame = async (userId) => {
-    const user = await User.findById(userId)
-    if (user.currGameRoom != null) {
-        if (gameRooms[user.currGameRoom]) {
-            const gameRoom = gameRooms[user.currGameRoom]
-            if (gameRoom.players[userId]) {
-                if (gameRoom.players[userId].connected == true) {
-                    return false;
-                }
-                else {
-                    const opponent = gameRoom.players[userId].opponent
-                    console.log("got to check connected is false")
-                    if (gameRoom.start) {  // opponent is guarenteed to be not null
-                        if (gameRoom.isSinglePlayer) {
-                            await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
-                            delete gameRooms[gameRoom.roomCode];
-                        }
-                        else if (gameRoom.players[opponent].connected == false) { // guarenteed to be multiplayer
-                            if (userId == gameRoom.firstDisconnect) {
-                                await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
-                            }
-                            else {
-                                await handleGameEndDB(userId, opponent, "Quit", gameRoom.roomCode);
-                            }
-                            delete gameRooms[gameRoom.roomCode];
-                        }
-                        else if (gameRoom.players[opponent].connected == true) {
-                            await handleGameEndDB(opponent, userId, "Quit", gameRoom.roomCode);
-                            gameRoom.start = false;
-                            gameRoom.status = 'finished';
-                            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has quit, player ${gameRoom.players[opponent].userName} has won!` });
-                            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-                            io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[userId].userName} has quit, you have won!`)
-                            gameRoom.players[opponent].opponent = null
-                            delete gameRoom.players[userId]
-
-                        }
-                    }
-                    else {
-                        if (gameRoom.isSinglePlayer == false && opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true) {
-                            const message = `Your opponent ${gameRoom.players[userId].userName} has left`
-                            io.to(gameRoom.players[opponent].socketId).emit("info", message)
-                            gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
-                            io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
-                            gameRoom.players[opponent].opponent = null
-                            delete gameRoom.players[userId]
-                        }
-                        else {
-                            delete gameRooms[gameRoom.roomCode]
-                        }
-                    }
-
-                }
-            }
-        }
-        user.currGameRoom = null;
-        await user.save();
-    }
-
-    return true;
-}
 const handleGameEndDB = async (hitter, receiver, gameEndType, roomCode) => {
     try {
         const gameRoom = gameRooms[roomCode];
@@ -1174,6 +1122,7 @@ const handleGameEndDB = async (hitter, receiver, gameEndType, roomCode) => {
         // Wait for all updates to complete
         await Promise.all(updatePromises);
 
+        notifyReconnectDismissed(Object.keys(gameRoom.players), roomCode);
         console.log('Game ended and saved successfully');
         return savedGame;
     } catch (error) {
@@ -1510,10 +1459,21 @@ io.on('connection', async (socket) => {
     let gameRoom;
     const userId = socket.userId; // from middleware
 
-    const notifyOtherSocketsGameClaimed = () => {
+    const notifyOtherSocketsGameClaimed = (roomCode) => {
         for (const candidate of io.sockets.sockets.values()) {
             if (candidate.userId === userId && candidate.id !== socket.id) {
-                candidate.emit("reconnectClaimed");
+                candidate.emit("reconnectClaimed", { roomCode });
+            }
+        }
+    };
+
+    const notifyOtherSocketsGameStarted = (roomCode) => {
+        for (const candidate of io.sockets.sockets.values()) {
+            if (candidate.userId === userId && candidate.id !== socket.id) {
+                candidate.emit("reconnectAvailable", {
+                    activeElsewhere: true,
+                    roomCode
+                });
             }
         }
     };
@@ -1595,9 +1555,10 @@ io.on('connection', async (socket) => {
         currentRoom.allDisconnectTime = null;
         currentRoom.firstDisconnect = null;
         if (previousSocketIsConnected && previousSocketId !== socket.id) {
+            previousSocket.emit("gameTakenOver");
             previousSocket.disconnect(true);
         }
-        notifyOtherSocketsGameClaimed();
+        notifyOtherSocketsGameClaimed(roomCode);
 
         if (isWaiting) {
             const opponentConnected = Boolean(opponent && opponent.connected);
@@ -1695,16 +1656,24 @@ io.on('connection', async (socket) => {
             const isStillOwnedByOtherTab = () => {
                 const currentRoom = gameRooms[restoreResult.roomCode];
                 const player = currentRoom && currentRoom.players[userId];
+                const isWaiting = currentRoom && !currentRoom.start && currentRoom.status === 'waiting';
+                const isInProgress = currentRoom && currentRoom.start &&
+                    currentRoom.status === 'in_progress' && player && player.opponent &&
+                    currentRoom.players[player.opponent];
                 return Boolean(player && !player.disconnecting && player.connected &&
                     player.socketId === restoreResult.pendingSocketId &&
-                    io.sockets.sockets.has(restoreResult.pendingSocketId));
+                    io.sockets.sockets.has(restoreResult.pendingSocketId) &&
+                    (isWaiting || isInProgress));
             };
             await emitLoginRestore(
                 "Select Your Mode",
                 isStillOwnedByOtherTab
             );
             if (isStillOwnedByOtherTab()) {
-                socket.emit("reconnectAvailable", { activeElsewhere: true });
+                socket.emit("reconnectAvailable", {
+                    activeElsewhere: true,
+                    roomCode: restoreResult.roomCode
+                });
             }
             return;
         }
@@ -1724,7 +1693,10 @@ io.on('connection', async (socket) => {
             };
             await emitLoginRestore("Select Your Mode", isStillAvailable);
             if (isStillAvailable()) {
-                socket.emit("reconnectAvailable", { activeElsewhere: false });
+                socket.emit("reconnectAvailable", {
+                    activeElsewhere: false,
+                    roomCode: restoreResult.roomCode
+                });
             }
             return;
         }
@@ -1741,53 +1713,169 @@ io.on('connection', async (socket) => {
             socket.emit("reconnectUnavailable", message);
         }
     })
-    socket.on("singleplayer", async () => {
-        const canCreateGame = await checkExistingGame(userId);
-        console.log("canCreateGame in singlePlayer", canCreateGame)
-        if (canCreateGame == true) {
-            const user = await User.findById(userId)
-            const { roomCode, gameId } = createGameSession({
-                isSinglePlayer: true,
-                playerId: userId,
-                socketId: socket.id,
-                userName: user.userName
-            }); user.currGameRoom = roomCode;
-            socket.data.roomCode = roomCode;
-            socket.join(roomCode);
-            gameRoom = gameRooms[roomCode];
-            user.currGameRoom = roomCode
-            await user.save();
-            socket.emit('singleplayer')
+    const abandonExistingGame = async (user, currentRoom, player) => {
+        const previousSocket = player.socketId
+            ? io.sockets.sockets.get(player.socketId)
+            : null;
+        const opponentId = player.opponent;
+        const opponent = opponentId && currentRoom.players[opponentId];
+        if (!(currentRoom.start && opponent)) {
+            const opponentSocketIsConnected = opponent && opponent.connected &&
+                opponent.socketId && io.sockets.sockets.has(opponent.socketId);
+            const userIds = currentRoom.status === 'finished' ||
+                (opponent && !opponentSocketIsConnected)
+                ? Object.keys(currentRoom.players)
+                : [userId];
+            notifyReconnectDismissed(userIds, currentRoom.roomCode);
+        }
+        player.disconnecting = true;
 
+        if (previousSocket && previousSocket.id !== socket.id) {
+            previousSocket.emit("gameTakenOver");
+            previousSocket.disconnect(true);
+        } else if (previousSocket === socket) {
+            socket.leave(currentRoom.roomCode);
+            socket.data.roomCode = null;
+            gameRoom = null;
         }
-        else {
-            socket.emit("alert", "The server indicates that you're still in a game. If you're playing in another tab, please return to it. Otherwise, please wait a moment while the server clears up your session.");
-        }
-        console.log("gameRooms in singleplayer event", gameRooms)
-        console.log("userId", userId)
-    })
-    socket.on("multiplayer", async () => {
-        const canCreateGame = await checkExistingGame(userId);
-        console.log("canCreateGame in multiPlayer", canCreateGame)
-        if (canCreateGame == true) {
-            const user = await User.findById(userId)
-            // Join or create
-            let { roomCode, gameId } = findOpenRoom() || {};
-            if (!roomCode) {
-                ({ roomCode, gameId } = createGameSession({ isSinglePlayer: false, playerId: userId, socketId: socket.id, userName: user.userName }));
-                gameRoom = gameRooms[roomCode]
+
+        try {
+            if (currentRoom.start && opponent) {
+                await handleGameEndDB(opponentId, userId, "Quit", currentRoom.roomCode);
+                currentRoom.start = false;
+                currentRoom.status = 'finished';
+
+                if (!currentRoom.isSinglePlayer) {
+                    const message = {
+                        admin: `Player ${player.userName} quit the game.`
+                    };
+                    currentRoom.messages.push(message);
+                    if (opponent.socketId && io.sockets.sockets.has(opponent.socketId)) {
+                        io.to(opponent.socketId).emit("oquit",
+                            `Your opponent ${player.userName} has quit, you have won!`,
+                            await findLast10GamesForUser(opponentId),
+                            await calculateWinRate(opponentId));
+                        io.to(opponent.socketId).emit("message", message);
+                    }
+                    opponent.opponent = null;
+                    delete currentRoom.players[userId];
+                } else {
+                    delete gameRooms[currentRoom.roomCode];
+                }
+            } else if (!currentRoom.isSinglePlayer && opponent) {
+                if (opponent.socketId && io.sockets.sockets.has(opponent.socketId)) {
+                    const message = {
+                        admin: `Player ${player.userName} left the game room.`
+                    };
+                    currentRoom.messages.push(message);
+                    io.to(opponent.socketId).emit("info", `Your opponent ${player.userName} left`);
+                    io.to(opponent.socketId).emit("message", message);
+                    opponent.opponent = null;
+                    delete currentRoom.players[userId];
+                } else {
+                    delete gameRooms[currentRoom.roomCode];
+                }
+            } else {
+                delete gameRooms[currentRoom.roomCode];
             }
-            else {
-                gameRoom = gameRooms[roomCode]
-                gameRoom.players[userId] = new Player(userId, user.userName, socket.id)
-                for (let playerId in gameRoom.players) {
-                    if (gameRoom.players.hasOwnProperty(playerId)) {
-                        if (playerId != userId) {
-                            const opponent = playerId
-                            gameRoom.players[userId].opponent = opponent
-                            gameRoom.players[opponent].opponent = userId
-                            io.to(gameRoom.players[opponent].socketId).emit("info", `Player ${user.userName} has joined`)
-                        }
+
+            user.currGameRoom = null;
+            await user.save();
+        } catch (error) {
+            if (gameRooms[currentRoom.roomCode] === currentRoom &&
+                currentRoom.players[userId] === player) {
+                player.disconnecting = false;
+                player.connected = false;
+                player.disconnectedAt = Date.now();
+                const anotherPlayerConnected = Object.values(currentRoom.players)
+                    .some((roomPlayer) => roomPlayer !== player && roomPlayer.connected);
+                currentRoom.allDisconnectTime = anotherPlayerConnected ? null : Date.now();
+            }
+            throw error;
+        }
+    };
+
+    const startRequestedGame = async (mode, confirmedRoomCode = null) => {
+        if (mode !== 'singleplayer' && mode !== 'multiplayer') {
+            socket.emit("startGameError", "Please choose a valid game mode.");
+            return;
+        }
+        if (gameStartOperations.has(userId)) {
+            socket.emit("startGameError", "A game request is already being processed. Please wait.");
+            return;
+        }
+
+        gameStartOperations.add(userId);
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                socket.emit("logout");
+                return;
+            }
+
+            const currentRoom = user.currGameRoom && gameRooms[user.currGameRoom];
+            const currentPlayer = currentRoom && currentRoom.players[userId];
+            if (currentPlayer) {
+                if (currentPlayer.disconnecting) {
+                    socket.emit("startGameError", "Your previous game is still closing. Please try again in a moment.");
+                    return;
+                }
+                if (confirmedRoomCode !== currentRoom.roomCode) {
+                    const ownerSocket = currentPlayer.connected && currentPlayer.socketId
+                        ? io.sockets.sockets.get(currentPlayer.socketId)
+                        : null;
+                    socket.emit("gameStartConfirmationRequired", {
+                        mode,
+                        roomCode: currentRoom.roomCode,
+                        activeElsewhere: Boolean(ownerSocket && ownerSocket.id !== socket.id),
+                        inProgress: currentRoom.start && currentRoom.status === 'in_progress'
+                    });
+                    return;
+                }
+                await abandonExistingGame(user, currentRoom, currentPlayer);
+            } else if (confirmedRoomCode) {
+                socket.emit("startGameError", "Your previous game has already changed. Please try again.");
+                return;
+            } else if (user.currGameRoom) {
+                user.currGameRoom = null;
+                await user.save();
+            }
+
+            if (mode === 'singleplayer') {
+                const { roomCode } = createGameSession({
+                    isSinglePlayer: true,
+                    playerId: userId,
+                    socketId: socket.id,
+                    userName: user.userName
+                });
+                user.currGameRoom = roomCode;
+                gameRoom = gameRooms[roomCode];
+                socket.data.roomCode = roomCode;
+                socket.join(roomCode);
+                await user.save();
+                notifyOtherSocketsGameStarted(roomCode);
+                socket.emit("singleplayer");
+                return;
+            }
+
+            let { roomCode } = findOpenRoom() || {};
+            if (!roomCode) {
+                ({ roomCode } = createGameSession({
+                    isSinglePlayer: false,
+                    playerId: userId,
+                    socketId: socket.id,
+                    userName: user.userName
+                }));
+                gameRoom = gameRooms[roomCode];
+            } else {
+                gameRoom = gameRooms[roomCode];
+                gameRoom.players[userId] = new Player(userId, user.userName, socket.id);
+                for (const playerId in gameRoom.players) {
+                    if (Object.prototype.hasOwnProperty.call(gameRoom.players, playerId) &&
+                        playerId !== userId) {
+                        gameRoom.players[userId].opponent = playerId;
+                        gameRoom.players[playerId].opponent = userId;
+                        io.to(gameRoom.players[playerId].socketId).emit("info", `Player ${user.userName} has joined`);
                     }
                 }
             }
@@ -1795,16 +1883,27 @@ io.on('connection', async (socket) => {
             await user.save();
             socket.data.roomCode = roomCode;
             socket.join(roomCode);
-            socket.emit("multiplayer")
-            if (Object.keys(gameRoom.players).length == 2) {
-                const opponent = gameRoom.players[userId].opponent
-                socket.emit("info", `You have joined a game room with player ${gameRoom.players[opponent].userName}`)
+            notifyOtherSocketsGameStarted(roomCode);
+            socket.emit("multiplayer");
+            if (Object.keys(gameRoom.players).length === 2) {
+                const opponentId = gameRoom.players[userId].opponent;
+                socket.emit("info", `You have joined a game room with player ${gameRoom.players[opponentId].userName}`);
             }
+        } catch (error) {
+            console.error(`Error starting ${mode} game for user ${userId}:`, error);
+            socket.emit("startGameError", "The game could not be started. Please try again.");
+        } finally {
+            gameStartOperations.delete(userId);
         }
-        else {
-            socket.emit("alert", "The server indicates that you're still in a game. If you're playing in another tab, please return to it. Otherwise, please wait a moment while the server clears up your session.");
-        }
-    })
+    };
+
+    socket.on("requestGameStart", (mode) => {
+        startRequestedGame(mode);
+    });
+    socket.on("abandonGameAndStart", (request = {}) => {
+        const { mode, roomCode } = request || {};
+        startRequestedGame(mode, roomCode);
+    });
     socket.on("random", () => { if (gameRoom.start == false) { randomBoatPlacement(socket.data.roomCode, userId); gameRoom.players[userId].numPlaceShip = 5; socket.emit("randomresult", gameRoom.players[userId].shipLoc); } })
     socket.on("flip", () => {
         gameRoom.players[userId].isFlipped = !gameRoom.players[userId].isFlipped;
@@ -2041,12 +2140,20 @@ io.on('connection', async (socket) => {
         const ownsGameRoomSocket = userId != null && gameRoom != null &&
             gameRooms[gameRoom.roomCode] === gameRoom &&
             gameRoom.players[userId] != null &&
+            !gameRoom.players[userId].disconnecting &&
             gameRoom.players[userId].socketId === socket.id;
         if (ownsGameRoomSocket) {
+            const opponent = gameRoom.players[userId].opponent;
             if (forceDisconnect) {
                 gameRoom.players[userId].disconnecting = true;
+                if (!gameRoom.start) {
+                    const userIds = !gameRoom.isSinglePlayer && gameRoom.players[opponent] &&
+                        gameRoom.players[opponent].connected
+                        ? [userId]
+                        : Object.keys(gameRoom.players);
+                    notifyReconnectDismissed(userIds, gameRoom.roomCode);
+                }
             }
-            const opponent = gameRoom.players[userId].opponent;
             if (gameRoom.isSinglePlayer && forceDisconnect && gameRoom.start == true) {
                 await handleGameEndDB(opponent, userId, 'Quit', gameRoom.roomCode);
                 const user = await User.findById(userId)
@@ -2161,7 +2268,10 @@ io.on('connection', async (socket) => {
             (isWaitingRoom || isInProgress)) {
             for (const candidate of io.sockets.sockets.values()) {
                 if (candidate.userId === userId && candidate.id !== socket.id) {
-                    candidate.emit("reconnectAvailable", { activeElsewhere: false });
+                    candidate.emit("reconnectAvailable", {
+                        activeElsewhere: false,
+                        roomCode: gameRoom.roomCode
+                    });
                 }
             }
         }
@@ -2184,6 +2294,17 @@ io.on('connection', async (socket) => {
             socket.leave(gameRoom.roomCode)
             if (gameRooms[gameRoom.roomCode] != null) {
                 const opponent = gameRoom.players[userId].opponent
+                if (!gameRoom.start) {
+                    const opponentSocketIsConnected = opponent && gameRoom.players[opponent] &&
+                        gameRoom.players[opponent].connected &&
+                        gameRoom.players[opponent].socketId &&
+                        io.sockets.sockets.has(gameRoom.players[opponent].socketId);
+                    const userIds = gameRoom.status === 'finished' ||
+                        (opponent && !opponentSocketIsConnected)
+                        ? Object.keys(gameRoom.players)
+                        : [userId];
+                    notifyReconnectDismissed(userIds, gameRoom.roomCode);
+                }
                 // Check if the game has ended for the current player
                 if (gameRoom.start) {
                     if (gameRoom.isSinglePlayer || (gameRoom.isSinglePlayer == false && opponent && gameRoom.players[opponent] && gameRoom.players[opponent].connected == true)) {
@@ -2288,6 +2409,8 @@ function startBackgroundTasks() {
                     }
 
                     await handleGameEndDB(winner, loser, "Quit", gameRoom.roomCode);
+                } else {
+                    notifyReconnectDismissed(Object.keys(gameRoom.players), gameRoom.roomCode);
                 }
 
                 delete gameRooms[gameRoom.roomCode];

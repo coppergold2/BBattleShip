@@ -11,6 +11,8 @@ const App = () => {
   const heartbeatInterval = useRef(null);
   const homeDialogRef = useRef(null);
   const cancelHomeRef = useRef(null);
+  const serverRequestedSocketDisconnect = useRef(false);
+  const reconnectRoomCode = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
   const [singlePlayer, setSinglePlayer] = useState(false);
   const [multiPlayer, setMultiPlayer] = useState(false);
@@ -54,6 +56,8 @@ const App = () => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [reconnectAvailable, setReconnectAvailable] = useState(false);
   const [reconnectInAnotherTab, setReconnectInAnotherTab] = useState(false);
+  const [reconnectMinimized, setReconnectMinimized] = useState(false);
+  const [pendingGameStart, setPendingGameStart] = useState(null);
   const isLoadingRef = useRef(isLoading);
   const [gameFinished, setGameFinished] = useState(false);
   const [homeConfirmation, setHomeConfirmation] = useState(null);
@@ -104,6 +108,9 @@ const App = () => {
     const handleDialogCancel = (event) => {
       event.preventDefault();
       setHomeConfirmation(null);
+      if (homeConfirmation === 'abandonStart') {
+        setPendingGameStart(null);
+      }
     };
 
     dialog.addEventListener('cancel', handleDialogCancel);
@@ -179,6 +186,9 @@ const App = () => {
     setHomeConfirmation(null);
     setReconnectAvailable(false);
     setReconnectInAnotherTab(false);
+    setReconnectMinimized(false);
+    setPendingGameStart(null);
+    reconnectRoomCode.current = null;
   }
 
   // Call this after login:
@@ -239,6 +249,13 @@ const App = () => {
       }
 
       if (reason === "io server disconnect") {
+        if (serverRequestedSocketDisconnect.current) {
+          serverRequestedSocketDisconnect.current = false;
+          setConnectionStatus('reconnecting');
+          setIsLoading(false);
+          setTimeout(() => socket.current?.connect(), 0);
+          return;
+        }
         setConnectionStatus('disconnected');
         setIsLoggedIn(false);
         document.title = "BattleShip";
@@ -252,28 +269,65 @@ const App = () => {
       setIsLoading(false);
     });
 
+    socket.current.on("gameTakenOver", () => {
+      serverRequestedSocketDisconnect.current = true;
+      reset();
+      setInfo("This game was moved or abandoned in another tab. Reconnecting your account...");
+    });
+
     socket.current.on("reconnectAvailable", (availability = {}) => {
       const activeElsewhere = Boolean(availability && availability.activeElsewhere);
+      const roomCode = availability?.roomCode || null;
+      if (roomCode && reconnectRoomCode.current !== roomCode) {
+        setReconnectMinimized(false);
+      }
+      reconnectRoomCode.current = roomCode;
       setConnectionStatus('connected');
       setReconnectAvailable(true);
       setReconnectInAnotherTab(activeElsewhere);
-      setInfo(activeElsewhere
-        ? "Your game is active in another tab."
-        : "A disconnected game is available to reconnect.");
     });
 
-    socket.current.on("reconnectClaimed", () => {
+    socket.current.on("reconnectClaimed", ({ roomCode } = {}) => {
+      if (roomCode) {
+        if (reconnectRoomCode.current !== roomCode) {
+          setReconnectMinimized(false);
+        }
+        reconnectRoomCode.current = roomCode;
+      }
       setConnectionStatus('connected');
-      setReconnectAvailable(false);
-      setReconnectInAnotherTab(false);
-      setInfo("The game was reconnected in another tab.");
+      setReconnectAvailable(true);
+      setReconnectInAnotherTab(true);
     });
 
     socket.current.on("reconnectUnavailable", (msg) => {
+      reconnectRoomCode.current = null;
       setConnectionStatus('connected');
       setReconnectAvailable(false);
       setReconnectInAnotherTab(false);
+      setReconnectMinimized(false);
       setInfo(msg);
+    });
+
+    socket.current.on("reconnectDismissed", ({ roomCode } = {}) => {
+      if (roomCode && reconnectRoomCode.current !== roomCode) {
+        return;
+      }
+      reconnectRoomCode.current = null;
+      setReconnectAvailable(false);
+      setReconnectInAnotherTab(false);
+      setReconnectMinimized(false);
+    });
+
+    socket.current.on("gameStartConfirmationRequired", (details) => {
+      setPendingGameStart(details);
+      setHomeConfirmation('abandonStart');
+    });
+
+    socket.current.on("startGameError", (message) => {
+      setHomeConfirmation(null);
+      setPendingGameStart(null);
+      setIsLoading(false);
+      setInfo(message);
     });
 
     socket.current.on("restoreLogin", (userId, userName, games, allGameStats, msg) => {
@@ -417,6 +471,8 @@ const App = () => {
       setIsLoading(false);
     })
     socket.current.on('singleplayer', () => {
+      setHomeConfirmation(null);
+      setPendingGameStart(null);
       setSinglePlayer(true);
       setInfo("Please Place your ships")
       // setPbCellClass(
@@ -572,6 +628,8 @@ const App = () => {
       socket.current.emit("removeOpponent");
     })
     socket.current.on("multiplayer", () => {
+      setHomeConfirmation(null);
+      setPendingGameStart(null);
       setMultiPlayer(true);
       setInfo("Please Place your ships")
     })
@@ -739,7 +797,7 @@ const App = () => {
 
 
   const handleSinglePlayerClick = () => {
-    socket.current.emit("singleplayer", homeStats.id)
+    socket.current.emit("requestGameStart", "singleplayer")
     // setSinglePlayer(true);
     // setInfo("Please Place your ships")
     // setPbCellClass(
@@ -751,8 +809,25 @@ const App = () => {
     //     })))
   }
   const handleMultiPlayerClick = () => {
-    socket.current.emit("multiplayer", homeStats.id)
+    socket.current.emit("requestGameStart", "multiplayer")
   }
+  const confirmAbandonAndStart = () => {
+    if (!pendingGameStart || !socket.current?.connected) {
+      setHomeConfirmation(null);
+      setPendingGameStart(null);
+      setInfo("Reconnect to the server before starting a new game.");
+      return;
+    }
+
+    socket.current.emit("abandonGameAndStart", {
+      mode: pendingGameStart.mode,
+      roomCode: pendingGameStart.roomCode
+    });
+    setReconnectAvailable(false);
+    setReconnectInAnotherTab(false);
+    setHomeConfirmation(null);
+    setInfo("Closing the previous game and starting a new one...");
+  };
   const handleReconnectGame = () => {
     if (!socket.current?.connected) return;
     setReconnectAvailable(false);
@@ -1111,6 +1186,9 @@ const App = () => {
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setHomeConfirmation(null);
+              if (homeConfirmation === 'abandonStart') {
+                setPendingGameStart(null);
+              }
             }
           }}
         >
@@ -1118,14 +1196,18 @@ const App = () => {
             <div className="home-confirmation-mark" aria-hidden="true">!</div>
             <div>
               <p className="home-confirmation-kicker">
-                {homeConfirmation === 'active' || homeConfirmation === 'restart'
+                {homeConfirmation === 'abandonStart'
+                  ? 'Previous game'
+                  : homeConfirmation === 'active' || homeConfirmation === 'restart'
                   ? 'Active match'
                   : homeConfirmation === 'replay'
                     ? 'Match complete'
                     : 'Game session'}
               </p>
               <h2 id="home-confirmation-title">
-                {homeConfirmation === 'active'
+                {homeConfirmation === 'abandonStart'
+                  ? 'Abandon your previous game?'
+                  : homeConfirmation === 'active'
                   ? 'Leave this match?'
                   : homeConfirmation === 'restart'
                     ? 'Restart this game?'
@@ -1134,7 +1216,13 @@ const App = () => {
                       : 'Return to Home?'}
               </h2>
               <p id="home-confirmation-description" className="home-confirmation-description">
-                {homeConfirmation === 'active'
+                {homeConfirmation === 'abandonStart'
+                  ? pendingGameStart?.activeElsewhere
+                    ? 'Your game is still active in another tab. Starting a new game will end that match, may award your opponent a win, and disconnect the other tab.'
+                    : pendingGameStart?.inProgress
+                      ? 'You have an unfinished match. Starting a new game will abandon it and record a forfeit or loss.'
+                      : 'You have an existing game session. Starting a new game will discard this setup. No match result is recorded until a game starts.'
+                  : homeConfirmation === 'active'
                   ? 'Leaving now will count as a loss. Your current board and progress will be discarded.'
                   : homeConfirmation === 'restart'
                     ? 'Your current round will be discarded. Your ship layout will stay in place for the new round.'
@@ -1145,7 +1233,23 @@ const App = () => {
             </div>
           </div>
           <div className="home-confirmation-actions">
-            {homeConfirmation === 'replay' ? (
+            {homeConfirmation === 'abandonStart' ? (
+              <>
+                <button
+                  ref={cancelHomeRef}
+                  className="home-confirmation-stay"
+                  onClick={() => {
+                    setHomeConfirmation(null);
+                    setPendingGameStart(null);
+                  }}
+                >
+                  Keep previous game
+                </button>
+                <button className="home-confirmation-leave" onClick={confirmAbandonAndStart}>
+                  Abandon &amp; start {pendingGameStart?.mode === 'multiplayer' ? 'two-player' : 'single-player'}
+                </button>
+              </>
+            ) : homeConfirmation === 'replay' ? (
               <>
                 <button
                   ref={cancelHomeRef}
@@ -1210,28 +1314,49 @@ const App = () => {
             </button>) : null}
       </div>
       {isLoggedIn && reconnectAvailable && (
-        <section className="reconnect-banner" aria-labelledby="reconnect-banner-title">
-          <div className="reconnect-banner-copy">
-            <p className="reconnect-banner-label">
-              {reconnectInAnotherTab ? "Game active in another tab" : "Game disconnected"}
-            </p>
-            <h2 id="reconnect-banner-title">
-              {reconnectInAnotherTab ? "Your game is open in another tab" : "Your game is ready to resume"}
-            </h2>
-            <p id="reconnect-banner-description" className="reconnect-banner-description" role="status">
-              {reconnectInAnotherTab
-                ? "Reconnect here to move the game to this tab. The other tab will be disconnected."
-                : "Reconnect to continue your current game. This option is available for five minutes after disconnection."}
-            </p>
+        <section
+          id="reconnect-banner"
+          className={`reconnect-banner${reconnectMinimized ? " reconnect-banner-minimized" : ""}`}
+          aria-labelledby={reconnectMinimized ? undefined : "reconnect-banner-title"}
+          aria-label={reconnectMinimized ? "Reconnect banner minimized" : undefined}
+        >
+          <div id="reconnect-banner-content" className="reconnect-banner-content" hidden={reconnectMinimized}>
+            <div className="reconnect-banner-copy">
+              <p className="reconnect-banner-label">
+                {reconnectInAnotherTab ? "Game active in another tab" : "Game disconnected"}
+              </p>
+              <h2 id="reconnect-banner-title">
+                {reconnectInAnotherTab ? "Your game is open in another tab" : "Your game is ready to resume"}
+              </h2>
+              <p id="reconnect-banner-description" className="reconnect-banner-description" role="status">
+                {reconnectInAnotherTab
+                  ? "Reconnect here to move the game to this tab. The other tab will be disconnected."
+                  : "Reconnect to continue your current game. This option is available for five minutes after disconnection."}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="reconnect-button"
+              aria-describedby="reconnect-banner-description"
+              onClick={handleReconnectGame}
+              disabled={connectionStatus !== 'connected'}
+            >
+              {reconnectInAnotherTab ? "Reconnect in this tab" : "Reconnect to game"}
+            </button>
           </div>
+          {reconnectMinimized && (
+            <span className="reconnect-banner-minimized-label">
+              {reconnectInAnotherTab ? "Game active in another tab" : "Game disconnected"}
+            </span>
+          )}
           <button
             type="button"
-            className="reconnect-button"
-            aria-describedby="reconnect-banner-description"
-            onClick={handleReconnectGame}
-            disabled={connectionStatus !== 'connected'}
+            className="reconnect-banner-toggle"
+            aria-expanded={!reconnectMinimized}
+            aria-controls="reconnect-banner-content"
+            onClick={() => setReconnectMinimized((minimized) => !minimized)}
           >
-            {reconnectInAnotherTab ? "Reconnect in this tab" : "Reconnect to game"}
+            {reconnectMinimized ? "Show reconnect options" : "Minimize"}
           </button>
         </section>
       )}
