@@ -16,6 +16,12 @@ const {
     getReconnectExpiryAt,
     selectExpiredPlayer
 } = require('./services/reconnectExpiryPolicy');
+const {
+    ships,
+    getShipPlacement,
+    isValidShipPlacement,
+    checkAdjacentCells
+} = require('./services/battleshipRules');
 const app = express();
 const server = http.createServer(app);
 const helmet = require("helmet");
@@ -265,14 +271,6 @@ class Computer {
 }
 
 
-const ships = {
-    'carrier': 5, //length of ship 
-    'battleship': 4,
-    'cruiser': 3,
-    'submarine': 3,
-    'destroyer': 2
-};
-
 const players = {};
 const gameRooms = {}; // roomCode => game session
 const reconnectExpiryTimers = new Map();
@@ -302,35 +300,6 @@ const destroyMessage = (shipName, userName) => {
 
 const missMessage = (col, row, userName) => {
     return { [userName]: `missed at row ${row} column ${col}.` }
-}
-
-function getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength) {
-    let validStart = isHorizontal ?
-        (startIndex <= width * width - shipLength ? startIndex : width * width - shipLength) :
-        (startIndex <= width * width - width * shipLength ? startIndex : startIndex - shipLength * width + width)
-
-    let shipBlocks = []
-    for (let i = 0; i < shipLength; i++) {
-        if (isHorizontal) {
-            shipBlocks.push(Number(validStart) + i)
-        } else {
-            shipBlocks.push(Number(validStart) + i * width) // has an issue when the random index + i * width is bigger than 99
-        }
-    }
-    let valid
-
-    if (isHorizontal) {
-        shipBlocks.every((_shipBlock, index) =>
-            valid = shipBlocks[0] % width !== width - (shipBlocks.length - (index + 1)))
-    } else {
-        shipBlocks.every((_shipBlock, index) =>
-            valid = shipBlocks[0] < 90 + (width * index + 1)
-        )
-    }
-
-    const notTaken = shipBlocks.every(shipBlock => allBoardBlocks[shipBlock] != 1)
-
-    return { shipBlocks, valid, notTaken }
 }
 
 function getRandomIndexWithOneValue(computer, roomCode) {
@@ -488,131 +457,6 @@ const handleAIDestroy = (computer, destroyShip, roomCode) => {
         checkPossHitLocs(computer, roomCode)
     }
 }
-function checkAdjacentCells(cellIndex, possHitLocations, minSizeShip, checkHit, hitLocs) {      // check each of the cell within the minSizeShip
-    const cols = 10;
-    let horiPoss = 1;
-    let vertPoss = 1;
-    let temp = cellIndex;
-    while (horiPoss < minSizeShip) {  // check west    
-        if ((temp) % cols !== 0 && (possHitLocations.has(temp - 1) || hitLocs.includes(temp - 1))) {
-            horiPoss += 1;
-            temp -= 1;
-        }
-        else {
-            break;
-        }
-    }
-
-    temp = cellIndex;
-    while (horiPoss < minSizeShip) {  //check east
-        if ((temp + 1) % cols !== 0 && (possHitLocations.has(temp + 1) || hitLocs.includes(temp + 1))) {
-            horiPoss += 1;
-            temp += 1;
-        }
-        else {
-            break;
-        }
-    }// check above
-    temp = cellIndex;
-    while (vertPoss < minSizeShip) { // check north
-        if (temp - cols >= 0 && (possHitLocations.has(temp - cols) || hitLocs.includes(temp - cols))) {
-            vertPoss += 1;
-            temp -= cols;
-        }
-        else {
-            break;
-        }
-    }
-    temp = cellIndex;
-    while (vertPoss < minSizeShip) { // check south
-        if (temp + cols < 100 && (possHitLocations.has(temp + cols) || hitLocs.includes(temp + cols))) {
-            vertPoss += 1;
-            temp += cols;
-        }
-        else {
-            break;
-        }
-    }
-    if (horiPoss == minSizeShip || vertPoss == minSizeShip) {
-        if (checkHit == false) {
-            return true
-        }
-        else if (checkHit == true) {
-            return getNextFourDirection(cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip)
-        }
-    }
-    else if (checkHit == false) {
-        return false;
-    }
-}
-
-const getNextFourDirection = (cellIndex, possHitLocations, hitLocs, horiPoss, vertPoss, minSizeShip) => {
-    const nextHitLocations = [-1, -1, -1, -1]
-    const cols = 10;
-    let temp = cellIndex;
-    if (horiPoss == minSizeShip) {
-        if (temp % cols !== 0 && possHitLocations.has(temp - 1)) {  // check left
-            temp = temp - 1;
-            nextHitLocations[1] = temp;
-        }
-        else if (temp % cols !== 0 && hitLocs.includes(temp - 1)) {
-            temp = temp - 1;
-            while (temp % cols !== 0 && hitLocs.includes(temp - 1)) {
-                temp = temp - 1;
-            }
-            if (possHitLocations.has(temp)) {
-                nextHitLocations[1] = temp
-            }
-        }
-        temp = cellIndex;
-        if ((temp + 1) % cols !== 0 && possHitLocations.has(temp + 1)) { // check right
-            temp = temp + 1;
-            nextHitLocations[3] = temp;
-        }
-        else if ((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
-            temp = temp + 1;
-            while ((temp + 1) % cols !== 0 && hitLocs.includes(temp + 1)) {
-                temp = temp + 1;
-            }
-            if (possHitLocations.has(temp)) {
-                nextHitLocations[3] = temp;
-            }
-        }
-        temp = cellIndex;
-    }
-
-    if (vertPoss == minSizeShip) {
-        if ((temp - cols) >= 0 && (possHitLocations.has(temp - cols))) { // check above
-            temp = temp - cols;
-            nextHitLocations[0] = temp
-        }
-        else if ((temp - cols) >= 0 && hitLocs.includes(temp - cols)) {
-            temp = temp - cols;
-            while ((temp - cols) >= 0 && hitLocs.includes(temp - cols)) {
-                temp = temp - cols;
-            }
-            if (possHitLocations.has(temp)) {
-                nextHitLocations[0] = temp;
-            }
-        }
-        temp = cellIndex;
-        if ((temp + cols) < 100 && (possHitLocations.has(temp + cols))) { //check below
-            temp = temp + cols;
-            nextHitLocations[2] = temp;
-        }
-        else if ((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
-            temp = temp + cols;
-            while ((temp + cols) < 100 && hitLocs.includes(temp + cols)) {
-                temp = temp + cols;
-            }
-            if (possHitLocations.has(temp)) {
-                nextHitLocations[2] = temp;
-            }
-        }
-    }
-    return nextHitLocations;
-}
-
 const checkMinAllDirection = (nextHitLocations, possHitLocations, minSizeShip) => {
     console.log("minSizeShip", minSizeShip)
     const countDirctionLocation = { 0: [], 1: [], 2: [], 3: [], 4: [] }
@@ -870,8 +714,9 @@ const randomBoatPlacement = (roomCode, user) => {
         let randomBoolean = Math.random() < 0.5
         let isHorizontal = randomBoolean
         let startIndex = Math.floor(Math.random() * width * width)
-        const { shipBlocks, valid, notTaken } = getValidity(allBoardBlocks, isHorizontal, startIndex, shipLength)
-        if (valid && notTaken) {
+        const shipBlocks = getShipPlacement(startIndex, !isHorizontal, shipLength);
+        const notTaken = shipBlocks && shipBlocks.every((shipBlock) => allBoardBlocks[shipBlock] !== 1);
+        if (shipBlocks && notTaken) {
             return shipBlocks
         } else {
             return addShipPiece(allBoardBlocks, shipLength)
@@ -1210,24 +1055,6 @@ async function calculateWinRate(userId) {
         console.error('Error calculating win rate:', error);
         throw error;
     }
-}
-
-function isValidShipPlacement(command) {
-    if (typeof command !== 'object' || command === null) return false;
-
-    for (const ship in ships) {
-        if (!Array.isArray(command[ship]) || command[ship].length !== ships[ship]) {
-            console.log("false in 1")
-            return false;
-        }
-
-        if (!command[ship].every((cell) => Number.isInteger(cell) && cell >= 0 && cell < 100)) {
-            console.log("false in 2")
-            return false;
-        }
-    }
-
-    return true;
 }
 
 app.post('/api/auth/login', async (req, res) => {
@@ -2124,37 +1951,14 @@ io.on('connection', async (socket) => {
             socket.emit("alert", "This ship is already placed on the board or the ship has not been selected, and your game is potentially modified illegally, consider refreshing the page")
         }
         else {
-            const row = Math.floor(location / 10);
-            const col = location % 10;
             const shipSize = ships[gameRoom.players[userId].activeShip];
-            const isValidLocation = (loc) => loc >= 0 && loc < 100;
             const isLocationOccupied = (loc) => gameRoom.players[userId].board[loc] == 1;
-            let result = []
-            if (gameRoom.players[userId].isFlipped) {
-                if (row + shipSize <= 10) {
-                    for (let i = 0; i < shipSize; i++) {
-                        const loc = row * 10 + col + i * 10;
-                        if (!isValidLocation(loc) || isLocationOccupied(loc)) {
-                            result = null;
-                            break;
-                        }
-                        result.push(loc)
-                    }
-                }
-            }
-            else {
-                if (col + shipSize <= 10) {
-                    for (let i = 0; i < shipSize; i++) {
-                        const loc = row * 10 + col + i;
-                        if (!isValidLocation(loc) || isLocationOccupied(loc)) {
-                            result = null;
-                            break;
-                        }
-                        result.push(loc)
-                    }
-                }
-            }
-            if (result != null && result.length != 0) {
+            const result = getShipPlacement(
+                location,
+                gameRoom.players[userId].isFlipped,
+                shipSize
+            );
+            if (result && result.every((cell) => !isLocationOccupied(cell))) {
                 result.forEach((element) => {
                     gameRoom.players[userId].board[element] = 1
                 })

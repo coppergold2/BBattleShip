@@ -39,3 +39,5 @@ The website is primarily designed for desktop screens but is also optimized for 
 
 Use npm as the package manager; `package-lock.json` is the canonical dependency lockfile.
 Run frontend tests with `npm test` and backend service tests with `npm run test:server`.
+Frontend tests use Jest and React Testing Library; backend unit tests use Node's built-in `node:test`.
+Before opening a pull request, run both suites and `npm run build`. The GitHub Actions workflow runs these checks on pushes and pull requests.

@@ -317,3 +317,46 @@ test('keeps the last online count visible during a transient disconnect', async 
 
   expect(document.querySelector('.user-count')).toHaveTextContent('6 users online');
 });
+
+test('shows the authentication error returned by the login API', async () => {
+  api.post.mockRejectedValue({
+    response: { data: { message: 'Invalid email or password' } },
+  });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Welcome back' });
+  await userEvent.type(screen.getByLabelText('Email address'), 'player@example.com');
+  await userEvent.type(screen.getByLabelText('Password'), 'wrong-password');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password');
+  expect(createSocket).not.toHaveBeenCalled();
+});
+
+test('registers a player with trimmed profile fields and connects after success', async () => {
+  api.post.mockResolvedValue({
+    data: {
+      id: 'new-user-id',
+      userName: 'Player One',
+      games: [],
+      allGameStats: { wins: 0, losses: 0, winRate: 0 },
+    },
+  });
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Welcome back' });
+  await userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+  await userEvent.type(screen.getByLabelText('Username'), ' Player One ');
+  await userEvent.type(screen.getByLabelText('Email address'), 'player@example.com');
+  await userEvent.type(screen.getByLabelText('Password'), 'secret');
+  await userEvent.click(screen.getAllByRole('button', { name: 'Create account' })[0]);
+
+  await waitFor(() => {
+    expect(api.post).toHaveBeenCalledWith('/api/auth/register', {
+      userName: 'Player One',
+      email: 'player@example.com',
+      password: 'secret',
+    });
+  });
+  expect(createSocket).toHaveBeenCalled();
+});
