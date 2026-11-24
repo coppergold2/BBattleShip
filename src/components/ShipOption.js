@@ -1,6 +1,13 @@
 import React from 'react';
 
 function ShipOptions({ isFlipped, activeShip, placedShips, handleShipOptionClick }) {
+  const allShipsPlaced = ['carrier', 'battleship', 'cruiser', 'submarine', 'destroyer']
+    .every((shipName) => placedShips.includes(shipName));
+
+  if (allShipsPlaced) {
+    return null;
+  }
+
   return (
     <div className={`ship-options ${isFlipped ? 'flipped' : ''}`}>
       {!placedShips.includes('carrier') && (<div className={`ship-option carrier ${activeShip === 'carrier' ? 'selected' :''} ${isFlipped ? 'flipped' : ''}`} data-length={5} onClick={() => handleShipOptionClick('carrier')}></div>)}

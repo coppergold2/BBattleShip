@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const {
     getShipPlacement,
+    isShipVertical,
     isValidShipPlacement,
     checkAdjacentCells
 } = require('./battleshipRules');
@@ -27,6 +28,12 @@ test('rejects invalid starts and ship lengths', () => {
     assert.equal(getShipPlacement(0, false, 0), null);
     assert.equal(getShipPlacement(0, false, 11), null);
     assert.equal(getShipPlacement(0, false, 2.5), null);
+});
+
+test('identifies a replaced ship orientation from its board locations', () => {
+    assert.equal(isShipVertical([42, 22, 32]), true);
+    assert.equal(isShipVertical([21, 22, 23]), false);
+    assert.equal(isShipVertical([42]), false);
 });
 
 test('accepts a complete fleet with straight horizontal or vertical ships', () => {

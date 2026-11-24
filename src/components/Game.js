@@ -17,6 +17,8 @@ const Game = ({
   isFlipped,
   placedShips,
   shipLocHover,
+  shipPlacementValid,
+  shipPlacementError,
   messages,
   input,
   hoveredCell,
@@ -36,6 +38,7 @@ const Game = ({
   handleStartClick,
   handleRestartClick
 }) => {
+  const allShipsPlaced = placedShips.length === 5;
 
   return (
     <>
@@ -47,6 +50,8 @@ const Game = ({
             activeShip={activeShip}
             isFlipped={isFlipped}
             shipLocHover={shipLocHover}
+            shipPlacementValid={shipPlacementValid}
+            shipPlacementError={shipPlacementError}
             handleShipPlacement={handleShipPlacement}
             handleShipReplacement={handleShipReplacement}
             handleShipHoverOut={handleShipHoverOut}
@@ -66,7 +71,15 @@ const Game = ({
       )}
       {start == false &&
         (<><ShipOptions isFlipped={isFlipped} activeShip={activeShip} placedShips={placedShips} handleShipOptionClick={handleShipOptionClick} />
-          <Buttons start={start} handleRandomPlacement={handleRandomPlacement} handleFlipBoat={handleFlipBoat} isFlipped={isFlipped} handleStartClick={handleStartClick} /></>)}
+          <Buttons
+            start={start}
+            isFlipped={isFlipped}
+            allShipsPlaced={allShipsPlaced}
+            activeShip={activeShip}
+            handleRandomPlacement={handleRandomPlacement}
+            handleFlipBoat={handleFlipBoat}
+            handleStartClick={handleStartClick}
+          /></>)}
     </>
   );
 };

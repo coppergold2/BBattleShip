@@ -43,6 +43,8 @@ const App = () => {
   const [activeShip, setActiveShip] = useState(null); //ship when being dragged
   const [isFlipped, setIsFlipped] = useState(false);
   const [shipLocHover, setShipLocHover] = useState(null);
+  const [shipPlacementValid, setShipPlacementValid] = useState(null);
+  const [shipPlacementError, setShipPlacementError] = useState('');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [hoveredCell, setHoveredCell] = useState(null);
@@ -173,6 +175,8 @@ const App = () => {
     setActiveShip(null);
     setIsFlipped(false);
     setShipLocHover(null);
+    setShipPlacementValid(null);
+    setShipPlacementError('');
     setMessages([]);
     setInput('');
     setHoveredCell(null);
@@ -554,6 +558,7 @@ const App = () => {
       setPlacedShips((prevPlacedShips) => [...prevPlacedShips, shipName]);
       setActiveShip(null);
       setShipLocHover(null);
+      setShipPlacementValid(null);
     })
 
     socket.current.on("shipReplacement", (shipLocs, shipName, index) => {
@@ -566,7 +571,11 @@ const App = () => {
       });
       console.log(index);
       setShipLocHover(new Set([index]))
+      setShipPlacementValid(null);
       setPlacedShips((prevPlacedShips) => prevPlacedShips.filter(ship => ship !== shipName));
+    })
+    socket.current.on("shipPlacementRejected", (message) => {
+      setShipPlacementError(message);
     })
     socket.current.on('start', () => {
       console.log("start event detected")
@@ -600,6 +609,8 @@ const App = () => {
       setInput('');
       setActiveShip(null);
       setShipLocHover(null);
+      setShipPlacementValid(null);
+      setShipPlacementError('');
       setTurn(null);
       setStart(false);
       setGameFinished(false);
@@ -867,6 +878,7 @@ const App = () => {
     setActiveShip(null);
   }
   const handleShipPlacement = (cell) => {
+    setShipPlacementError('');
     socket.current.emit("shipPlacement", cell)
   }
   const handleShipReplacement = (shipName, index) => {
@@ -874,7 +886,7 @@ const App = () => {
   }
 
   const handleShipHover = (location) => {
-
+    setShipPlacementError('');
     const row = Math.floor(location / 10);
     const col = location % 10;
     const shipSize = ships[activeShip];
@@ -909,10 +921,12 @@ const App = () => {
       }
     }
     if (result != null && result.size != 0) {
+      setShipPlacementValid(true);
       setShipLocHover(result);
     }
     else {
-      setShipLocHover(new Set([location]));  // why did I do this -> put it as an array because to convert to a number
+      setShipPlacementValid(false);
+      setShipLocHover(new Set([location]));
     }
   }
   const handleFlipBoat = () => {
@@ -982,6 +996,8 @@ const App = () => {
   }
   const handleShipHoverOut = () => {
     setShipLocHover(null);
+    setShipPlacementValid(null);
+    setShipPlacementError('');
   }
 
   // const sendMessage = (type) => {
@@ -1377,6 +1393,8 @@ const App = () => {
                 placedShips={placedShips}
                 activeShip={activeShip}
                 shipLocHover={shipLocHover}
+                shipPlacementValid={shipPlacementValid}
+                shipPlacementError={shipPlacementError}
                 messages={messages}
                 input={input}
                 isFlipped={isFlipped}

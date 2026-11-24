@@ -24,6 +24,17 @@ function getShipPlacement(startIndex, isVertical, shipLength) {
     );
 }
 
+function isShipVertical(locations) {
+    if (!Array.isArray(locations) || locations.length < 2) {
+        return false;
+    }
+
+    const sortedLocations = [...locations].sort((first, second) => first - second);
+    return sortedLocations.every(
+        (location, index) => index === 0 || location === sortedLocations[index - 1] + 10
+    );
+}
+
 function isValidShipPlacement(command) {
     if (typeof command !== 'object' || command === null || Array.isArray(command)) {
         return false;
@@ -200,6 +211,7 @@ function getNextFourDirection(
 module.exports = {
     ships,
     getShipPlacement,
+    isShipVertical,
     isValidShipPlacement,
     checkAdjacentCells
 };

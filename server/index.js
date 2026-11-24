@@ -19,6 +19,7 @@ const {
 const {
     ships,
     getShipPlacement,
+    isShipVertical,
     isValidShipPlacement,
     checkAdjacentCells
 } = require('./services/battleshipRules');
@@ -1969,7 +1970,7 @@ io.on('connection', async (socket) => {
                 gameRoom.players[userId].activeShip = null;
             }
             else {
-                socket.emit("alert", "Cannot place on this cell for this " + gameRoom.players[userId].activeShip + " ship")
+                socket.emit("shipPlacementRejected", "This ship cannot be placed here.")
             }
         }
     })
@@ -1980,13 +1981,15 @@ io.on('connection', async (socket) => {
             socket.emit("selectShip", null);
         }
         else {
-            gameRoom.players[userId].shipLoc[shipName].forEach((element) => {
+            const shipLocations = gameRoom.players[userId].shipLoc[shipName];
+            gameRoom.players[userId].isFlipped = isShipVertical(shipLocations);
+            socket.emit("flip", gameRoom.players[userId].isFlipped);
+            shipLocations.forEach((element) => {
                 gameRoom.players[userId].board[element] = 0;
             })
-            gameRoom.players[userId].shipLoc[shipName].forEach((loc) => { gameRoom.players[userId].board[loc] = 0 })
             gameRoom.players[userId].activeShip = shipName;
             socket.emit("selectShip", gameRoom.players[userId].activeShip)
-            socket.emit("shipReplacement", gameRoom.players[userId].shipLoc[shipName], shipName, index);
+            socket.emit("shipReplacement", shipLocations, shipName, index);
             gameRoom.players[userId].shipLoc[shipName] = [];
             gameRoom.players[userId].numPlaceShip--;
         }

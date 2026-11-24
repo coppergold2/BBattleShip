@@ -2,7 +2,8 @@ import React from 'react';
 import Command from './Command'
 
 const Board = ({
-  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover, hoveredCell, stats,
+  className, turn, obCellClass, pbCellClass, activeShip, shipLocHover,
+  shipPlacementValid, shipPlacementError, hoveredCell, stats,
   handleCellClick, handleShipPlacement, handleShipReplacement,
   handleShipHover, handleShipHoverOut, handleCellHover, handleCellHoverOut
 }) => {
@@ -67,13 +68,16 @@ const Board = ({
       rows.push(<div key={`row-header-${i}`} className="row-header">{i + 1}</div>);
       for (let j = 0; j < 10; j++) {
         const index = i * 10 + j;
+        const isPlacementCell = turn == null && activeShip != null &&
+          className === 'player-board' && shipLocHover != null && shipLocHover.has(index);
+        const isInvalidPlacementCell = isPlacementCell && shipPlacementValid === false;
         rows.push(
           <div
             key={index}
-            className={`${cellClassNames[index]} ${(turn == null && activeShip != null && className === 'player-board' && shipLocHover != null && shipLocHover.size != 1 && shipLocHover.has(index)) ? activeShip + ' hover' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}
+            className={`${cellClassNames[index]} ${isPlacementCell && shipPlacementValid === true ? activeShip + ' hover' : ''} ${isInvalidPlacementCell ? 'invalid-placement' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}
             onClick={
               turn && className === 'opponent-board' ? () => { handleCellClick(index); handleCellHoverOut() } :
-                turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null ? () => { handleShipPlacement(index) } :
+                turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null && shipPlacementValid !== false ? () => { handleShipPlacement(index) } :
                   turn == null && className === 'player-board' && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName, index); } : null
             }
             onMouseEnter={() => {
@@ -91,8 +95,10 @@ const Board = ({
               }
             }}
             style={{
-              cursor: (activeShip && className === 'player-board' && turn == null) && 'pointer'
+              cursor: isInvalidPlacementCell ? 'not-allowed' :
+                (activeShip && className === 'player-board' && turn == null) ? 'pointer' : undefined
             }}
+            title={isInvalidPlacementCell ? 'Cannot place ship here' : undefined}
           ></div>
         );
       }
@@ -106,6 +112,11 @@ const Board = ({
         {renderColumnHeaders()}
         {renderRows()}
       </div>
+      {className === 'player-board' && turn == null && (
+        <div className="placement-feedback" role="status" aria-live="polite">
+          {shipPlacementError || (shipPlacementValid === false ? 'This ship cannot be placed here.' : '')}
+        </div>
+      )}
       {turn != null && (
         <div className="stats-container">
           <div>

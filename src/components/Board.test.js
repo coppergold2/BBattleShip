@@ -32,6 +32,50 @@ test('allows placing an active ship on an empty player-board cell', () => {
   expect(handleShipPlacement).toHaveBeenCalledWith(10);
 });
 
+test('shows non-blocking feedback and prevents placement when the preview is invalid', () => {
+  const handleShipPlacement = jest.fn();
+  const { container, getByRole } = render(
+    <Board
+      className="player-board"
+      turn={null}
+      pbCellClass={emptyCells()}
+      obCellClass={emptyCells()}
+      activeShip="destroyer"
+      shipLocHover={new Set([10])}
+      shipPlacementValid={false}
+      handleShipPlacement={handleShipPlacement}
+      handleShipHover={jest.fn()}
+      handleShipHoverOut={jest.fn()}
+      handleShipReplacement={jest.fn()}
+    />
+  );
+  const invalidCell = container.querySelectorAll('.player-board .cell')[10];
+
+  expect(invalidCell).toHaveClass('invalid-placement');
+  expect(invalidCell).toHaveStyle({ cursor: 'not-allowed' });
+  expect(invalidCell).toHaveAttribute('title', 'Cannot place ship here');
+  expect(getByRole('status')).toHaveTextContent('This ship cannot be placed here.');
+
+  fireEvent.click(invalidCell);
+  expect(handleShipPlacement).not.toHaveBeenCalled();
+});
+
+test('shows server placement rejections as non-blocking status feedback', () => {
+  const { getByRole, queryByRole } = render(
+    <Board
+      className="player-board"
+      turn={null}
+      pbCellClass={emptyCells()}
+      obCellClass={emptyCells()}
+      activeShip="battleship"
+      shipPlacementError="This ship cannot be placed here."
+    />
+  );
+
+  expect(getByRole('status')).toHaveTextContent('This ship cannot be placed here.');
+  expect(queryByRole('alert')).not.toBeInTheDocument();
+});
+
 test('allows selecting an already placed ship for replacement', () => {
   const cells = emptyCells();
   cells[10].shipName = 'destroyer';

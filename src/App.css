@@ -166,6 +166,19 @@ label {
   /*transition: all 0.2s ease-in-out; /* Smooth transition effect */
 }
 
+.invalid-placement {
+  background-color: rgba(220, 38, 38, 0.65);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.7);
+}
+
+.placement-feedback {
+  min-height: 1.5em;
+  margin-top: 8px;
+  color: #fff;
+  font-weight: 600;
+  text-align: center;
+}
+
 .stats-container {
   margin-Left: 50px;
   margin-top: 30px;
