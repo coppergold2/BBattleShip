@@ -37,6 +37,8 @@ The website is primarily designed for desktop screens but is also optimized for 
 - `server/models/` contains the Mongoose models; `server/services/` contains backend helpers.
 - `public/` contains static frontend files; `docs/` contains project notes and reference screenshots.
 
+The app version shown in the footer comes from the root `package.json`. Use semantic versioning for releases and update the version with `npm version patch`, `npm version minor`, or `npm version major`; npm keeps `package-lock.json` in sync.
+
 Use npm as the package manager; `package-lock.json` is the canonical dependency lockfile.
 Run frontend tests with `npm test` and backend service tests with `npm run test:server`.
 Frontend tests use Jest and React Testing Library; backend unit tests use Node's built-in `node:test`.

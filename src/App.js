@@ -5,6 +5,7 @@ import Home from './components/Home'
 import Login from './components/Login'
 import api from './services/api';
 import { createSocket } from './services/socket';
+import packageJson from '../package.json';
 
 const App = () => {
   const socket = useRef();
@@ -1446,7 +1447,7 @@ const App = () => {
       ) : null}
       <hr style={{ marginTop: "5rem", borderColor: "#ccc" }} />
       <footer className="footer">
-        MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" style={{ color: "dfff00" }} target="_blank" rel="noopener noreferrer">View Source on GitHub</a>
+        MIT Licensed · <a href="https://github.com/coppergold2/BBattleShip" style={{ color: "dfff00" }} target="_blank" rel="noopener noreferrer">View Source on GitHub</a> · <span>Version {packageJson.version}</span>
       </footer>
     </>
   );

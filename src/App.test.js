@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
+import packageJson from '../package.json';
 import api from './services/api';
 import { createSocket } from './services/socket';
 
@@ -52,6 +53,7 @@ test('checks the API session and shows the login form when signed out', async ()
   render(<App />);
 
   expect(await screen.findByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+  expect(screen.getByText(`Version ${packageJson.version}`)).toBeInTheDocument();
   expect(api.get).toHaveBeenCalledWith('/api/auth/session');
 });
 
