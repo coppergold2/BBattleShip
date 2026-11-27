@@ -149,6 +149,20 @@ const App = () => {
     'destroyer': 2
   };
 
+  const revealUnhitOpponentShips = (unhitShips) => {
+    if (!unhitShips) return;
+
+    setObCellClass((oldClass) => {
+      const newCellClass = oldClass.map((cell) => ({ ...cell }));
+      for (const [shipName, locations] of Object.entries(unhitShips)) {
+        locations.forEach((location) => {
+          newCellClass[location].unHitShip = shipName;
+        });
+      }
+      return newCellClass;
+    });
+  };
+
   const reset = () => { // Not in here: isLoading, numOnline, isLoggedIn, homeStats, form
     setSinglePlayer(false);
     setMultiPlayer(false);
@@ -487,10 +501,11 @@ const App = () => {
       //       omiss: false
       //     })))
     })
-    socket.current.on("oquit", (msg, games, allGameStats) => {
+    socket.current.on("oquit", (msg, games, allGameStats, unhitShips) => {
       if (msg != null) {
         setInfo(msg);
       }
+      revealUnhitOpponentShips(unhitShips);
       if (games != null) {
         setGameFinished(true);
         setTurn(false);
@@ -773,15 +788,7 @@ const App = () => {
         lastTenGames: games,
         allGameStats: allGameStats
       }));
-      setObCellClass((oldClass) => {
-        const newCellClass = [...oldClass];
-        for (const shipName in unHitShip) {
-          unHitShip[shipName].forEach((element) => {
-            newCellClass[element].unHitShip = shipName
-          })
-        }
-        return newCellClass;
-      })
+      revealUnhitOpponentShips(unHitShip);
     })
     socket.current.on("alert", (msg) => {
       alert(msg)

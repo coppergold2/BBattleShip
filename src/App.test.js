@@ -360,3 +360,48 @@ test('registers a player with trimmed profile fields and connects after success'
   });
   expect(createSocket).toHaveBeenCalled();
 });
+
+test('reveals the opponent ship locations when the opponent quits', async () => {
+  const socketInstance = {
+    on: jest.fn().mockReturnThis(),
+    emit: jest.fn(),
+    off: jest.fn(),
+    disconnect: jest.fn(),
+  };
+  createSocket.mockReturnValue(socketInstance);
+  api.post.mockResolvedValue({
+    data: {
+      id: 'user-id',
+      userName: 'Player',
+      games: [],
+      allGameStats: { wins: 0, losses: 0, winRate: 0 },
+    },
+  });
+  const { container } = render(<App />);
+
+  await screen.findByRole('heading', { name: 'Welcome back' });
+  await userEvent.type(screen.getByLabelText('Email address'), 'player@example.com');
+  await userEvent.type(screen.getByLabelText('Password'), 'secret');
+  await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+  await waitFor(() => {
+    expect(createSocket).toHaveBeenCalled();
+  });
+
+  const handlerFor = (event) => socketInstance.on.mock.calls
+    .find(([registeredEvent]) => registeredEvent === event)[1];
+
+  act(() => {
+    handlerFor('multiplayer')();
+    handlerFor('start')();
+    handlerFor('oquit')(
+      'Your opponent has quit, you have won!',
+      [],
+      { wins: 1, losses: 0, winRate: 100 },
+      { carrier: [12, 13, 14], destroyer: [72, 73] }
+    );
+  });
+
+  expect(container.querySelectorAll('.opponent-board .carrier.loser')).toHaveLength(3);
+  expect(container.querySelectorAll('.opponent-board .destroyer.loser')).toHaveLength(2);
+  expect(screen.getByText('Info: Your opponent has quit, you have won!')).toBeInTheDocument();
+});
