@@ -2,12 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import Chat from './Chat';
 
 const messages = [
-  { Player: 'Ready to play?' },
-  { Opponent: 'Good luck!' },
-  { admin: 'Player Opponent reconnected' },
+  { Player: 'Ready to play?', sentAt: '2026-11-27T03:08:09.000Z' },
+  { Opponent: 'Good luck!', sentAt: '2026-11-27T03:09:10.000Z' },
+  { admin: 'Player Opponent reconnected', sentAt: '2026-11-27T03:10:11.000Z' },
 ];
 
-test('labels player, opponent, and system messages distinctly', () => {
+test('labels player, opponent, and admin messages distinctly and shows 24-hour timestamps', () => {
   const { container } = render(
     <Chat
       messages={messages}
@@ -21,7 +21,10 @@ test('labels player, opponent, and system messages distinctly', () => {
 
   expect(container.querySelector('.chat-message-player')).toHaveTextContent('Player: Ready to play?');
   expect(container.querySelector('.chat-message-opponent')).toHaveTextContent('Opponent: Good luck!');
-  expect(container.querySelectorAll('.chat-message-opponent')).toHaveLength(2);
+  expect(container.querySelector('.chat-message-admin')).toHaveTextContent('Admin: Player Opponent reconnected');
+  expect(container.querySelectorAll('time')).toHaveLength(3);
+  expect(container.querySelector('time')).toHaveTextContent(/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/);
+  expect(container.querySelector('time')).not.toHaveTextContent(/AM|PM/i);
 });
 
 test('sends a message on Enter and from the Send button', () => {

@@ -541,6 +541,16 @@ button:not(:active) {
   /* Light coral for opponent messages */
 }
 
+.chat-message-admin {
+  background-color: #FFD700;
+}
+
+.chat-message-time {
+  margin-left: 8px;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
 .chat-input-container {
   display: flex;
   flex-direction: column;

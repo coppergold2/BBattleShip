@@ -17,6 +17,7 @@ const {
     selectExpiredPlayer
 } = require('./services/reconnectExpiryPolicy');
 const { getUnhitShipLocations } = require('./services/shipReveal');
+const { timestampMessage, createShipLocationMessage } = require('./services/chatMessages');
 const {
     ships,
     getShipPlacement,
@@ -102,6 +103,12 @@ app.use(express.json({ limit: '16kb' }));
 const uri = process.env.MONGO_URI;
 const PORT = process.env.PORT || 3001;
 const backgroundIntervals = [];
+
+const addMessage = (gameRoom, message) => {
+    const timestampedMessage = timestampMessage(message);
+    gameRoom.messages.push(timestampedMessage);
+    return timestampedMessage;
+};
 
 // Mongoose connection options
 const mongooseOptions = {
@@ -825,8 +832,8 @@ const handleMissComm = ((misser, receiver, pos, roomCode) => {
     const { row, col } = getRowAndColumn(pos);
     gameRoom.players[misser].numMisses++;
     gameRoom.players[receiver].board[pos] = 3;
-    gameRoom.messages.push(missMessage(row, col, gameRoom.players[misser].userName))
-    io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+    const message = addMessage(gameRoom, missMessage(row, col, gameRoom.players[misser].userName));
+    io.to(gameRoom.roomCode).emit("message", message)
     if (gameRoom.players[misser] instanceof Computer) {
         io.to(gameRoom.players[receiver].socketId).emit("omiss", pos, gameRoom.players[misser].numMisses)  // gameRoom.players[receiver].socketId
         // io.to.emit("turn")
@@ -849,8 +856,8 @@ const handleHitComm = ((hitter, receiver, pos, roomCode) => {
     gameRoom.players[receiver].board[pos] = 2;
     gameRoom.players[hitter].numHits++;
     const { row, col } = getRowAndColumn(pos);
-    gameRoom.messages.push(hitMessage(row, col, gameRoom.players[hitter].userName))
-    io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+    const message = addMessage(gameRoom, hitMessage(row, col, gameRoom.players[hitter].userName));
+    io.to(gameRoom.roomCode).emit("message", message)
     if (gameRoom.players[receiver] instanceof Player) {
         io.to(gameRoom.players[receiver].socketId).emit("ohit", pos, gameRoom.players[hitter].numHits)
     }
@@ -871,8 +878,8 @@ const handleDestroyComm = async (hitter, receiver, pos, roomCode) => {
     const result = checkShip(receiver, pos, roomCode);
     if (result != "normal") {
         gameRoom.players[hitter].numDestroyShip++;
-        gameRoom.messages.push(destroyMessage(result[0], gameRoom.players[hitter].userName))
-        io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+        const message = addMessage(gameRoom, destroyMessage(result[0], gameRoom.players[hitter].userName));
+        io.to(gameRoom.roomCode).emit("message", message)
         if (gameRoom.players[hitter] instanceof Player) {
             io.to(gameRoom.players[hitter].socketId).emit("destroy", result);
         }
@@ -1423,8 +1430,7 @@ io.on('connection', async (socket) => {
 
         if (isWaiting) {
             const opponentConnected = Boolean(opponent && opponent.connected);
-            const reconnectMessage = { admin: `Player ${player.userName} reconnected` };
-            currentRoom.messages.push(reconnectMessage);
+            const reconnectMessage = addMessage(currentRoom, { admin: `Player ${player.userName} reconnected` });
             if (opponentConnected && opponent.socketId) {
                 io.to(opponent.socketId).emit("message", reconnectMessage);
                 io.to(opponent.socketId).emit("info", `Your opponent ${player.userName} reconnected`);
@@ -1453,8 +1459,7 @@ io.on('connection', async (socket) => {
             }
         }
         const turn = currentRoom.turn === userId;
-        const reconnectMessage = { admin: `Player ${player.userName} reconnected` };
-        currentRoom.messages.push(reconnectMessage);
+        const reconnectMessage = addMessage(currentRoom, { admin: `Player ${player.userName} reconnected` });
         if (!currentRoom.isSinglePlayer && opponent.connected && opponent.socketId) {
             io.to(opponent.socketId).emit("message", reconnectMessage);
             io.to(opponent.socketId).emit("info", `Your opponent ${player.userName} reconnected`);
@@ -1470,7 +1475,7 @@ io.on('connection', async (socket) => {
             destroyedShips,
             turn
         );
-        socket.emit("message", { [player.userName]: JSON.stringify(player.shipLoc) });
+        socket.emit("message", timestampMessage(createShipLocationMessage(player.shipLoc)));
         if (currentRoom.isSinglePlayer) {
             socket.emit("updatePossHitLocation", [...opponent.maxPossHitLocations]);
         }
@@ -1646,10 +1651,9 @@ io.on('connection', async (socket) => {
                 currentRoom.firstDisconnect = null;
 
                 if (!currentRoom.isSinglePlayer) {
-                    const message = {
+                    const message = addMessage(currentRoom, {
                         admin: `Player ${player.userName} quit the game.`
-                    };
-                    currentRoom.messages.push(message);
+                    });
                     if (opponent.socketId && io.sockets.sockets.has(opponent.socketId)) {
                         io.to(opponent.socketId).emit("oquit",
                             `Your opponent ${player.userName} has quit, you have won!`,
@@ -1665,10 +1669,9 @@ io.on('connection', async (socket) => {
                 }
             } else if (!currentRoom.isSinglePlayer && opponent) {
                 if (opponent.socketId && io.sockets.sockets.has(opponent.socketId)) {
-                    const message = {
+                    const message = addMessage(currentRoom, {
                         admin: `Player ${player.userName} left the game room.`
-                    };
-                    currentRoom.messages.push(message);
+                    });
                     io.to(opponent.socketId).emit("info", `Your opponent ${player.userName} left`);
                     io.to(opponent.socketId).emit("message", message);
                     opponent.opponent = null;
@@ -1994,9 +1997,7 @@ io.on('connection', async (socket) => {
                 gameRoom.status = 'in_progress';
                 socket.emit("start");
                 socket.emit("turn");
-                socket.emit("message", {
-                    [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc)
-                });
+                socket.emit("message", timestampMessage(createShipLocationMessage(gameRoom.players[userId].shipLoc)));
                 gameRoom.gameStartTime = new Date();
             } else {
                 socket.emit("not enough ship", "Please place all your ship before starting");
@@ -2021,7 +2022,7 @@ io.on('connection', async (socket) => {
                 gameRoom.status = 'in_progress'
                 gameRoom.gameStartTime = new Date();
                 socket.emit("start");
-                socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) });
+                socket.emit("message", timestampMessage(createShipLocationMessage(gameRoom.players[userId].shipLoc)));
                 io.to(gameRoom.players[opponent].socketId).emit("ostart");
                 io.to(gameRoom.players[opponent].socketId).emit("info", "Game has started, it's your opponent's turn")
                 socket.emit("turn");
@@ -2068,12 +2069,12 @@ io.on('connection', async (socket) => {
         AIFirstTimeHitNewShip = false;
 
         socket.emit("restartGame");
-        socket.emit("message", { [player.userName]: JSON.stringify(player.shipLoc) });
+        socket.emit("message", timestampMessage(createShipLocationMessage(player.shipLoc)));
     });
     socket.on("ostart", () => {
         if (isRoomExpiring()) return;
         //gameRoom.players[userId].messages.push({ [gameRoom.players[userId].userName] :  JSON.stringify(gameRoom.players[userId].shipLoc) });
-        socket.emit("message", { [gameRoom.players[userId].userName]: JSON.stringify(gameRoom.players[userId].shipLoc) })
+        socket.emit("message", timestampMessage(createShipLocationMessage(gameRoom.players[userId].shipLoc)))
     })
     socket.on("attack", async (pos) => {
         if (gameRoom && !isRoomExpiring()) {
@@ -2126,8 +2127,8 @@ io.on('connection', async (socket) => {
     })
     socket.on('message', (message) => {
         if (isRoomExpiring()) return;
-        gameRoom.messages.push({ [gameRoom.players[userId].userName]: message }); // Save the new message to the session messages
-        io.to(gameRoom.roomCode).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+        const chatMessage = addMessage(gameRoom, { [gameRoom.players[userId].userName]: message });
+        io.to(gameRoom.roomCode).emit("message", chatMessage)
     });
     socket.on('disconnect', async (reason, details) => {  // now it is using oquit of the opponent on the server side to subtract connected clients
         console.log(socket.id, "Disconnected in server side because", reason, "details", details);
@@ -2166,7 +2167,7 @@ io.on('connection', async (socket) => {
                 if (gameRoom.players[userId].connected == true) {
                     gameRoom.players[userId].connected = false;
                     gameRoom.players[userId].disconnectedAt = Date.now();
-                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                    addMessage(gameRoom, { "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
                 }
             }
             else if (gameRoom.isSinglePlayer == false && gameRoom.start == false) {
@@ -2175,8 +2176,8 @@ io.on('connection', async (socket) => {
                         gameRoom.players[opponent].opponent = null;
                         const message = `Your opponent ${gameRoom.players[userId].userName} has left`
                         io.to(gameRoom.players[opponent].socketId).emit("info", message)
-                        gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
-                        io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                        const chatMessage = addMessage(gameRoom, { "admin": `Player ${gameRoom.players[userId].userName} has left` });
+                        io.to(gameRoom.players[opponent].socketId).emit("message", chatMessage)
                         delete gameRoom.players[userId]
                     } else {
                         delete gameRooms[gameRoom.roomCode]
@@ -2190,8 +2191,7 @@ io.on('connection', async (socket) => {
                     gameRoom.players[userId].disconnectedAt = Date.now();
                     if (opponent && gameRoom.players[opponent].connected &&
                         gameRoom.players[opponent].socketId) {
-                        const message = { admin: `Player ${gameRoom.players[userId].userName} disconnected` };
-                        gameRoom.messages.push(message);
+                        const message = addMessage(gameRoom, { admin: `Player ${gameRoom.players[userId].userName} disconnected` });
                         io.to(gameRoom.players[opponent].socketId).emit("info", "Your opponent disconnected while the room was waiting.");
                         io.to(gameRoom.players[opponent].socketId).emit("message", message);
                     }
@@ -2201,11 +2201,11 @@ io.on('connection', async (socket) => {
                 if (gameRoom.players[userId].connected == true) {
                     gameRoom.players[userId].connected = false;
                     gameRoom.players[userId].disconnectedAt = Date.now();
-                    gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
+                    const chatMessage = addMessage(gameRoom, { "admin": `Player ${gameRoom.players[userId].userName} disconnected` });
                     if (gameRoom.players[opponent].connected == true) {
                         const message = `Your opponent, ${gameRoom.players[userId].userName}, has been disconnected. You can wait up to five minutes for them to return, or you can quit now and claim the win.`;
                         io.to(gameRoom.players[opponent].socketId).emit("info", message)
-                        io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                        io.to(gameRoom.players[opponent].socketId).emit("message", chatMessage)
                     }
                     else {
                         gameRoom.firstDisconnect = opponent;
@@ -2284,8 +2284,8 @@ io.on('connection', async (socket) => {
                         } else if (gameRoom.start == false) { // this means that if both player finish their game or they haven't started playing yet
                             io.to(gameRoom.players[opponent].socketId).emit("info", `Your opponent ${gameRoom.players[opponent].userName} left`);
                             if (gameRoom.status == "in_progress") { // if game has started and is over
-                                gameRoom.messages.push({ "admin": `Player ${gameRoom.players[userId].userName} has left` });
-                                io.to(gameRoom.players[opponent].socketId).emit("message", gameRoom.messages[gameRoom.messages.length - 1])
+                                const message = addMessage(gameRoom, { "admin": `Player ${gameRoom.players[userId].userName} has left` });
+                                io.to(gameRoom.players[opponent].socketId).emit("message", message)
                             }
                         }
                         gameRoom.players[opponent].opponent = null

@@ -1,6 +1,6 @@
 {
   "name": "battleship",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "proxy": "http://localhost:3001",
   "dependencies": {
@@ -33,7 +33,7 @@
     "start:server": "node server/index.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "test:server": "node --test server/services/reconnectExpiryPolicy.test.js server/services/battleshipRules.test.js server/services/shipReveal.test.js",
+    "test:server": "node --test server/services/reconnectExpiryPolicy.test.js server/services/battleshipRules.test.js server/services/shipReveal.test.js server/services/chatMessages.test.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
