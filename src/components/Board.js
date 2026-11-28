@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Command from './Command'
 
 const Board = ({
@@ -7,6 +7,78 @@ const Board = ({
   handleCellClick, handleShipPlacement, handleShipReplacement,
   handleShipHover, handleShipHoverOut, handleCellHover, handleCellHoverOut
 }) => {
+  const [draftPlacementCell, setDraftPlacementCell] = useState(null);
+  const [draftAttackCell, setDraftAttackCell] = useState(null);
+  const [unavailableAttackHintCell, setUnavailableAttackHintCell] = useState(null);
+
+  useEffect(() => {
+    setDraftPlacementCell(null);
+  }, [activeShip, turn]);
+
+  useEffect(() => {
+    setDraftAttackCell(null);
+    setUnavailableAttackHintCell(null);
+  }, [turn]);
+
+  const isTouchInput = (event) => {
+    const nativeEvent = event.nativeEvent;
+    if (nativeEvent.pointerType) {
+      return nativeEvent.pointerType === 'touch';
+    }
+    if (nativeEvent.detail === 0 || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  };
+
+  const selectPlacementCell = (index) => {
+    handleShipHover(index);
+    setDraftPlacementCell(index);
+  };
+
+  const isUnavailableAttackCell = (index) => {
+    const cell = obCellClass && obCellClass[index];
+    return cell != null && (cell.hit || cell.miss);
+  };
+
+  const handlePlacementCellClick = (index, event) => {
+    if (!isTouchInput(event)) {
+      if (shipPlacementValid !== false) {
+        handleShipPlacement(index);
+      }
+      setDraftPlacementCell(null);
+      return;
+    }
+
+    if (draftPlacementCell === index) {
+      if (shipPlacementValid === true) {
+        handleShipPlacement(index);
+        setDraftPlacementCell(null);
+      }
+    } else {
+      selectPlacementCell(index);
+    }
+  };
+
+  const handleAttackCellClick = (index, event) => {
+    const isTouch = isTouchInput(event);
+    if (isUnavailableAttackCell(index)) {
+      setDraftAttackCell(null);
+      setUnavailableAttackHintCell(isTouch ? index : null);
+      handleCellHover(index);
+      return;
+    }
+
+    setUnavailableAttackHintCell(null);
+    if (!isTouch || draftAttackCell === index) {
+      handleCellClick(index);
+      setDraftAttackCell(null);
+      handleCellHoverOut();
+    } else {
+      setDraftAttackCell(index);
+      handleCellHover(index);
+    }
+  };
 
   const getCellsClassName = () => {
     const classNameArr = new Array(100).fill("");
@@ -68,37 +140,45 @@ const Board = ({
       rows.push(<div key={`row-header-${i}`} className="row-header">{i + 1}</div>);
       for (let j = 0; j < 10; j++) {
         const index = i * 10 + j;
+        const isDraftPlacement = draftPlacementCell === index;
+        const isDraftAttack = draftAttackCell === index;
+        const isUnavailableAttack = className === 'opponent-board' && isUnavailableAttackCell(index);
+        const isUnavailableAttackHint = isUnavailableAttack &&
+          (unavailableAttackHintCell === index || hoveredCell === index);
+        const isHoveredAttackableCell = className === 'opponent-board' && turn === true &&
+          hoveredCell === index && !isUnavailableAttack;
         const isPlacementCell = turn == null && activeShip != null &&
           className === 'player-board' && shipLocHover != null && shipLocHover.has(index);
         const isInvalidPlacementCell = isPlacementCell && shipPlacementValid === false;
         rows.push(
           <div
             key={index}
-            className={`${cellClassNames[index]} ${isPlacementCell && shipPlacementValid === true ? activeShip + ' hover' : ''} ${isInvalidPlacementCell ? 'invalid-placement' : ''} ${(className === 'opponent-board' && turn && hoveredCell === index) ? 'hittable' : ''}`}
+            className={`${cellClassNames[index]} ${isPlacementCell && shipPlacementValid === true ? activeShip + ' hover' : ''} ${isInvalidPlacementCell ? 'invalid-placement' : ''} ${isHoveredAttackableCell ? 'hittable' : ''} ${isDraftAttack ? 'attack-draft' : ''} ${isUnavailableAttackHint ? 'unavailable-target' : ''}`}
             onClick={
-              turn && className === 'opponent-board' ? () => { handleCellClick(index); handleCellHoverOut() } :
-                turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null && shipPlacementValid !== false ? () => { handleShipPlacement(index) } :
+              turn && className === 'opponent-board' ? (event) => handleAttackCellClick(index, event) :
+                turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null ? (event) => handlePlacementCellClick(index, event) :
                   turn == null && className === 'player-board' && pbCellClass[index].shipName != null ? () => { handleShipReplacement(pbCellClass[index].shipName, index); } : null
             }
             onMouseEnter={() => {
-              if (className === 'opponent-board' && (cellClassNames[index] == "cell grab" || cellClassNames[index] == "cell")) {
+              if (className === 'opponent-board' && turn === true) {
+                setUnavailableAttackHintCell(null);
                 handleCellHover(index);
               } else if (turn == null && activeShip != null && className === 'player-board' && pbCellClass[index].shipName == null) {
                 handleShipHover(index)
               }
             }}
             onMouseLeave={() => {
-              if (turn == true && className === 'opponent-board' && cellClassNames[index] == "cell grab") {
+              if (turn === true && className === 'opponent-board') {
                 handleCellHoverOut();
-              } else if (turn == null && activeShip != null && className === 'player-board') {
+              } else if (turn == null && activeShip != null && className === 'player-board' && draftPlacementCell === null) {
                 handleShipHoverOut();
               }
             }}
             style={{
-              cursor: isInvalidPlacementCell ? 'not-allowed' :
+              cursor: (isInvalidPlacementCell && !isDraftPlacement) || isUnavailableAttackHint ? 'not-allowed' :
                 (activeShip && className === 'player-board' && turn == null) ? 'pointer' : undefined
             }}
-            title={isInvalidPlacementCell ? 'Cannot place ship here' : undefined}
+            title={isInvalidPlacementCell && !isDraftPlacement ? 'Cannot place ship here' : undefined}
           ></div>
         );
       }
@@ -114,7 +194,19 @@ const Board = ({
       </div>
       {className === 'player-board' && turn == null && (
         <div className="placement-feedback" role="status" aria-live="polite">
-          {shipPlacementError || (shipPlacementValid === false ? 'This ship cannot be placed here.' : '')}
+          {shipPlacementError || (shipPlacementValid === false ? 'This ship cannot be placed here.' :
+            draftPlacementCell != null ? 'Ship preview selected. Tap the same cell again to place.' : '')}
+        </div>
+      )}
+      {className === 'opponent-board' && turn === true && draftAttackCell != null && (
+        <div className="placement-feedback" role="status" aria-live="polite">
+          Attack target selected. Tap the same cell again to attack.
+        </div>
+      )}
+      {className === 'opponent-board' && turn === true &&
+        unavailableAttackHintCell != null && (
+        <div className="placement-feedback unavailable-attack-feedback" role="status" aria-live="polite">
+          This location is not available to attack.
         </div>
       )}
       {turn != null && (

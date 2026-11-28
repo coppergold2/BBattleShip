@@ -120,6 +120,17 @@ test('shows a blocking reconnect overlay instead of alerting on transient socket
   expect(alertSpy).not.toHaveBeenCalled();
   expect(screen.getByRole('status')).toHaveClass('loading-overlay');
   expect(screen.getByRole('status')).toHaveTextContent('Connection lost. Reconnecting...');
+
+  const alertHandler = socketInstance.on.mock.calls
+    .find(([event]) => event === 'alert')[1];
+  act(() => {
+    alertHandler('This location is not available to attack');
+  });
+
+  expect(alertSpy).not.toHaveBeenCalled();
+  expect(screen.getByRole('heading', {
+    name: 'Info: This location is not available to attack',
+  })).toBeInTheDocument();
 });
 
 test('requests session reconciliation when the socket connects without recovery', async () => {

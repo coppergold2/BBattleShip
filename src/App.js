@@ -792,6 +792,10 @@ const App = () => {
       revealUnhitOpponentShips(unHitShip);
     })
     socket.current.on("alert", (msg) => {
+      if (msg === "This location is not available to attack") {
+        setInfo(msg);
+        return;
+      }
       alert(msg)
     })
     socket.current.on("info", (msg) => {
